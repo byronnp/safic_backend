@@ -1,0 +1,90 @@
+# SAFIC backend · entorno local
+# Uso: make setup (primera vez) y luego make up. Ver README.md.
+# Laravel lee el archivo .env montado en /var/www/html (no se pasa como variables
+# de entorno para que key:generate y cambios en .env apliquen sin recrear contenedores).
+
+x-api: &api
+  image: safic/api:dev
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+    target: dev
+    args:
+      UID: ${UID:-1000}
+      GID: ${GID:-1000}
+  volumes:
+    - ./:/var/www/html
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  depends_on:
+    db: { condition: service_healthy }
+    redis: { condition: service_healthy }
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_local}
+      SAFIC_OWNER_PASSWORD: ${DB_MIGRATION_PASSWORD:-safic_owner_local}
+      SAFIC_APP_PASSWORD: ${DB_PASSWORD:-safic_app_local}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    ports: ["5432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d safic"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, retries: 20 }
+
+  api:
+    <<: *api
+    user: root            # supervisord arranca como root y php-fpm/nginx bajan a www-data
+    ports: ["8000:8080"]
+
+  worker:
+    <<: *api
+    restart: unless-stopped
+    command: php artisan queue:work redis --sleep=1 --tries=3 --max-time=3600
+
+  scheduler:
+    <<: *api
+    restart: unless-stopped
+    command: php artisan schedule:work
+
+  mailpit:
+    image: axllent/mailpit
+    ports: ["8025:8025"]
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-safic}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-safic_minio_local}
+    ports: ["9001:9001"]
+    volumes: ["minio_data:/data"]
+
+  minio-init:
+    image: minio/mc
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "until mc alias set local http://minio:9000 $${MINIO_USER} $${MINIO_PASS}; do sleep 2; done;
+      mc mb --ignore-existing local/$${BUCKET}; exit 0"
+    environment:
+      MINIO_USER: ${AWS_ACCESS_KEY_ID:-safic}
+      MINIO_PASS: ${AWS_SECRET_ACCESS_KEY:-safic_minio_local}
+      BUCKET: ${AWS_BUCKET:-safic-local}
+
+volumes:
+  db_data:
+  minio_data:
+
+# Red con nombre fijo para que el frontend (otro repositorio) se conecte a "api".
+networks:
+  default:
+    name: safic

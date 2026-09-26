@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-retries 20
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PASSWORD: safic_app_ci
+      DB_MIGRATION_PASSWORD: safic_owner_ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Crear usuarios y bases de SAFIC
+        env:
+          PGPASSWORD: postgres
+          POSTGRES_USER: postgres
+          SAFIC_APP_PASSWORD: safic_app_ci
+          SAFIC_OWNER_PASSWORD: safic_owner_ci
+        run: |
+          sed 's/psql /psql -h 127.0.0.1 /' docker/postgres/init/01-roles.sh > /tmp/init.sh
+          bash /tmp/init.sh
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo_pgsql, pgsql, redis, intl, gd, zip, bcmath, pcntl
+          coverage: none
+
+      - name: Dependencias
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Preparar entorno
+        run: |
+          cp .env.example .env
+          sed -i 's/^DB_HOST=.*/DB_HOST=127.0.0.1/; s/^DB_PASSWORD=.*/DB_PASSWORD=safic_app_ci/; s/^DB_MIGRATION_PASSWORD=.*/DB_MIGRATION_PASSWORD=safic_owner_ci/' .env
+          php artisan key:generate
+          php artisan safic:jwt-keys
+
+      - name: Estilo (Pint)
+        run: vendor/bin/pint --test
+
+      - name: Análisis estático (Larastan)
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+
+      - name: Pruebas (Pest)
+        run: vendor/bin/pest

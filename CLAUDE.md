@@ -1,0 +1,66 @@
+# SAFIC · Backend (Laravel) — reglas para Claude y el equipo
+
+SAFIC = Sistema de Administración Financiera de Condominios. SaaS multi-condominio para Ecuador.
+Este repositorio es **solo la API** (`/api/v1`). El frontend (Quasar) vive en otro repositorio.
+La arquitectura completa está en `docs/arquitectura.md` (enlaces a los documentos por fase).
+
+## Stack
+- PHP 8.5 · Laravel 13 · PostgreSQL 16 · Redis · Docker Compose (local) · AWS (ECS, RDS, S3, SES).
+- Auth: JWT (`php-open-source-saver/jwt-auth`), access RS256 de 15 min + refresh rotativo de 30 días.
+- Permisos: `spatie/laravel-permission` con teams = condominio. Pruebas: Pest. Estilo: Pint. Análisis: Larastan nivel 5 (subir a 6 cuando el código base esté estable).
+
+## Comandos (siempre dentro de Docker, desde WSL)
+- `make up` · `make setup` (primer arranque) · `make test` · `make lint` · `make fix` · `make shell`
+- Migraciones: `php artisan migrate --database=pgsql_owner` (nunca con la conexión de la app).
+- Pruebas: `php vendor/bin/pest` (usan la base `safic_test`).
+
+## Estructura
+```
+app/Core/         Transversal: Tenancy, Auth, Http (ApiResponse, errores), Permissions, Console
+app/Modules/<M>/  Un módulo por área: Models, Actions, Http/{Controllers,Requests,Resources}, routes.php
+database/         migrations (una por tabla), factories, seeders
+tests/Feature/    Pruebas de API por módulo · tests/Feature/Tenancy: aislamiento obligatorio
+```
+Módulos previstos: Plataforma, Unidades, Finanzas, Reservas, Garita, Comunicacion, Asambleas, Suscripciones.
+
+## Capas (flujo de una petición)
+FormRequest (valida) → Controller (delgado) → Action (caso de uso + transacción) → Services (lógica reutilizable) → Models → Resource + `ApiResponse`.
+- Un controlador nunca tiene lógica de negocio ni hace `response()->json()`: usa `App\Core\Http\Responses\ApiResponse`.
+- Errores de negocio: `throw new ApiException('CODIGO_ESTABLE', 'Mensaje en español', 422)`.
+- Un módulo no llama a los modelos de otro módulo directamente: usa sus Actions públicas o eventos.
+
+## Multi-condominio (NO NEGOCIABLE)
+Tres barreras; las tres son obligatorias en toda tabla con datos de un condominio:
+1. **Middleware `condominio`** (`ResolveCondominio`): toma `X-Condominio-Id`, valida la membresía activa y fija el contexto. Toda ruta de negocio va dentro de `auth:api` + `condominio`.
+2. **Trait `BelongsToCondominio`** en el modelo: filtra por el condominio activo y completa `condominio_id` al crear. Sin condominio activo no devuelve filas.
+3. **Row Level Security**: la migración termina con `RowLevelSecurity::enable('tabla')`.
+
+Reglas:
+- Toda tabla de condominio tiene `condominio_id` (FK) y sus índices únicos empiezan por `condominio_id`.
+- Validaciones `unique`/`exists` siempre filtradas por `condominio_id`.
+- Jobs y comandos: `app(TenantContext::class)->run($condominioId, fn () => ...)`. Un job guarda el `condominio_id` y lo restaura.
+- Prohibido `withoutGlobalScope(CondominioScope::class)` fuera del módulo Plataforma; si se usa, comentar por qué.
+- Cada módulo nuevo agrega pruebas de aislamiento como `tests/Feature/Tenancy/AislamientoEntreCondominiosTest.php`.
+- Las tablas de plataforma (condominios, condominio_user, planes, suscripciones…) no llevan RLS ni el trait.
+
+## Roles y permisos
+- Los **permisos nacen en el código**: `App\Core\Permissions\Permiso` (enum). No se crean desde pantallas.
+- Los **roles** son un catálogo global (`roles.condominio_id` nulo); solo el super admin los crea. Se asignan por condominio (`model_has_roles.condominio_id`; `0` = plataforma).
+- Presidente, vicepresidente, secretario y tesorero son **cargos**: se asignan por la tabla de cargos (única persona por cargo), no con `assignRole` directo.
+- Cada ruta exige su permiso: `->middleware('permission:unidades.editar')`. Ocultar un ítem del menú no es seguridad.
+- El JWT no lleva roles ni condominio.
+
+## Convenciones
+- Código (clases, métodos, tablas, columnas) en **español** para el dominio (`Condominio`, `cuotas`, `vence_en`); nombres técnicos de Laravel en inglés.
+- Dinero: `decimal(12,2)` en la base, nunca `float`. Fechas en UTC; se muestran en la zona horaria del condominio.
+- Códigos de error en MAYÚSCULAS_CON_GUION_BAJO y estables (el frontend los traduce).
+- Mensajes al usuario en español de Ecuador, cortos y claros.
+- Cada migración hace una sola cosa y tiene `down()`.
+
+## Definición de terminado
+Migración + endpoint + Resource + pruebas (incluida la de aislamiento y la de permisos) + `make lint` sin errores + contrato OpenAPI actualizado.
+
+## Seguridad
+- Nunca subir `.env`, llaves JWT (`storage/jwt/*.pem`) ni datos reales de residentes.
+- Datos personales (cédula, teléfono, correo) se enmascaran para roles sin `residentes.ver_datos`.
+- No agregar paquetes sin justificarlo en el pull request.
