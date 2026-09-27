@@ -60,34 +60,8 @@ services:
     image: axllent/mailpit
     ports: ["8025:8025"]
 
-  # S3 local (opcional). Se levanta solo con COMPOSE_PROFILES=minio en el .env.
-  # Si ya tienes otro S3 en tu Docker, quita ese perfil y apunta AWS_ENDPOINT a él.
-  minio:
-    profiles: ["minio"]
-    # MinIO ya no publica en Docker Hub: sus imágenes están en quay.io
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-safic}
-      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-safic_minio_local}
-    ports: ["9001:9001"]
-    volumes: ["minio_data:/data"]
-
-  minio-init:
-    profiles: ["minio"]
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
-    depends_on: [minio]
-    entrypoint: >
-      /bin/sh -c "until mc alias set local http://minio:9000 $${MINIO_USER} $${MINIO_PASS}; do sleep 2; done;
-      mc mb --ignore-existing local/$${BUCKET}; exit 0"
-    environment:
-      MINIO_USER: ${AWS_ACCESS_KEY_ID:-safic}
-      MINIO_PASS: ${AWS_SECRET_ACCESS_KEY:-safic_minio_local}
-      BUCKET: ${AWS_BUCKET:-safic-local}
-
 volumes:
   db_data:
-  minio_data:
 
 # Red con nombre fijo para que el frontend (otro repositorio) se conecte a "api".
 networks:

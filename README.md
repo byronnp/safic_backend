@@ -14,13 +14,14 @@ Este esqueleto corresponde al **Sprint 0 (base técnica)** del plan de construcc
 ## Requisitos
 - Windows con **WSL 2** (Ubuntu) y **Docker Desktop** con integración WSL activada.
 - Git en WSL. El proyecto debe estar dentro de WSL (no en `C:\`) para que Docker sea rápido.
+- Un **S3 externo** corriendo en tu Docker (este proyecto no levanta uno). En `.env` pon sus credenciales y `AWS_ENDPOINT=http://host.docker.internal:<puerto>`, y crea el bucket de `AWS_BUCKET`.
 
 ## Primer arranque
 ```bash
 cd ~/proyectos/proyectos_laravel
-git clone https://github.com/byronnp/safic_backend.git safic_back
-cd safic_back
-cp .env.example .env          # ajusta UID/GID con: id -u ; id -g
+git clone https://github.com/byronnp/safic_backend.git
+cd safic_backend
+cp .env.example .env          # ajusta UID/GID (id -u ; id -g) y los datos AWS_* de tu S3
 make setup                    # levanta contenedores, instala dependencias, llaves JWT, migra y carga datos demo
 ```
 
@@ -32,7 +33,6 @@ La primera vez `composer install` resuelve las versiones exactas de los paquetes
 | API | http://localhost:8000/api/v1 |
 | Salud | http://localhost:8000/up |
 | Correos (Mailpit) | http://localhost:8025 |
-| Archivos (MinIO) | http://localhost:9001 (usuario `safic`) |
 | PostgreSQL | `localhost:5432` · base `safic` · usuario `safic_app` |
 
 ## Usuarios de demostración
