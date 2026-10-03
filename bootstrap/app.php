@@ -1,5 +1,6 @@
 <?php
 
+use App\Core\Auth\Http\Middleware\ResolvePlataforma;
 use App\Core\Http\Exceptions\ApiExceptionRenderer;
 use App\Core\Http\Middleware\ForzarJson;
 use App\Core\Tenancy\Http\ResolveCondominio;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'condominio' => ResolveCondominio::class,
+            'plataforma' => ResolvePlataforma::class,
             'permission' => PermissionMiddleware::class,
             'role' => RoleMiddleware::class,
         ]);
@@ -36,6 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToPriorityList(AuthenticatesRequests::class, ResolveCondominio::class);
         $middleware->appendToPriorityList(ResolveCondominio::class, PermissionMiddleware::class);
         $middleware->appendToPriorityList(ResolveCondominio::class, RoleMiddleware::class);
+        $middleware->appendToPriorityList(AuthenticatesRequests::class, ResolvePlataforma::class);
+        $middleware->appendToPriorityList(ResolvePlataforma::class, PermissionMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         ApiExceptionRenderer::register($exceptions);

@@ -6,6 +6,7 @@ use App\Models\User;
 use Database\Factories\CondominioFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
@@ -18,6 +19,25 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property int $total_unidades
  * @property string $estado
  * @property array<string, mixed>|null $marca
+ * @property int|null $plan_id
+ * @property string|null $valor_unidad
+ * @property string|null $tipo
+ * @property string|null $ruc
+ * @property string|null $razon_social
+ * @property string|null $provincia_codigo
+ * @property string|null $canton_codigo
+ * @property string|null $parroquia_codigo
+ * @property string|null $direccion
+ * @property string|null $telefono
+ * @property string|null $email_contacto
+ * @property string|null $latitud
+ * @property string|null $longitud
+ * @property \Illuminate\Support\Carbon|null $prueba_hasta
+ * @property \Illuminate\Support\Carbon $created_at
+ * @property-read Plan|null $plan
+ * @property-read Provincia|null $provincia
+ * @property-read Canton|null $canton
+ * @property-read Parroquia|null $parroquia
  */
 class Condominio extends Model
 {
@@ -37,19 +57,59 @@ class Condominio extends Model
     protected $fillable = [
         'codigo', 'nombre', 'tipo', 'ruc', 'razon_social', 'total_unidades',
         'moneda', 'pais', 'zona_horaria', 'estado', 'marca',
+        'plan_id', 'valor_unidad', 'provincia_codigo', 'canton_codigo', 'parroquia_codigo',
+        'direccion', 'telefono', 'email_contacto', 'latitud', 'longitud', 'prueba_hasta',
     ];
+
+    public const TIPOS = ['conjunto', 'edificio', 'urbanizacion', 'mixto'];
 
     protected function casts(): array
     {
         return [
             'total_unidades' => 'integer',
             'marca' => 'array',
+            'valor_unidad' => 'decimal:2',
+            'latitud' => 'decimal:6',
+            'longitud' => 'decimal:6',
+            'prueba_hasta' => 'date',
         ];
     }
 
     protected static function newFactory(): CondominioFactory
     {
         return CondominioFactory::new();
+    }
+
+    /**
+     * @return BelongsTo<Plan, $this>
+     */
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
+    /**
+     * @return BelongsTo<Provincia, $this>
+     */
+    public function provincia(): BelongsTo
+    {
+        return $this->belongsTo(Provincia::class, 'provincia_codigo', 'codigo');
+    }
+
+    /**
+     * @return BelongsTo<Canton, $this>
+     */
+    public function canton(): BelongsTo
+    {
+        return $this->belongsTo(Canton::class, 'canton_codigo', 'codigo');
+    }
+
+    /**
+     * @return BelongsTo<Parroquia, $this>
+     */
+    public function parroquia(): BelongsTo
+    {
+        return $this->belongsTo(Parroquia::class, 'parroquia_codigo', 'codigo');
     }
 
     /**

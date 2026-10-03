@@ -1,6 +1,9 @@
 <?php
 
 return [
+    // Dirección de la SPA (enlaces en correos: invitaciones, recuperar contraseña)
+    'frontend_url' => rtrim((string) env('SAFIC_FRONTEND_URL', 'http://localhost:9000'), '/'),
+
     'auth' => [
         // Refresh token rotativo
         'refresh_ttl_days' => (int) env('SAFIC_REFRESH_TTL_DAYS', 30),

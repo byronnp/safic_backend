@@ -20,7 +20,7 @@ use Spatie\Permission\Traits\HasRoles;
  * Usuario de SAFIC. Un mismo usuario puede pertenecer a varios condominios
  * (uno principal y otros secundarios) con roles distintos en cada uno.
  */
-#[Fillable(['name', 'email', 'password', 'activo'])]
+#[Fillable(['name', 'cedula', 'email', 'celular', 'password', 'activo'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements JWTSubject
 {

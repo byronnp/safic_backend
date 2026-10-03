@@ -21,7 +21,7 @@ app/Modules/<M>/  Un módulo por área: Models, Actions, Http/{Controllers,Reque
 database/         migrations (una por tabla), factories, seeders
 tests/Feature/    Pruebas de API por módulo · tests/Feature/Tenancy: aislamiento obligatorio
 ```
-Módulos previstos: Plataforma, Unidades, Finanzas, Reservas, Garita, Comunicacion, Asambleas, Suscripciones.
+Módulos previstos: Plataforma, Unidades, Finanzas, Amenidades, Reservas, Garita, Comunicacion, Asambleas, Suscripciones.
 
 ## Capas (flujo de una petición)
 FormRequest (valida) → Controller (delgado) → Action (caso de uso + transacción) → Services (lógica reutilizable) → Models → Resource + `ApiResponse`.

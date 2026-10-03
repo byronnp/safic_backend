@@ -30,6 +30,8 @@ class CoreServiceProvider extends ServiceProvider
             Limit::perMinute(20)->by($request->ip()),
         ]);
 
+        RateLimiter::for('invitacion', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
+
         RateLimiter::for('refresh', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->getAuthIdentifier() ?? $request->ip()));
