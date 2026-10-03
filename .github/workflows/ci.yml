@@ -69,4 +69,18 @@ jobs:
         run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
 
       - name: Pruebas (Pest)
-        run: vendor/bin/pest
+        run: vendor/bin/pest --log-junit pest-junit.xml
+
+      # Muestra cada prueba fallida como anotación en el pull request.
+      - name: Fallos de Pest como anotaciones
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET, os
+          if not os.path.exists('pest-junit.xml'):
+              raise SystemExit(0)
+          for caso in ET.parse('pest-junit.xml').iter('testcase'):
+              for fallo in list(caso.findall('failure')) + list(caso.findall('error')):
+                  texto = (fallo.text or fallo.get('message') or '').strip().replace('%', '%25').replace('\r', '').replace('\n', '%0A')
+                  print(f"::error file={caso.get('file', '')},line={caso.get('line', '1')},title={caso.get('name', '')[:120]}::{texto[:3000]}")
+          PY

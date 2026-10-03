@@ -32,3 +32,4 @@ Thumbs.db
 
 # Claude Code: ajustes personales
 .claude/settings.local.json
+pest-junit.xml
