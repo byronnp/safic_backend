@@ -11,7 +11,6 @@ use App\Modules\Plataforma\Http\Resources\ProvinciaResource;
 use App\Modules\Plataforma\Models\AmenidadCatalogo;
 use App\Modules\Plataforma\Models\Plan;
 use App\Modules\Plataforma\Models\Provincia;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -44,8 +43,8 @@ class CatalogoController
     {
         $provincias = Provincia::query()
             ->with([
-                'cantones' => fn (HasMany $q) => $q->orderBy('nombre'),
-                'cantones.parroquias' => fn (HasMany $q) => $q->orderBy('nombre'),
+                'cantones' => fn ($q) => $q->orderBy('nombre'),
+                'cantones.parroquias' => fn ($q) => $q->orderBy('nombre'),
             ])
             ->orderBy('nombre')
             ->get();

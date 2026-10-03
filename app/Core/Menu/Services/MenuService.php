@@ -4,7 +4,6 @@ namespace App\Core\Menu\Services;
 
 use App\Core\Menu\Models\MenuItem;
 use App\Models\User;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -46,21 +45,27 @@ final class MenuService
             && $asignados->has($item->id)
             && ($item->permiso === null || $permisos->has($item->permiso));
 
-        return $this->ramas($items->groupBy(fn (MenuItem $item) => $item->padre_id ?? 0), 0, $visible);
+        /** @var array<int, list<MenuItem>> $porPadre */
+        $porPadre = [];
+        foreach ($items as $item) {
+            $porPadre[$item->padre_id ?? 0][] = $item;
+        }
+
+        return $this->ramas($porPadre, 0, $visible);
     }
 
     /**
-     * @param  Collection<int|string, Collection<int, MenuItem>>  $porPadre
+     * @param  array<int, list<MenuItem>>  $porPadre  Ítems agrupados por padre (0 = raíz).
      * @param  callable(MenuItem): bool  $visible
      * @return list<array<string, mixed>>
      */
-    private function ramas(Collection $porPadre, int $padreId, callable $visible): array
+    private function ramas(array $porPadre, int $padreId, callable $visible): array
     {
         $resultado = [];
 
-        foreach ($porPadre->get($padreId, collect()) as $item) {
+        foreach ($porPadre[$padreId] ?? [] as $item) {
             $hijos = $this->ramas($porPadre, $item->id, $visible);
-            $esGrupo = $porPadre->has($item->id);
+            $esGrupo = isset($porPadre[$item->id]);
 
             if ($esGrupo ? $hijos === [] : ! $visible($item)) {
                 continue;
