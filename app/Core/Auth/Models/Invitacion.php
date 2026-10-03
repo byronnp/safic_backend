@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Plataforma\Models\Condominio;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Invitación para crear la contraseña y entrar por primera vez. Del token solo se
@@ -16,8 +17,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $condominio_id
  * @property int|null $creada_por
  * @property string $token_hash
- * @property \Illuminate\Support\Carbon $expira_en
- * @property \Illuminate\Support\Carbon|null $aceptada_en
+ * @property Carbon $expira_en
+ * @property Carbon|null $aceptada_en
  * @property-read User $user
  * @property-read Condominio $condominio
  */

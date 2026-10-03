@@ -4,6 +4,7 @@ use App\Core\Permissions\Rol;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
 use App\Modules\Plataforma\Models\Condominio;
+use Database\Seeders\CatalogosSeeder;
 use Tests\TestCase;
 
 // TestCase ya usa RefreshDatabase (ver su comentario).
@@ -36,5 +37,5 @@ function enCondominio(Condominio $condominio, callable $callback): mixed
  */
 function sembrarCatalogos(): void
 {
-    test()->seed(\Database\Seeders\CatalogosSeeder::class);
+    test()->seed(CatalogosSeeder::class);
 }

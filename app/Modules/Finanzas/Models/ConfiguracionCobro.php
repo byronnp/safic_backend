@@ -4,6 +4,7 @@ namespace App\Modules\Finanzas\Models;
 
 use App\Core\Tenancy\BelongsToCondominio;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 
 /**
  * Cómo cobra el condominio sus cuotas (una fila por condominio).
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string|null $cuota_general
  * @property string|null $presupuesto_mensual
  * @property int $dia_vencimiento 1–28; 0 = último día del mes
- * @property \Illuminate\Support\Carbon $aplica_desde
+ * @property Carbon $aplica_desde
  */
 class ConfiguracionCobro extends Model
 {

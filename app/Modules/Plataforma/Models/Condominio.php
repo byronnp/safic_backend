@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Tabla de nivel plataforma (no usa BelongsToCondominio ni RLS): es el propio
@@ -32,8 +33,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property string|null $email_contacto
  * @property string|null $latitud
  * @property string|null $longitud
- * @property \Illuminate\Support\Carbon|null $prueba_hasta
- * @property \Illuminate\Support\Carbon $created_at
+ * @property Carbon|null $prueba_hasta
+ * @property Carbon $created_at
  * @property-read Plan|null $plan
  * @property-read Provincia|null $provincia
  * @property-read Canton|null $canton

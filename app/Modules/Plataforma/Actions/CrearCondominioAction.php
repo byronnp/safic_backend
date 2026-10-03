@@ -104,7 +104,7 @@ final class CrearCondominioAction
 
         $ultimo = (int) DB::table('condominios')
             ->where('codigo', 'like', 'SF-%')
-            ->max(DB::raw("CAST(SUBSTRING(codigo FROM 4) AS INTEGER)"));
+            ->max(DB::raw('CAST(SUBSTRING(codigo FROM 4) AS INTEGER)'));
 
         return sprintf('SF-%04d', $ultimo + 1);
     }
