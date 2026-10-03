@@ -53,7 +53,7 @@ class Condominio extends Model
     }
 
     /**
-     * @return BelongsToMany<User, $this>
+     * @return BelongsToMany<User, $this, Membresia, 'pivot'>
      */
     public function usuarios(): BelongsToMany
     {

@@ -3,6 +3,8 @@
 namespace App\Core\Auth\Http\Resources;
 
 use App\Models\User;
+use App\Modules\Plataforma\Models\Condominio;
+use App\Modules\Plataforma\Models\Membresia;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -21,14 +23,19 @@ class UsuarioResource extends JsonResource
             'nombre' => $this->name,
             'email' => $this->email,
             // Solo condominios con membresía activa: son los que aparecen en el selector
-            'condominios' => $this->whenLoaded('condominiosActivos', fn () => $this->condominiosActivos->map(fn ($c) => [
-                'id' => $c->id,
-                'codigo' => $c->codigo,
-                'nombre' => $c->nombre,
-                'es_principal' => (bool) $c->pivot->es_principal,
-                'estado' => $c->estado,
-                'marca' => $c->marca,
-            ])->values()),
+            'condominios' => $this->whenLoaded('condominiosActivos', fn () => $this->condominiosActivos->map(function (Condominio $c): array {
+                /** @var Membresia $membresia */
+                $membresia = $c->getRelation('pivot');
+
+                return [
+                    'id' => $c->id,
+                    'codigo' => $c->codigo,
+                    'nombre' => $c->nombre,
+                    'es_principal' => (bool) $membresia->es_principal,
+                    'estado' => $c->estado,
+                    'marca' => $c->marca,
+                ];
+            })->values()),
         ];
     }
 }

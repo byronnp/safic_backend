@@ -52,7 +52,7 @@ class User extends Authenticatable implements JWTSubject
     /**
      * Solo los condominios donde la membresía está activa y vigente.
      *
-     * @return BelongsToMany<Condominio, $this>
+     * @return BelongsToMany<Condominio, $this, Membresia, 'pivot'>
      */
     public function condominiosActivos(): BelongsToMany
     {
