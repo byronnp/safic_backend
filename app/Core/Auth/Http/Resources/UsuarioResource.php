@@ -29,6 +29,9 @@ class UsuarioResource extends JsonResource
                 'estado' => $c->estado,
                 'marca' => $c->marca,
             ])->values()),
+            // Perfil de plataforma (super admin, soporte, cobranza…) o null.
+            // Con él, el frontend abre el panel de plataforma aunque no haya condominios.
+            'plataforma' => $this->resource->contextoPlataforma(),
         ];
     }
 }

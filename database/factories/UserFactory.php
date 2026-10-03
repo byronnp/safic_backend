@@ -64,6 +64,21 @@ class UserFactory extends Factory
     }
 
     /**
+     * Usuario del equipo de la plataforma (super admin, soporte…): rol en el
+     * "condominio" 0 y sin membresía en ningún condominio.
+     */
+    public function dePlataforma(Rol $rol = Rol::SuperAdmin): static
+    {
+        return $this->afterCreating(function (User $user) use ($rol) {
+            $anterior = getPermissionsTeamId();
+            setPermissionsTeamId(Rol::EQUIPO_PLATAFORMA);
+            $user->assignRole($rol->value);
+            setPermissionsTeamId($anterior);
+            $user->unsetRelation('roles');
+        });
+    }
+
+    /**
      * Indicate that the model's email address should be unverified.
      */
     public function unverified(): static

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Core\Permissions\Rol;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Plataforma\Models\Membresia;
 use Database\Factories\UserFactory;
@@ -69,6 +70,30 @@ class User extends Authenticatable implements JWTSubject
     public function tieneMembresiaActivaEn(int $condominioId): bool
     {
         return $this->condominiosActivos()->whereKey($condominioId)->exists();
+    }
+
+    /**
+     * Roles y permisos de plataforma (super admin, soporte, cobranza…). Viven en
+     * el "condominio" 0 de spatie, así que se leen cambiando de equipo un momento
+     * y se restaura el equipo anterior. Devuelve null si no tiene rol de plataforma.
+     *
+     * @return array{roles: list<string>, permisos: list<string>}|null
+     */
+    public function contextoPlataforma(): ?array
+    {
+        $anterior = getPermissionsTeamId();
+        setPermissionsTeamId(Rol::EQUIPO_PLATAFORMA);
+        $this->unsetRelation('roles')->unsetRelation('permissions');
+
+        try {
+            $roles = $this->getRoleNames()->values()->all();
+            $permisos = $roles === [] ? [] : $this->getAllPermissions()->pluck('name')->sort()->values()->all();
+        } finally {
+            setPermissionsTeamId($anterior);
+            $this->unsetRelation('roles')->unsetRelation('permissions');
+        }
+
+        return $roles === [] ? null : ['roles' => $roles, 'permisos' => $permisos];
     }
 
     public function getJWTIdentifier(): mixed

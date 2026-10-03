@@ -61,7 +61,7 @@ curl -s http://localhost:8000/api/v1/bloques \
 | POST | /api/v1/auth/login | Access token + cookie `safic_refresh` (móvil: header `X-Client-Type: mobile` y refresh en el cuerpo) |
 | POST | /api/v1/auth/refresh | Rota el refresh token y entrega un access token nuevo |
 | POST | /api/v1/auth/logout | Revoca el refresh y pone el access token en lista negra |
-| GET | /api/v1/auth/me | Usuario y condominios activos (para el selector) |
+| GET | /api/v1/auth/me | Usuario, condominios activos (para el selector) y perfil de plataforma |
 | GET | /api/v1/me/contexto | Roles y permisos en el condominio del header |
 | GET/POST | /api/v1/bloques | Bloques del condominio (permiso `unidades.ver` / `unidades.editar`) |
 
