@@ -6,6 +6,16 @@ on:
     branches: [main]
 
 jobs:
+  contrato:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Lint del contrato OpenAPI
+        run: npx --yes @redocly/cli@2.57.0 lint docs/openapi.yaml
+
   tests:
     runs-on: ubuntu-latest
     services:

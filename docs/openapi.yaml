@@ -1,0 +1,434 @@
+openapi: 3.1.0
+info:
+  title: SAFIC API
+  version: 0.1.0
+  summary: Sistema de Administración Financiera de Condominios
+  license:
+    name: Propietario
+    identifier: LicenseRef-SAFIC
+  description: |
+    API de SAFIC (`/api/v1`). Contrato vivo: toda ruta nueva se documenta aquí en el
+    mismo pull request. La prueba `tests/Feature/Contrato/ContratoOpenApiTest.php`
+    falla si una ruta de `routes/api.php` no está en este archivo o al revés.
+
+    **Formato común**
+    - Éxito: `{ "data": ..., "meta"?: {...}, "message"?: "..." }`
+    - Error: `{ "error": { "code": "CODIGO_ESTABLE", "message": "...", "fields"?: {...}, "details"?: {...} } }`
+
+    **Autenticación.** Access token JWT RS256 de 15 min en `Authorization: Bearer`.
+    El refresh token rota en cada uso y dura 30 días: en web viaja en la cookie
+    HttpOnly `safic_refresh` (ruta `/api/v1/auth`, SameSite=Strict); las apps
+    móviles envían `X-Client-Type: mobile` y lo reciben y devuelven en el cuerpo.
+    El JWT no lleva roles ni condominio.
+
+    **Condominio.** Las rutas de negocio exigen `X-Condominio-Id` con un condominio
+    en el que el usuario tenga membresía activa, y cada una su permiso.
+
+    **Límites.** login: por correo e IP · refresh: 30/min por IP · negocio: 120/min por usuario.
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local (Docker Compose)
+
+tags:
+  - name: Autenticación
+    description: Login, renovación del token y cierre de sesión.
+  - name: Sesión
+    description: Usuario actual y su contexto (roles y permisos) en un condominio.
+  - name: Unidades
+    description: Bloques, unidades y residentes del condominio.
+
+security:
+  - bearer: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      operationId: login
+      summary: Iniciar sesión
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/TipoCliente'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, maxLength: 255 }
+                password: { type: string, maxLength: 255 }
+      responses:
+        '200':
+          $ref: '#/components/responses/Token'
+        '401':
+          description: '`CREDENCIALES_INVALIDAS` (también si el usuario está inactivo).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /auth/refresh:
+    post:
+      tags: [Autenticación]
+      operationId: refrescarToken
+      summary: Renovar el access token
+      description: |
+        Usa la cookie `safic_refresh` (web) o `refresh_token` en el cuerpo (móvil) y
+        entrega un par nuevo. Presentar un refresh ya usado revoca toda la familia
+        de tokens (`REFRESH_REUTILIZADO`).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/TipoCliente'
+        - in: cookie
+          name: safic_refresh
+          required: false
+          schema: { type: string }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: 'Solo apps móviles (`X-Client-Type: mobile`).'
+      responses:
+        '200':
+          $ref: '#/components/responses/Token'
+        '401':
+          description: '`REFRESH_INVALIDO` o `REFRESH_REUTILIZADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /auth/logout:
+    post:
+      tags: [Autenticación]
+      operationId: logout
+      summary: Cerrar sesión
+      description: |
+        Revoca la familia del refresh token, envía el access token a la lista negra
+        hasta que expire y borra la cookie.
+      parameters:
+        - $ref: '#/components/parameters/TipoCliente'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: Solo apps móviles.
+      responses:
+        '200':
+          description: Sesión cerrada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RespuestaVacia' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /auth/me:
+    get:
+      tags: [Sesión]
+      operationId: usuarioActual
+      summary: Usuario actual y sus condominios
+      responses:
+        '200':
+          description: Usuario con los condominios donde tiene membresía activa.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Usuario' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
+  /me/contexto:
+    get:
+      tags: [Sesión]
+      operationId: contextoCondominio
+      summary: Roles y permisos en el condominio activo
+      description: El frontend arma el menú y oculta botones con esto; la API igual exige cada permiso.
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Contexto del usuario en el condominio.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ContextoCondominio' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/CondominioNoPermitido'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /bloques:
+    get:
+      tags: [Unidades]
+      operationId: listarBloques
+      summary: Listar bloques del condominio
+      description: 'Permiso: `unidades.ver`. Orden: `orden`, luego `nombre`.'
+      x-permiso: unidades.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Bloques del condominio activo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Bloque' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    post:
+      tags: [Unidades]
+      operationId: crearBloque
+      summary: Crear un bloque
+      description: 'Permiso: `unidades.editar`. El nombre es único dentro del condominio.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre]
+              properties:
+                nombre: { type: string, maxLength: 60, examples: ['Torre A'] }
+                orden: { type: integer, minimum: 0, maximum: 999, default: 0 }
+      responses:
+        '201':
+          description: Bloque creado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Bloque' }
+                  message: { type: string, examples: ['Bloque creado.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    CondominioId:
+      in: header
+      name: X-Condominio-Id
+      required: true
+      description: Condominio activo. El usuario debe tener membresía activa en él.
+      schema: { type: integer, minimum: 1 }
+    TipoCliente:
+      in: header
+      name: X-Client-Type
+      required: false
+      description: '`mobile` en las apps: el refresh token viaja en el cuerpo en lugar de la cookie.'
+      schema: { type: string, enum: [mobile] }
+
+  responses:
+    Token:
+      description: |
+        Par de tokens. En web, además, `Set-Cookie: safic_refresh=...; Path=/api/v1/auth; HttpOnly; SameSite=Strict`.
+      headers:
+        Set-Cookie:
+          description: Solo en web.
+          schema: { type: string }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: { $ref: '#/components/schemas/RespuestaToken' }
+    NoAutenticado:
+      description: '`NO_AUTENTICADO`: falta el token, expiró o está en la lista negra.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    CondominioRequerido:
+      description: '`CONDOMINIO_REQUERIDO`: falta `X-Condominio-Id` o no es un número válido.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    CondominioNoPermitido:
+      description: '`CONDOMINIO_NO_PERMITIDO`: el usuario no tiene membresía activa en ese condominio.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    SinPermisoOCondominio:
+      description: '`SIN_PERMISO` (falta el permiso de la ruta) o `CONDOMINIO_NO_PERMITIDO`.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Validacion:
+      description: '`VALIDACION`: los errores por campo vienen en `error.fields`.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    DemasiadosIntentos:
+      description: '`DEMASIADOS_INTENTOS`.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Código estable en MAYÚSCULAS; el frontend decide por él.
+              examples: [VALIDACION]
+            message:
+              type: string
+              description: Mensaje en español de Ecuador, listo para mostrar.
+            fields:
+              type: object
+              additionalProperties:
+                type: array
+                items: { type: string }
+            details:
+              type: object
+              additionalProperties: true
+
+    RespuestaVacia:
+      type: object
+      required: [data]
+      properties:
+        data: { type: 'null' }
+        message: { type: string }
+
+    Paginacion:
+      description: Va en `meta.pagination` de las respuestas paginadas.
+      type: object
+      required: [page, per_page, total, last_page]
+      properties:
+        page: { type: integer }
+        per_page: { type: integer }
+        total: { type: integer }
+        last_page: { type: integer }
+
+    RespuestaToken:
+      type: object
+      required: [access_token, token_type, expires_in, usuario]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, const: Bearer }
+        expires_in:
+          type: integer
+          description: Segundos de vida del access token (900).
+          examples: [900]
+        refresh_token:
+          type: string
+          description: 'Solo con `X-Client-Type: mobile`.'
+        usuario: { $ref: '#/components/schemas/Usuario' }
+
+    Usuario:
+      type: object
+      required: [id, nombre, email]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        email: { type: string, format: email }
+        condominios:
+          type: array
+          description: Solo condominios con membresía activa (los del selector).
+          items: { $ref: '#/components/schemas/CondominioResumen' }
+
+    CondominioResumen:
+      type: object
+      required: [id, codigo, nombre, es_principal, estado, marca]
+      properties:
+        id: { type: integer }
+        codigo: { type: string }
+        nombre: { type: string }
+        es_principal: { type: boolean }
+        estado:
+          type: string
+          enum: [activo, prueba, solo_lectura, suspendido]
+        marca:
+          oneOf:
+            - { $ref: '#/components/schemas/MarcaCondominio' }
+            - { type: 'null' }
+
+    MarcaCondominio:
+      type: object
+      description: Apariencia del condominio. Los colores de estado no se personalizan.
+      properties:
+        logo_url: { type: [string, 'null'], format: uri }
+        color_primario: { type: [string, 'null'], pattern: '^#[0-9A-Fa-f]{6}$' }
+        color_acento: { type: [string, 'null'], pattern: '^#[0-9A-Fa-f]{6}$' }
+
+    ContextoCondominio:
+      type: object
+      required: [condominio_id, roles, permisos]
+      properties:
+        condominio_id: { type: integer }
+        roles:
+          type: array
+          items: { type: string }
+        permisos:
+          type: array
+          description: Nombres del enum `Permiso`, ordenados.
+          items: { type: string, examples: [unidades.ver] }
+
+    Bloque:
+      type: object
+      required: [id, nombre, orden]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        orden: { type: integer }

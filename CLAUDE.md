@@ -57,8 +57,20 @@ Reglas:
 - Mensajes al usuario en español de Ecuador, cortos y claros.
 - Cada migración hace una sola cosa y tiene `down()`.
 
+## Contrato OpenAPI
+- `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
+- Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.
+- Formato del archivo: rutas a 2 espacios bajo `paths:` y métodos a 4 (la prueba lo lee así).
+- Lint: `npx @redocly/cli@2.57.0 lint docs/openapi.yaml` (también corre en CI).
+
 ## Definición de terminado
-Migración + endpoint + Resource + pruebas (incluida la de aislamiento y la de permisos) + `make lint` sin errores + contrato OpenAPI actualizado.
+Migración + endpoint + Resource + pruebas (incluida la de aislamiento y la de permisos) + `make lint` sin errores + contrato OpenAPI actualizado (`docs/openapi.yaml` + su lint).
+
+## Claude Code en este repo (`.claude/`)
+- Skill `nuevo-modulo`: receta para una entidad o ruta nueva (migración con RLS → pruebas → contrato).
+- Subagente `revisor-seguridad`: revisa el diff antes del PR (aislamiento, permisos, datos personales, dinero).
+- Hooks: Pint formatea cada PHP editado; al terminar, si hay cambios en PHP, corren Pint --test, Larastan y Pest en Docker y un fallo se devuelve a Claude para que lo corrija. Requieren `make up`.
+- `.claude/settings.local.json` es personal y no se sube.
 
 ## Seguridad
 - Nunca subir `.env`, llaves JWT (`storage/jwt/*.pem`) ni datos reales de residentes.
