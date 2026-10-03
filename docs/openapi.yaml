@@ -36,6 +36,10 @@ tags:
     description: Usuario actual y su contexto (roles y permisos) en un condominio.
   - name: Unidades
     description: Bloques, unidades y residentes del condominio.
+  - name: Plataforma
+    description: |
+      Panel del super admin (`/plataforma/*`). Solo perfiles de plataforma (equipo 0);
+      cada ruta exige su permiso de plataforma. No usa `X-Condominio-Id`.
 
 security:
   - bearer: []
@@ -183,6 +187,38 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /me/menu:
+    get:
+      tags: [Sesión]
+      operationId: menuCondominio
+      summary: Menú del perfil en el condominio activo
+      description: |
+        Una hoja aparece si está asignada a uno de los perfiles (roles) del usuario en el
+        condominio del header **y** el usuario tiene su permiso. Los módulos y secciones
+        aparecen solo si les queda alguna hoja. Ocultar no es seguridad: cada ruta exige su permiso.
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Menú en el mismo formato que `ItemMenu` del frontend.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ItemMenu' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/CondominioNoPermitido'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /bloques:
     get:
       tags: [Unidades]
@@ -252,6 +288,108 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /plataforma/me/menu:
+    get:
+      tags: [Plataforma]
+      operationId: menuPlataforma
+      summary: Menú del perfil de plataforma
+      description: 'Mismo filtro que /me/menu, con los perfiles y permisos de plataforma.'
+      responses:
+        '200':
+          description: Menú del panel de plataforma.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ItemMenu' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /plataforma/planes:
+    get:
+      tags: [Plataforma]
+      operationId: listarPlanes
+      summary: Planes activos
+      description: 'Permiso: `plataforma.condominios`. Para el asistente de alta. Ordenados por `orden`.'
+      x-permiso: plataforma.condominios
+      responses:
+        '200':
+          description: Planes activos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Plan' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /plataforma/catalogos:
+    get:
+      tags: [Plataforma]
+      operationId: catalogosAlta
+      summary: Catálogos del alta de condominio
+      description: 'Permiso: `plataforma.condominios`. Tipos de condominio, métodos de cobro y amenidades del catálogo global.'
+      x-permiso: plataforma.condominios
+      responses:
+        '200':
+          description: Catálogos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CatalogosAlta'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /plataforma/ubicaciones:
+    get:
+      tags: [Plataforma]
+      operationId: listarUbicaciones
+      summary: Provincias, cantones y parroquias
+      description: 'Permiso: `plataforma.condominios`. Árbol de la DPA del INEC, ordenado por nombre. Cantones y parroquias se cargan con `safic:importar-dpa`.'
+      x-permiso: plataforma.condominios
+      responses:
+        '200':
+          description: Árbol de ubicaciones.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Provincia' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
 components:
   securitySchemes:
     bearer:
@@ -305,6 +443,11 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
     SinPermisoOCondominio:
       description: '`SIN_PERMISO` (falta el permiso de la ruta) o `CONDOMINIO_NO_PERMITIDO`.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    SinPermisoPlataforma:
+      description: '`SIN_PERMISO`: el usuario no tiene perfil de plataforma o le falta el permiso de la ruta.'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -445,3 +588,97 @@ components:
         id: { type: integer }
         nombre: { type: string }
         orden: { type: integer }
+
+    ItemMenu:
+      type: object
+      description: Ítem del menú lateral. Las hojas tienen `ruta`; los módulos y secciones, `hijos`.
+      required: [id, etiqueta, icono]
+      properties:
+        id: { type: string, description: 'Clave estable (ej. `unidades.bloques`).' }
+        etiqueta: { type: string }
+        icono: { type: string, description: 'Material Symbols Rounded (`sym_r_*`). Obligatorio.' }
+        ruta: { type: string, description: Nombre de la ruta del frontend. Solo en hojas. }
+        permiso: { type: string, description: Permiso de la pantalla. Solo en hojas que lo piden. }
+        seccion: { type: boolean, description: 'Grupo siempre desplegado (CONFIGURACIÓN). Se omite si es falso.' }
+        hijos:
+          type: array
+          items: { $ref: '#/components/schemas/ItemMenu' }
+
+    Plan:
+      type: object
+      required: [clave, nombre, max_administrativos, valor_unidad_sugerido]
+      properties:
+        clave: { type: string, examples: [profesional] }
+        nombre: { type: string, examples: [Profesional] }
+        max_administrativos:
+          type: integer
+          description: Administrador, tesorero y contador cuentan para este límite.
+        valor_unidad_sugerido: { type: string, pattern: '^\d+\.\d{2}$', examples: ['2.00'] }
+
+    OpcionCatalogo:
+      type: object
+      required: [valor, etiqueta]
+      properties:
+        valor: { type: string }
+        etiqueta: { type: string }
+
+    MetodoCobro:
+      type: object
+      required: [valor, etiqueta, descripcion]
+      properties:
+        valor:
+          type: string
+          enum: [valor_general, por_tipo, por_alicuota, por_unidad]
+        etiqueta: { type: string }
+        descripcion: { type: string }
+
+    AmenidadCatalogo:
+      type: object
+      required: [clave, nombre, icono, reservable, esencial]
+      properties:
+        clave: { type: string }
+        nombre: { type: string }
+        icono: { type: string }
+        reservable: { type: boolean, description: Pasa a la agenda de áreas comunes. }
+        esencial: { type: boolean, description: Nunca se restringe por mora. }
+
+    CatalogosAlta:
+      type: object
+      required: [tipos_condominio, metodos_cobro, amenidades]
+      properties:
+        tipos_condominio:
+          type: array
+          items: { $ref: '#/components/schemas/OpcionCatalogo' }
+        metodos_cobro:
+          type: array
+          items: { $ref: '#/components/schemas/MetodoCobro' }
+        amenidades:
+          type: array
+          items: { $ref: '#/components/schemas/AmenidadCatalogo' }
+
+    Provincia:
+      type: object
+      required: [codigo, nombre, cantones]
+      properties:
+        codigo: { type: string, pattern: '^\d{2}$' }
+        nombre: { type: string }
+        cantones:
+          type: array
+          items: { $ref: '#/components/schemas/Canton' }
+
+    Canton:
+      type: object
+      required: [codigo, nombre, parroquias]
+      properties:
+        codigo: { type: string, pattern: '^\d{4}$' }
+        nombre: { type: string }
+        parroquias:
+          type: array
+          items: { $ref: '#/components/schemas/Parroquia' }
+
+    Parroquia:
+      type: object
+      required: [codigo, nombre]
+      properties:
+        codigo: { type: string, pattern: '^\d{6}$' }
+        nombre: { type: string }
