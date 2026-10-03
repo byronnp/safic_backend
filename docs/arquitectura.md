@@ -17,3 +17,13 @@ Los documentos vivos están en Claude (privados; compártelos con el equipo desd
 | Mockups de pantallas | https://claude.ai/artifact/Y7EAqdBNNMZ92M856HfevN |
 
 Plan: Sprint 0 (este esqueleto) → S1 alta de condominio → S2 unidades y residentes → S3 usuarios, cargos y amenidades → S4 residente y staging → piloto.
+
+## Decisiones recientes
+
+### Perfil de plataforma al iniciar sesión (3-oct-2026)
+
+- Los roles de plataforma (super admin, soporte, cobranza, contador de plataforma) viven en el equipo `0` de spatie y **no** tienen membresía en condominios.
+- `POST /auth/login`, `POST /auth/refresh` y `GET /auth/me` devuelven `usuario.plataforma = { roles, permisos }` o `null`.
+- El frontend decide la entrada por perfil: solo plataforma → `/plataforma` (primera pantalla que permitan sus permisos); con condominios → selector o condominio principal; con ambos → puede cambiar de ámbito desde el menú de usuario.
+- Las rutas de plataforma (`meta.plataforma`) se validan con los permisos de plataforma, nunca con los del condominio. Los permisos de plataforma no se mezclan con `/me/contexto`.
+- El super admin **no** entra a un condominio por el header sin membresía (`CONDOMINIO_NO_PERMITIDO`). Las rutas `/api/v1/plataforma/*` llevarán su propio middleware que fija el equipo `0` (pendiente, con el módulo Plataforma).
