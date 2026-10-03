@@ -7,8 +7,16 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Artisan;
 
+/**
+ * Base de las pruebas Feature. Usa RefreshDatabase aquí (y no desde Pest.php) para
+ * que el migrateFreshUsing() de esta clase gane sobre el del trait: un método de la
+ * propia clase tiene prioridad sobre el del trait, pero un trait aplicado en una
+ * subclase lo reemplazaría y además su firma no es compatible.
+ */
 abstract class TestCase extends BaseTestCase
 {
+    use RefreshDatabase;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -22,10 +30,8 @@ abstract class TestCase extends BaseTestCase
             ]);
         }
 
-        // Catálogo de roles y permisos en cada prueba con base de datos
-        if (in_array(RefreshDatabase::class, class_uses_recursive($this), true)) {
-            $this->seed(RolesYPermisosSeeder::class);
-        }
+        // Catálogo de roles y permisos en cada prueba
+        $this->seed(RolesYPermisosSeeder::class);
     }
 
     /**

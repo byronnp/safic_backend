@@ -29,3 +29,7 @@ Thumbs.db
 # SAFIC
 /storage/jwt/*.pem
 /.phpstan.cache
+
+# Claude Code: ajustes personales
+.claude/settings.local.json
+pest.log

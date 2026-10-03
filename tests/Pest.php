@@ -4,12 +4,10 @@ use App\Core\Permissions\Rol;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
 use App\Modules\Plataforma\Models\Condominio;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-pest()->extend(TestCase::class)
-    ->use(RefreshDatabase::class)
-    ->in('Feature');
+// TestCase ya usa RefreshDatabase (ver su comentario).
+pest()->extend(TestCase::class)->in('Feature');
 
 /**
  * Crea un usuario miembro de $condominio con $rol y devuelve [usuario, access token].

@@ -5,7 +5,6 @@ namespace App\Core\Http\Responses;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Http\Resources\Json\ResourceCollection;
 use Illuminate\Http\Response;
 
 /**
@@ -73,7 +72,8 @@ final class ApiResponse
      */
     private static function body(mixed $data, array $meta, ?string $message): array
     {
-        if ($data instanceof JsonResource || $data instanceof ResourceCollection) {
+        // ResourceCollection también es JsonResource
+        if ($data instanceof JsonResource) {
             $data = $data->resolve();
         }
 

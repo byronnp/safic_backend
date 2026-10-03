@@ -1,0 +1,6 @@
+# Lint del contrato OpenAPI (docs/openapi.yaml). Se ejecuta en CI.
+extends:
+  - recommended
+rules:
+  no-server-example.com: off # el único servidor documentado es el local
+  no-unused-components: off  # componentes compartidos (Paginacion) listos para los módulos

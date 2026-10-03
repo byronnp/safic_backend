@@ -8,9 +8,6 @@ use Illuminate\Database\Eloquent\Scope;
 
 final class CondominioScope implements Scope
 {
-    /**
-     * @param  Builder<Model>  $builder
-     */
     public function apply(Builder $builder, Model $model): void
     {
         $context = app(TenantContext::class);

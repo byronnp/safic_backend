@@ -6,6 +6,16 @@ on:
     branches: [main]
 
 jobs:
+  contrato:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Lint del contrato OpenAPI
+        run: npx --yes @redocly/cli@2.57.0 lint docs/openapi.yaml
+
   tests:
     runs-on: ubuntu-latest
     services:
@@ -59,4 +69,14 @@ jobs:
         run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
 
       - name: Pruebas (Pest)
-        run: vendor/bin/pest
+        run: |
+          set -o pipefail
+          vendor/bin/pest --colors=never 2>&1 | tee pest.log
+
+      # Muestra la salida de Pest como anotaciones en el pull request (bloques de 25 líneas).
+      - name: Fallos de Pest como anotaciones
+        if: failure()
+        run: |
+          test -f pest.log || exit 0
+          grep -v '^\s*$' pest.log | tail -n 200 | sed 's/%/%25/g' \
+            | awk 'BEGIN{b=""} {b=b $0 "%0A"} NR%25==0 {print "::error title=Pest::" b; b=""} END{if(b!="") print "::error title=Pest::" b}'

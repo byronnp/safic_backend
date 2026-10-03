@@ -3,6 +3,8 @@
 namespace App\Core\Auth\Http\Resources;
 
 use App\Models\User;
+use App\Modules\Plataforma\Models\Condominio;
+use App\Modules\Plataforma\Models\Membresia;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
