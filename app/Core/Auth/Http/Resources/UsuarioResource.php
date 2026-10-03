@@ -23,14 +23,19 @@ class UsuarioResource extends JsonResource
             'nombre' => $this->name,
             'email' => $this->email,
             // Solo condominios con membresía activa: son los que aparecen en el selector
-            'condominios' => $this->whenLoaded('condominiosActivos', fn () => $this->condominiosActivos->map(fn ($c) => [
-                'id' => $c->id,
-                'codigo' => $c->codigo,
-                'nombre' => $c->nombre,
-                'es_principal' => (bool) $c->pivot->es_principal,
-                'estado' => $c->estado,
-                'marca' => $c->marca,
-            ])->values()),
+            'condominios' => $this->whenLoaded('condominiosActivos', fn () => $this->condominiosActivos->map(function (Condominio $c): array {
+                /** @var Membresia $membresia */
+                $membresia = $c->getRelation('pivot');
+
+                return [
+                    'id' => $c->id,
+                    'codigo' => $c->codigo,
+                    'nombre' => $c->nombre,
+                    'es_principal' => (bool) $membresia->es_principal,
+                    'estado' => $c->estado,
+                    'marca' => $c->marca,
+                ];
+            })->values()),
             // Perfil de plataforma (super admin, soporte, cobranza…) o null.
             // Con él, el frontend abre el panel de plataforma aunque no haya condominios.
             'plataforma' => $this->resource->contextoPlataforma(),
