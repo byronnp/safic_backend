@@ -82,10 +82,10 @@ class CatalogosSeeder extends Seeder
         $provincias = $cantones = $parroquias = [];
 
         foreach ($datos['provincias'] as $p) {
-            $provincias[] = ['codigo' => $p['codigo'], 'nombre' => $p['nombre'], 'latitud' => $p['lat'], 'longitud' => $p['lng']];
+            $provincias[] = ['codigo' => $p['codigo'], 'nombre' => $p['nombre'], 'latitud' => $p['lat'] ?? null, 'longitud' => $p['lng'] ?? null];
 
             foreach ($p['cantones'] as $c) {
-                $cantones[] = ['codigo' => $c['codigo'], 'provincia_codigo' => $p['codigo'], 'nombre' => $c['nombre'], 'latitud' => $c['lat'], 'longitud' => $c['lng']];
+                $cantones[] = ['codigo' => $c['codigo'], 'provincia_codigo' => $p['codigo'], 'nombre' => $c['nombre'], 'latitud' => $c['lat'] ?? null, 'longitud' => $c['lng'] ?? null];
 
                 foreach ($c['parroquias'] as $q) {
                     $parroquias[] = ['codigo' => $q['codigo'], 'canton_codigo' => $c['codigo'], 'nombre' => $q['nombre']];
