@@ -65,10 +65,13 @@ jobs:
       - name: Estilo (Pint)
         run: vendor/bin/pint --test
 
+      # Los errores salen como anotaciones en el pull request.
       - name: Análisis estático (Larastan)
-        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress
+        run: vendor/bin/phpstan analyse --memory-limit=1G --no-progress --error-format=github
 
+      # Corre aunque falle Larastan, para ver todos los problemas en una sola ejecución.
       - name: Pruebas (Pest)
+        if: ${{ !cancelled() }}
         run: |
           set -o pipefail
           vendor/bin/pest --colors=never 2>&1 | tee pest.log
