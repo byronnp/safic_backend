@@ -1059,17 +1059,19 @@ components:
 
     GuardarUnidad:
       type: object
-      description: En `POST`, `codigo`, `tipo` y `area_m2` son obligatorios; en `PATCH` todos son opcionales.
+      description: |
+        En `POST`, `codigo`, `tipo` y `area_m2` son obligatorios; en `PATCH` todos son opcionales.
+        Área, alícuota y montos se envían como texto decimal ("84.50"); también se aceptan números.
       properties:
         codigo: { type: string, maxLength: 20, examples: ['A-102'] }
         bloque_id: { type: [integer, 'null'] }
         tipo: { $ref: '#/components/schemas/TipoUnidad' }
         piso: { type: [integer, 'null'], minimum: -5, maximum: 200 }
-        area_m2: { type: number, exclusiveMinimum: 0, examples: [84] }
+        area_m2: { type: [string, number], pattern: '^\d+(\.\d{1,2})?$', examples: ['84.00'], description: 'Mayor que 0. Se recomienda texto decimal.' }
         responsable_pago: { type: string, enum: [propietario, inquilino], default: propietario }
-        alicuota: { type: [number, 'null'], exclusiveMinimum: 0, maximum: 100, description: 'Obligatoria con método `alicuota`.' }
-        cuota_mensual: { type: number, exclusiveMinimum: 0, description: 'Solo y obligatoria con método `unidad`.' }
-        valor_personalizado: { type: [number, 'null'], exclusiveMinimum: 0, description: 'Solo con método `tipo` o `alicuota`.' }
+        alicuota: { type: [string, number, 'null'], pattern: '^\d+(\.\d{1,4})?$', examples: ['0.6200'], description: 'Porcentaje mayor que 0 y hasta 100, con hasta 4 decimales. Obligatoria con método `alicuota`.' }
+        cuota_mensual: { type: [string, number], pattern: '^\d+(\.\d{1,2})?$', examples: ['90.00'], description: 'Monto mayor que 0 como texto decimal. Solo y obligatoria con método `unidad`.' }
+        valor_personalizado: { type: [string, number, 'null'], pattern: '^\d+(\.\d{1,2})?$', examples: ['75.50'], description: 'Monto mayor que 0 como texto decimal. Solo con método `tipo` o `alicuota`.' }
 
     ResumenUnidades:
       type: object

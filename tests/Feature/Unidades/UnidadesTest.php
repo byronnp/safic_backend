@@ -172,6 +172,19 @@ describe('montos según el método de cobro', function () {
             ->assertJsonPath('data.valor_personalizado', '75.50');
     });
 
+    it('acepta área y montos como texto decimal, como los envía el frontend', function () {
+        cobroPor($this->condominio, 'alicuota');
+
+        ($this->api)()->postJson('/api/v1/unidades', [
+            'codigo' => 'A-1', 'bloque_id' => null, 'tipo' => 'departamento', 'piso' => null,
+            'area_m2' => '84.50', 'responsable_pago' => 'inquilino', 'alicuota' => '0.6200', 'valor_personalizado' => null,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.area_m2', '84.50')
+            ->assertJsonPath('data.alicuota', '0.6200')
+            ->assertJsonPath('data.valor_personalizado', null);
+    });
+
     it('por unidad exige la cuota mensual', function () {
         cobroPor($this->condominio, 'unidad');
 
