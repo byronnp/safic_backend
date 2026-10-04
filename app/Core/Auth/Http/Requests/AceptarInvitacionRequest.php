@@ -21,6 +21,8 @@ class AceptarInvitacionRequest extends FormRequest
             'password' => ['required', 'string', 'confirmed', 'max:255', Password::min(10)->letters()->numbers()],
             // LOPDP: sin aceptar el aviso de privacidad no se crea la cuenta
             'acepta_privacidad' => ['accepted'],
+            // Versión que la persona leyó; si cambió mientras tanto, se le pide leer la nueva
+            'aviso_privacidad_version' => ['sometimes', 'string', 'max:40'],
         ];
     }
 

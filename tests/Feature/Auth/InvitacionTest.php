@@ -108,3 +108,15 @@ it('registra la aceptación del aviso con versión, fecha, IP y navegador', func
         ->and($aceptacion->ip)->not->toBeNull()
         ->and($aceptacion->user_agent)->toBe('Prueba/1.0');
 });
+
+it('no registra una versión del aviso distinta de la que la persona leyó', function () {
+    $this->postJson("/api/v1/auth/invitaciones/{$this->token}/aceptar", [
+        'password' => 'Arupos-2026-seguro',
+        'password_confirmation' => 'Arupos-2026-seguro',
+        'acepta_privacidad' => true,
+        'aviso_privacidad_version' => 'una-version-anterior',
+    ])->assertStatus(409)->assertJsonPath('error.code', 'AVISO_ACTUALIZADO');
+
+    expect($this->user->fresh()->activo)->toBeFalse()
+        ->and(AceptacionPrivacidad::count())->toBe(0);
+});

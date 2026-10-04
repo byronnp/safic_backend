@@ -855,6 +855,9 @@ paths:
                   type: boolean
                   const: true
                   description: Aceptación del aviso de privacidad vigente (`aviso_privacidad_version` de la invitación).
+                aviso_privacidad_version:
+                  type: string
+                  description: 'Versión que la persona leyó (la de `GET` de la invitación). Si ya no es la vigente responde 409 `AVISO_ACTUALIZADO`.'
       responses:
         '200':
           description: Contraseña creada.
@@ -872,6 +875,11 @@ paths:
                   message: { type: string }
         '404':
           $ref: '#/components/responses/InvitacionInvalida'
+        '409':
+          description: '`AVISO_ACTUALIZADO`: el aviso de privacidad cambió desde que se cargó la página.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '422':
           $ref: '#/components/responses/Validacion'
         '429':

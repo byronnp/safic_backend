@@ -4,6 +4,7 @@ namespace App\Core\Auth\Http\Controllers;
 
 use App\Core\Auth\Http\Requests\AceptarInvitacionRequest;
 use App\Core\Auth\Services\InvitacionService;
+use App\Core\Http\Exceptions\ApiException;
 use App\Core\Http\Responses\ApiResponse;
 use Illuminate\Http\JsonResponse;
 
@@ -30,6 +31,11 @@ class InvitacionController
 
     public function aceptar(string $token, AceptarInvitacionRequest $request): JsonResponse
     {
+        $leida = $request->validated('aviso_privacidad_version');
+        if (is_string($leida) && $leida !== config('safic.aviso_privacidad_version')) {
+            throw new ApiException('AVISO_ACTUALIZADO', 'El aviso de privacidad se actualizó. Léelo de nuevo y vuelve a aceptarlo.', 409);
+        }
+
         $user = $this->invitaciones->aceptar(
             $token,
             $request->string('password')->toString(),
