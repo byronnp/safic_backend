@@ -42,7 +42,7 @@ FormRequest (valida) → Controller (delgado) → Action (caso de uso + transacc
 Tres barreras; las tres son obligatorias en toda tabla con datos de un condominio:
 1. **Middleware `condominio`** (`ResolveCondominio`): toma `X-Condominio-Id`, valida la membresía activa y fija el contexto. Toda ruta de negocio va dentro de `auth:api` + `condominio`.
 2. **Trait `BelongsToCondominio`** en el modelo: filtra por el condominio activo y completa `condominio_id` al crear. Sin condominio activo no devuelve filas.
-3. **Row Level Security**: la migración termina con `RowLevelSecurity::enable('tabla')`.
+3. **Row Level Security**: la migración termina con `RowLevelSecurity::enable('tabla')`. El condominio se pasa a PostgreSQL con `SET LOCAL` (vive solo en la transacción): el middleware abre una transacción por petición (se confirma si la respuesta es < 400 y se deshace si no) y `TenantContext::run()` abre la suya. Fijar el condominio fuera de una transacción lanza `LogicException`.
 
 Reglas:
 - Toda tabla de condominio tiene `condominio_id` (FK) y sus índices únicos empiezan por `condominio_id`.
