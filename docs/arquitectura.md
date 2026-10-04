@@ -53,3 +53,12 @@ S1 se programó en dos ramas paralelas (`s1/semana-1` y `s1/alta-condominio`) y 
 - `routes/api.php` solo declara los grupos y las rutas transversales (auth, `/me/*`) y carga los archivos de los módulos solo; crear un módulo no obliga a editarlo.
 - `RutasPorModuloTest` verifica la convención, el grupo y el permiso; `ContratoOpenApiTest`, que cada ruta esté en el contrato.
 
+
+### Logs y auditoría por condominio (4 oct 2026)
+
+- El super admin y soporte consultan los registros desde el panel de plataforma, filtrados por condominio. Los usuarios de un condominio no los ven.
+- Cuatro tipos: **registros del sistema** (`warning`+, jobs e integraciones; tabla `registros_sistema`, 90 días), **eventos de seguridad** (canal `seguridad`, 1 año), **auditoría de cambios** (`laravel-auditing`, con `condominio_id` y RLS, 5 años) y **bitácora del contador** (`registros_acceso`, 5 años). El detalle `info`/`debug` va solo a stderr en JSON.
+- Cada línea lleva `request_id` (middleware `AsignarRequestId`, también en jobs), `condominio_id`, `usuario_id`, ámbito y ruta. `EnmascararDatosPersonales` quita cédula, RUC, teléfono, correo, contraseñas, tokens y cuentas antes de escribir.
+- `registros_sistema` es tabla de plataforma (sin RLS), particionada por mes; la app inserta por la cola `logs` y, si la base falla, el registro queda en stderr.
+- Visor: `GET /plataforma/registros`, `/plataforma/registros/{id}`, `/plataforma/registros/resumen` (permiso `plataforma.registros`: super admin y soporte) y `GET /plataforma/condominios/{id}/auditoria` (`plataforma.auditoria`: super admin). Cada consulta al visor queda como evento de seguridad.
+- Se construye en dos partes: la base (request id, contexto, enmascarado, JSON a stderr) ahora; la tabla, el visor y las alertas en S4.
