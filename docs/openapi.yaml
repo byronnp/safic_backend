@@ -1073,12 +1073,15 @@ components:
 
     ResumenUnidades:
       type: object
-      required: [registradas, total_contratadas, suma_alicuotas, metodo_cobro]
+      required: [registradas, total_contratadas, suma_alicuotas, metodo_cobro, cuota_general]
       properties:
         registradas: { type: integer, description: 'Departamentos, casas y locales registrados (parqueaderos y bodegas no cuentan).' }
         total_contratadas: { type: integer }
         suma_alicuotas: { type: string, examples: ['99.6200'], description: Debe llegar a 100. }
         metodo_cobro: { type: string, enum: [general, tipo, alicuota, unidad] }
+        cuota_general:
+          oneOf: [{ $ref: '#/components/schemas/Dinero' }, { type: 'null' }]
+          description: 'Lo que paga cada unidad con método `general`; null con los demás métodos.'
 
     Bloque:
       type: object

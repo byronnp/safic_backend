@@ -64,7 +64,16 @@ describe('listar', function () {
                 'total_contratadas' => 3,
                 'suma_alicuotas' => '1.8600',
                 'metodo_cobro' => 'general',
+                'cuota_general' => null,
             ]]);
+    });
+
+    it('trae la cuota general cuando el condominio cobra un valor general', function () {
+        cobroPor($this->condominio, 'general');
+
+        ($this->api)()->getJson('/api/v1/unidades/resumen')
+            ->assertJsonPath('data.metodo_cobro', 'general')
+            ->assertJsonPath('data.cuota_general', '80.00');
     });
 });
 

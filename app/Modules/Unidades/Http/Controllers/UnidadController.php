@@ -47,11 +47,14 @@ class UnidadController
         // La suma se hace en PostgreSQL como numeric: nunca pasa por float.
         $sumaAlicuotas = (string) Unidad::query()->selectRaw('coalesce(sum(alicuota), 0)::numeric(9,4) as suma')->value('suma');
 
+        $cobro = $metodo->configuracion();
+
         return ApiResponse::ok([
             'registradas' => $limite->registradas(),
             'total_contratadas' => $limite->total(),
             'suma_alicuotas' => $sumaAlicuotas,
-            'metodo_cobro' => $metodo->execute(),
+            'metodo_cobro' => $cobro['metodo'],
+            'cuota_general' => $cobro['cuota_general'],
         ]);
     }
 

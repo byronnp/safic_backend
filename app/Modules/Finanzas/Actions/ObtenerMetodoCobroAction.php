@@ -16,8 +16,22 @@ final class ObtenerMetodoCobroAction
 
     public function execute(): string
     {
-        $this->tenant->require();
+        return $this->configuracion()['metodo'];
+    }
 
-        return ConfiguracionCobro::query()->value('metodo') ?? ConfiguracionCobro::METODO_GENERAL;
+    /**
+     * Método y cuota general (solo con método "general"; null si no hay configuración).
+     *
+     * @return array{metodo: string, cuota_general: string|null}
+     */
+    public function configuracion(): array
+    {
+        $this->tenant->require();
+        $configuracion = ConfiguracionCobro::query()->first();
+
+        return [
+            'metodo' => $configuracion->metodo ?? ConfiguracionCobro::METODO_GENERAL,
+            'cuota_general' => $configuracion?->cuota_general,
+        ];
     }
 }
