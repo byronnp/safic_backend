@@ -6,9 +6,9 @@ use App\Modules\Plataforma\Http\Controllers\CondominioController;
 use App\Modules\Plataforma\Http\Controllers\UsuarioPlataformaController;
 use Illuminate\Support\Facades\Route;
 
-// Rutas del panel de plataforma. Se cargan dentro del grupo auth:api + plataforma
-// con prefijo /plataforma (routes/api.php), sin X-Condominio-Id: el permiso se mira
-// en el equipo 0 (roles de plataforma) y cada ruta exige el suyo.
+// Rutas del módulo Plataforma en el panel del super admin. routes/api.php las carga
+// dentro del grupo auth:api + plataforma con prefijo /plataforma (sin X-Condominio-Id):
+// el permiso se mira en el equipo 0 (roles de plataforma). Cada ruta exige su permiso.
 
 $condominios = 'permission:'.Permiso::PlataformaCondominios->value;
 
