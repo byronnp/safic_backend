@@ -89,6 +89,7 @@ class MenuSeeder extends Seeder
             [
                 'clave' => 'unidades', 'etiqueta' => 'Unidades', 'icono' => 'sym_r_apartment',
                 'hijos' => [
+                    ['clave' => 'unidades.lista', 'etiqueta' => 'Unidades', 'icono' => 'sym_r_apartment', 'ruta' => 'unidades', 'permiso' => Permiso::UnidadesVer],
                     ['clave' => 'unidades.bloques', 'etiqueta' => 'Bloques', 'icono' => 'sym_r_domain', 'ruta' => 'bloques', 'permiso' => Permiso::UnidadesVer],
                 ],
             ],
