@@ -28,16 +28,9 @@ make setup                    # levanta contenedores, instala dependencias, llav
 La primera vez `composer install` resuelve las versiones exactas de los paquetes y crea `composer.lock`: **haz commit de `composer.lock`**.
 
 ## Ubicaciones del Ecuador (INEC)
-`make setup` siembra las 24 provincias. Los cantones y parroquias salen del archivo oficial de la
-División Político-Administrativa del INEC (Clasificador Geográfico Estadístico): guárdalo como CSV
-con las columnas `DPA_PROVIN, DPA_DESPRO, DPA_CANTON, DPA_DESCAN, DPA_PARROQ, DPA_DESPAR` en
-`storage/app/dpa.csv` y corre:
-
-```bash
-docker compose exec api php artisan safic:importar-dpa storage/app/dpa.csv
-```
-
-Se puede correr de nuevo cuando el INEC publique cambios: actualiza por código y no duplica.
+`CatalogosSeeder` (corre en `make setup` y en cada despliegue) siembra las 24 provincias, 221 cantones
+y 1396 parroquias desde `database/data/division_territorial_ec.json` (códigos INEC y coordenadas;
+licencia MIT en `division_territorial_ec.LICENSE`). Es idempotente: actualiza por código.
 
 ## Servicios locales
 | Servicio | URL |
@@ -79,8 +72,11 @@ curl -s http://localhost:8000/api/v1/bloques \
 | GET | /api/v1/me/menu | Menú del perfil en el condominio del header |
 | GET | /api/v1/plataforma/me/menu | Menú del perfil de plataforma |
 | GET | /api/v1/plataforma/planes | Planes activos (permiso `plataforma.condominios`) |
-| GET | /api/v1/plataforma/catalogos | Tipos de condominio, métodos de cobro y amenidades (`plataforma.condominios`) |
-| GET | /api/v1/plataforma/ubicaciones | Provincias, cantones y parroquias del INEC (`plataforma.condominios`) |
+| GET | /api/v1/plataforma/amenidades | Catálogo global de amenidades (`plataforma.condominios`) |
+| GET/POST | /api/v1/plataforma/condominios | Listado y alta de condominios (`plataforma.condominios`) |
+| GET | /api/v1/plataforma/usuarios/buscar | ¿El administrador ya tiene cuenta? (`plataforma.condominios`) |
+| GET | /api/v1/ubicaciones | Provincias, cantones y parroquias del INEC (cualquier sesión) |
+| GET/POST | /api/v1/auth/invitaciones/{token}[/aceptar] | Primer ingreso del administrador invitado |
 
 ## Comandos
 | Comando | Qué hace |

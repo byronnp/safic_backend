@@ -24,13 +24,13 @@ it('el super admin entra a las rutas de plataforma', function () {
 
 it('soporte entra con su permiso de plataforma', function () {
     $this->withToken(tokenDePlataforma(Rol::Soporte))
-        ->getJson('/api/v1/plataforma/catalogos')
+        ->getJson('/api/v1/plataforma/amenidades')
         ->assertOk();
 });
 
 it('cobranza no entra a una ruta que exige otro permiso de plataforma', function () {
     $this->withToken(tokenDePlataforma(Rol::Cobranza))
-        ->getJson('/api/v1/plataforma/catalogos')
+        ->getJson('/api/v1/plataforma/amenidades')
         ->assertForbidden()
         ->assertJsonPath('error.code', 'SIN_PERMISO');
 });
