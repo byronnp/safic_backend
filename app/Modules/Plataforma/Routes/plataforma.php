@@ -19,3 +19,6 @@ Route::get('usuarios/buscar', [UsuarioPlataformaController::class, 'buscar'])->m
 Route::get('condominios', [CondominioController::class, 'index'])->middleware($condominios);
 Route::post('condominios', [CondominioController::class, 'store'])->middleware($condominios);
 Route::get('condominios/{condominio}', [CondominioController::class, 'show'])->whereNumber('condominio')->middleware($condominios);
+Route::post('condominios/{condominio}/administradores/{usuario}/invitacion', [CondominioController::class, 'reenviarInvitacion'])
+    ->whereNumber(['condominio', 'usuario'])
+    ->middleware($condominios);

@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Auth\Services\InvitacionService;
+use App\Core\Privacy\Models\AceptacionPrivacidad;
 use App\Models\User;
 use App\Modules\Plataforma\Models\Condominio;
 
@@ -20,7 +21,8 @@ it('muestra a quién corresponde la invitación', function () {
         ->assertOk()
         ->assertJsonPath('data.nombre', 'María Rivas')
         ->assertJsonPath('data.email', 'maria@losarupos.ec')
-        ->assertJsonPath('data.condominio', 'Conjunto Los Arupos');
+        ->assertJsonPath('data.condominio', 'Conjunto Los Arupos')
+        ->assertJsonPath('data.aviso_privacidad_version', config('safic.aviso_privacidad_version'));
 });
 
 it('rechaza un token inventado', function () {
@@ -39,6 +41,7 @@ it('crea la contraseña, activa la cuenta y permite iniciar sesión', function (
     $this->postJson("/api/v1/auth/invitaciones/{$this->token}/aceptar", [
         'password' => 'Arupos-2026-seguro',
         'password_confirmation' => 'Arupos-2026-seguro',
+        'acepta_privacidad' => true,
     ])->assertOk()->assertJsonPath('data.email', 'maria@losarupos.ec');
 
     expect($this->user->fresh()->activo)->toBeTrue();
@@ -49,7 +52,7 @@ it('crea la contraseña, activa la cuenta y permite iniciar sesión', function (
 });
 
 it('el enlace solo se usa una vez', function () {
-    $datos = ['password' => 'Arupos-2026-seguro', 'password_confirmation' => 'Arupos-2026-seguro'];
+    $datos = ['password' => 'Arupos-2026-seguro', 'password_confirmation' => 'Arupos-2026-seguro', 'acepta_privacidad' => true];
 
     $this->postJson("/api/v1/auth/invitaciones/{$this->token}/aceptar", $datos)->assertOk();
     $this->postJson("/api/v1/auth/invitaciones/{$this->token}/aceptar", $datos)
@@ -61,6 +64,7 @@ it('exige una contraseña segura y confirmada', function (string $password, stri
     $this->postJson("/api/v1/auth/invitaciones/{$this->token}/aceptar", [
         'password' => $password,
         'password_confirmation' => $confirmacion,
+        'acepta_privacidad' => true,
     ])->assertUnprocessable()->assertJsonValidationErrors('password', 'error.fields');
 
     expect($this->user->fresh()->activo)->toBeFalse();
@@ -75,4 +79,44 @@ it('una invitación nueva anula la anterior', function () {
 
     $this->getJson("/api/v1/auth/invitaciones/{$this->token}")->assertNotFound();
     $this->getJson("/api/v1/auth/invitaciones/{$nuevo}")->assertOk();
+});
+
+it('sin aceptar el aviso de privacidad no crea la cuenta', function () {
+    $this->postJson("/api/v1/auth/invitaciones/{$this->token}/aceptar", [
+        'password' => 'Arupos-2026-seguro',
+        'password_confirmation' => 'Arupos-2026-seguro',
+        'acepta_privacidad' => false,
+    ])->assertUnprocessable()
+        ->assertJsonPath('error.fields.acepta_privacidad.0', 'Para continuar, acepta el aviso de privacidad.');
+
+    expect($this->user->fresh()->activo)->toBeFalse()
+        ->and(AceptacionPrivacidad::count())->toBe(0);
+});
+
+it('registra la aceptación del aviso con versión, fecha, IP y navegador', function () {
+    $this->withHeader('User-Agent', 'Prueba/1.0')
+        ->postJson("/api/v1/auth/invitaciones/{$this->token}/aceptar", [
+            'password' => 'Arupos-2026-seguro',
+            'password_confirmation' => 'Arupos-2026-seguro',
+            'acepta_privacidad' => true,
+        ])->assertOk();
+
+    $aceptacion = AceptacionPrivacidad::query()->sole();
+    expect($aceptacion->user_id)->toBe($this->user->id)
+        ->and($aceptacion->version)->toBe(config('safic.aviso_privacidad_version'))
+        ->and($aceptacion->origen)->toBe('invitacion')
+        ->and($aceptacion->ip)->not->toBeNull()
+        ->and($aceptacion->user_agent)->toBe('Prueba/1.0');
+});
+
+it('no registra una versión del aviso distinta de la que la persona leyó', function () {
+    $this->postJson("/api/v1/auth/invitaciones/{$this->token}/aceptar", [
+        'password' => 'Arupos-2026-seguro',
+        'password_confirmation' => 'Arupos-2026-seguro',
+        'acepta_privacidad' => true,
+        'aviso_privacidad_version' => 'una-version-anterior',
+    ])->assertStatus(409)->assertJsonPath('error.code', 'AVISO_ACTUALIZADO');
+
+    expect($this->user->fresh()->activo)->toBeFalse()
+        ->and(AceptacionPrivacidad::count())->toBe(0);
 });

@@ -6,7 +6,9 @@ use App\Core\Http\Responses\ApiResponse;
 use App\Core\Permissions\Rol;
 use App\Models\User;
 use App\Modules\Plataforma\Actions\CrearCondominioAction;
+use App\Modules\Plataforma\Actions\ReenviarInvitacionAdministradorAction;
 use App\Modules\Plataforma\Http\Requests\CrearCondominioRequest;
+use App\Modules\Plataforma\Http\Requests\ReenviarInvitacionRequest;
 use App\Modules\Plataforma\Http\Resources\CondominioPlataformaResource;
 use App\Modules\Plataforma\Models\Condominio;
 use Illuminate\Database\Eloquent\Collection;
@@ -64,6 +66,30 @@ class CondominioController
                 ? 'Condominio creado. El administrador ya tenía cuenta: lo verá en su selector de condominios.'
                 : 'Condominio creado. Enviamos la invitación al administrador.',
         );
+    }
+
+    /**
+     * Reenvía la invitación a un administrador que aún no crea su contraseña; con
+     * `email` corrige antes su correo.
+     */
+    public function reenviarInvitacion(
+        ReenviarInvitacionRequest $request,
+        Condominio $condominio,
+        User $usuario,
+        ReenviarInvitacionAdministradorAction $reenviar,
+    ): JsonResponse {
+        /** @var User $superAdmin */
+        $superAdmin = $request->user();
+        $email = $request->validated('email');
+
+        $administrador = $reenviar->execute($condominio, $usuario, is_string($email) ? $email : null, $superAdmin);
+
+        return ApiResponse::ok([
+            'id' => $administrador->id,
+            'nombre' => $administrador->name,
+            'email' => $administrador->email,
+            'estado' => 'invitado',
+        ], message: "Enviamos una nueva invitación a {$administrador->email}.");
     }
 
     /**
