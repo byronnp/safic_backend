@@ -17,7 +17,8 @@ La arquitectura completa está en `docs/arquitectura.md` (enlaces a los document
 ## Estructura
 ```
 app/Core/         Transversal: Tenancy, Auth, Http (ApiResponse, errores), Permissions, Console
-app/Modules/<M>/  Un módulo por área: Models, Actions, Http/{Controllers,Requests,Resources}, routes.php
+app/Modules/<M>/  Un módulo por área: Models, Actions, Http/{Controllers,Requests,Resources}, Routes/
+routes/api.php    Solo grupos y rutas transversales (auth, /me); carga solo las rutas de cada módulo
 database/         migrations (una por tabla), factories, seeders
 tests/Feature/    Pruebas de API por módulo · tests/Feature/Tenancy: aislamiento obligatorio
 ```
@@ -28,6 +29,13 @@ FormRequest (valida) → Controller (delgado) → Action (caso de uso + transacc
 - Un controlador nunca tiene lógica de negocio ni hace `response()->json()`: usa `App\Core\Http\Responses\ApiResponse`.
 - Errores de negocio: `throw new ApiException('CODIGO_ESTABLE', 'Mensaje en español', 422)`.
 - Un módulo no llama a los modelos de otro módulo directamente: usa sus Actions públicas o eventos.
+
+## Rutas por módulo
+- Cada módulo tiene sus propios archivos de rutas, uno por ámbito:
+  - `app/Modules/<M>/Routes/condominio.php`: rutas del condominio (grupo `auth:api` + `condominio`, header `X-Condominio-Id`).
+  - `app/Modules/<M>/Routes/plataforma.php`: rutas del panel del super admin (grupo `auth:api` + `plataforma`, prefijo `/plataforma`).
+- `routes/api.php` los carga solos (orden alfabético); no se edita al crear un módulo.
+- Toda ruta de un módulo lleva su permiso. `tests/Feature/Contrato/RutasPorModuloTest.php` falla si un archivo está fuera de esta convención, si una ruta no tiene permiso o si está en el grupo equivocado.
 
 ## Multi-condominio (NO NEGOCIABLE)
 Tres barreras; las tres son obligatorias en toda tabla con datos de un condominio:
