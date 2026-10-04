@@ -10,6 +10,7 @@ use App\Modules\Finanzas\Models\ConfiguracionCobro;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Plataforma\Models\Plan;
 use App\Modules\Unidades\Models\Bloque;
+use App\Modules\Unidades\Models\Unidad;
 use Illuminate\Database\Seeder;
 
 /**
@@ -62,7 +63,23 @@ class DemoSeeder extends Seeder
 
         $tenant->run($jardines->id, function () {
             foreach (['Torre A', 'Torre B', 'Torre C'] as $i => $nombre) {
-                Bloque::firstOrCreate(['nombre' => $nombre], ['orden' => $i + 1]);
+                $bloque = Bloque::firstOrCreate(['nombre' => $nombre], ['orden' => $i + 1]);
+                $letra = substr($nombre, -1);
+
+                // Dos pisos de cuatro departamentos por torre, como en los mockups
+                foreach ([1, 2] as $piso) {
+                    foreach ([1, 2, 3, 4] as $n) {
+                        Unidad::firstOrCreate(
+                            ['codigo' => sprintf('%s-%d%02d', $letra, $piso, $n)],
+                            ['bloque_id' => $bloque->id, 'tipo' => 'departamento', 'piso' => $piso, 'area_m2' => $n <= 2 ? '84.00' : '96.00', 'alicuota' => $n <= 2 ? '0.6200' : '0.7100'],
+                        );
+                    }
+                }
+            }
+
+            foreach ([1, 2, 3, 4] as $n) {
+                Unidad::firstOrCreate(['codigo' => sprintf('CS-%02d', $n)], ['tipo' => 'casa', 'area_m2' => '140.00', 'alicuota' => '1.0400']);
+                Unidad::firstOrCreate(['codigo' => sprintf('P-%02d', $n)], ['tipo' => 'parqueadero', 'area_m2' => '12.50']);
             }
         });
 

@@ -41,6 +41,7 @@ it('el administrador ve inicio y unidades con bloques', function () {
     expect(menuDe($token, $this->condominio))->toBe([
         ['id' => 'inicio', 'etiqueta' => 'Inicio', 'icono' => 'sym_r_space_dashboard', 'ruta' => 'inicio'],
         ['id' => 'unidades', 'etiqueta' => 'Unidades', 'icono' => 'sym_r_apartment', 'hijos' => [
+            ['id' => 'unidades.lista', 'etiqueta' => 'Unidades', 'icono' => 'sym_r_apartment', 'ruta' => 'unidades', 'permiso' => 'unidades.ver'],
             ['id' => 'unidades.bloques', 'etiqueta' => 'Bloques', 'icono' => 'sym_r_domain', 'ruta' => 'bloques', 'permiso' => 'unidades.ver'],
         ]],
     ]);
@@ -61,8 +62,8 @@ it('oculta una hoja asignada si al usuario le falta el permiso', function () {
 });
 
 it('oculta una hoja no asignada al perfil aunque tenga el permiso', function () {
-    MenuItem::query()->where('clave', 'unidades.bloques')->firstOrFail()
-        ->roles()->detach(rolGlobal(Rol::Guardia)->id);
+    MenuItem::query()->whereIn('clave', ['unidades.lista', 'unidades.bloques'])->get()
+        ->each(fn (MenuItem $item) => $item->roles()->detach(rolGlobal(Rol::Guardia)->id));
     [, $token] = usuarioConToken($this->condominio, Rol::Guardia);
 
     expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio']);

@@ -4,6 +4,7 @@ use App\Core\Permissions\Rol;
 use App\Core\Tenancy\TenantContext;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Unidades\Models\Bloque;
+use App\Modules\Unidades\Models\Unidad;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -188,5 +189,40 @@ describe('Transacción por petición (RLS con SET LOCAL)', function () {
 
         expect(app(TenantContext::class)->has())->toBeFalse()
             ->and(DB::scalar("select current_setting('app.condominio_id', true)"))->toBeIn(['', null]);
+    });
+});
+
+describe('Unidades', function () {
+    beforeEach(function () {
+        $this->unidadB = enCondominio($this->b, fn () => Unidad::factory()->create(['codigo' => 'B-101']));
+        [, $this->tokenA] = usuarioConToken($this->a);
+    });
+
+    it('no lista unidades de otro condominio', function () {
+        $this->withToken($this->tokenA)->withHeader('X-Condominio-Id', (string) $this->a->id)
+            ->getJson('/api/v1/unidades')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    });
+
+    it('no ve, edita ni elimina una unidad de otro condominio', function () {
+        $api = $this->withToken($this->tokenA)->withHeader('X-Condominio-Id', (string) $this->a->id);
+
+        $api->getJson("/api/v1/unidades/{$this->unidadB->id}")->assertNotFound();
+        $api->patchJson("/api/v1/unidades/{$this->unidadB->id}", ['piso' => 9])->assertNotFound();
+        $api->deleteJson("/api/v1/unidades/{$this->unidadB->id}")->assertNotFound();
+
+        expect(enCondominio($this->b, fn () => Unidad::find($this->unidadB->id)?->piso))->toBe(1);
+    });
+
+    it('permite el mismo código de unidad en condominios distintos', function () {
+        $this->withToken($this->tokenA)->withHeader('X-Condominio-Id', (string) $this->a->id)
+            ->postJson('/api/v1/unidades', ['codigo' => 'B-101', 'tipo' => 'casa', 'area_m2' => 90])
+            ->assertCreated();
+    });
+
+    it('RLS filtra unidades aunque se salte el scope de Eloquent', function () {
+        expect(enCondominio($this->a, fn () => DB::table('unidades')->count()))->toBe(0)
+            ->and(enCondominio($this->b, fn () => DB::table('unidades')->count()))->toBe(1);
     });
 });
