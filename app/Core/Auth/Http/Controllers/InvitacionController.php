@@ -24,12 +24,18 @@ class InvitacionController
             'email' => $invitacion->user->email,
             'condominio' => $invitacion->condominio->nombre,
             'expira_en' => $invitacion->expira_en->toIso8601String(),
+            'aviso_privacidad_version' => (string) config('safic.aviso_privacidad_version'),
         ]);
     }
 
     public function aceptar(string $token, AceptarInvitacionRequest $request): JsonResponse
     {
-        $user = $this->invitaciones->aceptar($token, $request->string('password')->toString());
+        $user = $this->invitaciones->aceptar(
+            $token,
+            $request->string('password')->toString(),
+            $request->ip(),
+            $request->userAgent(),
+        );
 
         return ApiResponse::ok(['email' => $user->email], message: 'Contraseña creada. Ya puedes iniciar sesión.');
     }

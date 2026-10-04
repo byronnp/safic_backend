@@ -831,8 +831,10 @@ paths:
     post:
       tags: [Autenticación]
       operationId: aceptarInvitacion
-      summary: Crear la contraseña y activar la cuenta
-      description: Después, la SPA inicia sesión con `/auth/login` usando el correo devuelto.
+      summary: Crear la contraseña, aceptar el aviso de privacidad y activar la cuenta
+      description: |
+        Exige `acepta_privacidad: true` (LOPDP): se registra la versión del aviso, la fecha,
+        la IP y el navegador. Después, la SPA inicia sesión con `/auth/login` usando el correo devuelto.
       security: []
       parameters:
         - $ref: '#/components/parameters/TokenInvitacion'
@@ -842,13 +844,17 @@ paths:
           application/json:
             schema:
               type: object
-              required: [password, password_confirmation]
+              required: [password, password_confirmation, acepta_privacidad]
               properties:
                 password:
                   type: string
                   minLength: 10
                   description: Al menos 10 caracteres, con letras y números.
                 password_confirmation: { type: string }
+                acepta_privacidad:
+                  type: boolean
+                  const: true
+                  description: Aceptación del aviso de privacidad vigente (`aviso_privacidad_version` de la invitación).
       responses:
         '200':
           description: Contraseña creada.
@@ -1074,6 +1080,65 @@ paths:
           $ref: '#/components/responses/SinPermisoPlataforma'
         '404':
           $ref: '#/components/responses/NoEncontrado'
+
+  /plataforma/condominios/{condominio}/administradores/{usuario}/invitacion:
+    post:
+      tags: [Plataforma]
+      operationId: reenviarInvitacionAdministrador
+      summary: Reenviar la invitación a un administrador (y corregir su correo)
+      description: |
+        Solo mientras el administrador no haya creado su contraseña (si ya lo hizo, 409
+        `ADMINISTRADOR_ACTIVO`). Anula el enlace anterior y envía uno nuevo. Con `email`
+        corrige antes el correo (no puede ser de otra cuenta).
+      x-permiso: plataforma.condominios
+      parameters:
+        - in: path
+          name: condominio
+          required: true
+          schema: { type: integer }
+        - in: path
+          name: usuario
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: [string, 'null'], format: email, maxLength: 160 }
+      responses:
+        '200':
+          description: Invitación reenviada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id, nombre, email, estado]
+                    properties:
+                      id: { type: integer }
+                      nombre: { type: string }
+                      email: { type: string, format: email }
+                      estado: { type: string, const: invitado }
+                  message: { type: string }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`ADMINISTRADOR_ACTIVO`: ya creó su contraseña.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
 
 components:
   securitySchemes:
@@ -1480,12 +1545,13 @@ components:
 
     Invitacion:
       type: object
-      required: [nombre, email, condominio, expira_en]
+      required: [nombre, email, condominio, expira_en, aviso_privacidad_version]
       properties:
         nombre: { type: string }
         email: { type: string, format: email }
         condominio: { type: string }
         expira_en: { type: string, format: date-time }
+        aviso_privacidad_version: { type: string, description: Versión del aviso de privacidad que se acepta., examples: ['2026-10-borrador'] }
 
     Provincia:
       type: object

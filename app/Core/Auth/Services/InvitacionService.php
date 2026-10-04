@@ -4,6 +4,7 @@ namespace App\Core\Auth\Services;
 
 use App\Core\Auth\Models\Invitacion;
 use App\Core\Http\Exceptions\ApiException;
+use App\Core\Privacy\Models\AceptacionPrivacidad;
 use App\Models\User;
 use App\Modules\Plataforma\Models\Condominio;
 use Illuminate\Support\Facades\DB;
@@ -58,11 +59,12 @@ final class InvitacionService
     }
 
     /**
-     * Fija la contraseña, activa el usuario y marca la invitación como usada.
+     * Fija la contraseña, registra la aceptación del aviso de privacidad (LOPDP),
+     * activa el usuario y marca la invitación como usada.
      */
-    public function aceptar(string $token, string $password): User
+    public function aceptar(string $token, string $password, ?string $ip = null, ?string $userAgent = null): User
     {
-        return DB::transaction(function () use ($token, $password): User {
+        return DB::transaction(function () use ($token, $password, $ip, $userAgent): User {
             $invitacion = $this->vigente($token);
             $invitacion = Invitacion::query()->lockForUpdate()->findOrFail($invitacion->id);
 
@@ -78,6 +80,7 @@ final class InvitacionService
             ])->save();
 
             $invitacion->forceFill(['aceptada_en' => now()])->save();
+            AceptacionPrivacidad::registrar($user, AceptacionPrivacidad::ORIGEN_INVITACION, $ip, $userAgent);
 
             return $user;
         });
