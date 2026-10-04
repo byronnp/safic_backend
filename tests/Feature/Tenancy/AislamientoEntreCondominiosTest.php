@@ -1,10 +1,12 @@
 <?php
 
 use App\Core\Permissions\Rol;
+use App\Core\Tenancy\TenantContext;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Unidades\Models\Bloque;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 
 /*
 | Pruebas obligatorias de aislamiento. Cada módulo nuevo agrega las suyas
@@ -140,4 +142,51 @@ describe('Row Level Security (barrera de la base de datos)', function () {
             'orden' => 0,
         ])));
     })->throws(QueryException::class, 'row-level security');
+});
+
+describe('Transacción por petición (RLS con SET LOCAL)', function () {
+    beforeEach(function () {
+        // Ruta solo de prueba, en el mismo grupo que las rutas de condominio.
+        Route::middleware(['api', 'auth:api', 'condominio'])->post('/api/v1/_prueba/bloque', function () {
+            Bloque::create(['nombre' => 'Temporal', 'orden' => 0]);
+
+            abort_if(request()->boolean('fallar'), 409);
+
+            return response()->json(['ok' => true], 201);
+        });
+    });
+
+    it('deshace lo escrito si la petición termina en error', function () {
+        [, $token] = usuarioConToken($this->a);
+
+        $this->withToken($token)
+            ->withHeader('X-Condominio-Id', (string) $this->a->id)
+            ->postJson('/api/v1/_prueba/bloque', ['fallar' => true])
+            ->assertStatus(409);
+
+        expect(enCondominio($this->a, fn () => Bloque::where('nombre', 'Temporal')->exists()))->toBeFalse();
+    });
+
+    it('confirma lo escrito si la petición termina bien', function () {
+        [, $token] = usuarioConToken($this->a);
+
+        $this->withToken($token)
+            ->withHeader('X-Condominio-Id', (string) $this->a->id)
+            ->postJson('/api/v1/_prueba/bloque')
+            ->assertCreated();
+
+        expect(enCondominio($this->a, fn () => Bloque::where('nombre', 'Temporal')->exists()))->toBeTrue();
+    });
+
+    it('deja la petición sin condominio activo al terminar', function () {
+        [, $token] = usuarioConToken($this->a);
+
+        $this->withToken($token)
+            ->withHeader('X-Condominio-Id', (string) $this->a->id)
+            ->postJson('/api/v1/_prueba/bloque')
+            ->assertCreated();
+
+        expect(app(TenantContext::class)->has())->toBeFalse()
+            ->and(DB::scalar("select current_setting('app.condominio_id', true)"))->toBeIn(['', null]);
+    });
 });

@@ -50,6 +50,8 @@ final class TenantContext
 
     /**
      * Ejecuta $callback dentro de un condominio y restaura el anterior al terminar.
+     * Corre en una transacción (RLS se fija con SET LOCAL): si falla, no queda
+     * nada a medias.
      *
      * @template T
      *
@@ -59,24 +61,28 @@ final class TenantContext
     public function run(int $condominioId, callable $callback): mixed
     {
         $anterior = $this->condominioId;
-        $this->set($condominioId);
 
-        try {
-            $resultado = $callback();
-        } catch (Throwable $e) {
-            // Si la transacción quedó abortada, restaurar puede fallar: se
-            // conserva el error original, que es el útil.
+        return $this->database->transaction(function () use ($condominioId, $anterior, $callback) {
+            $this->set($condominioId);
+
             try {
-                $this->restaurar($anterior);
-            } catch (Throwable) {
+                $resultado = $callback();
+            } catch (Throwable $e) {
+                // Si la transacción quedó abortada, restaurar en la base falla; el
+                // rollback del savepoint devuelve RLS al valor anterior y aquí se
+                // conserva el error original, que es el útil.
+                try {
+                    $this->restaurar($anterior);
+                } catch (Throwable) {
+                }
+
+                throw $e;
             }
 
-            throw $e;
-        }
+            $this->restaurar($anterior);
 
-        $this->restaurar($anterior);
-
-        return $resultado;
+            return $resultado;
+        });
     }
 
     private function restaurar(?int $anterior): void

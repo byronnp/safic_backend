@@ -3,14 +3,16 @@
 namespace App\Core\Tenancy;
 
 use Illuminate\Database\DatabaseManager;
+use LogicException;
 
 /**
  * Tercera barrera de aislamiento: pasa el condominio activo a PostgreSQL para que
  * las políticas de Row Level Security filtren cada fila.
  *
- * Usa set_config(..., false) a nivel de sesión (no SET LOCAL) para que aplique a
- * todas las consultas de la petición aunque no haya transacción; el middleware y
- * TenantContext::clear() lo limpian al terminar.
+ * Usa set_config(..., true), equivalente a SET LOCAL: el valor vive solo hasta el
+ * fin de la transacción y nunca pasa a otra petición aunque la conexión se
+ * reutilice (RDS Proxy o PgBouncer en modo transacción). Por eso exige una
+ * transacción abierta: la abren el middleware "condominio" y TenantContext::run().
  */
 final class TenantDatabase
 {
@@ -26,9 +28,46 @@ final class TenantDatabase
             return;
         }
 
-        $connection->select('select set_config(?, ?, false)', [
+        if ($connection->transactionLevel() === 0) {
+            // Sin transacción no queda ningún valor local que limpiar.
+            if ($condominioId === null) {
+                return;
+            }
+
+            throw new LogicException('El condominio de RLS solo se fija dentro de una transacción: usa el middleware "condominio" o TenantContext::run().');
+        }
+
+        $connection->select('select set_config(?, ?, true)', [
             self::SETTING,
             $condominioId === null ? '' : (string) $condominioId,
         ]);
+    }
+
+    /**
+     * Ejecuta $callback en una transacción (un savepoint si ya hay una abierta).
+     *
+     * @template T
+     *
+     * @param  callable(): T  $callback
+     * @return T
+     */
+    public function transaction(callable $callback): mixed
+    {
+        return $this->db->connection()->transaction(fn () => $callback());
+    }
+
+    public function beginTransaction(): void
+    {
+        $this->db->connection()->beginTransaction();
+    }
+
+    public function commit(): void
+    {
+        $this->db->connection()->commit();
+    }
+
+    public function rollBack(): void
+    {
+        $this->db->connection()->rollBack();
     }
 }
