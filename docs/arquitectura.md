@@ -43,3 +43,13 @@ S1 se programó en dos ramas paralelas (`s1/semana-1` y `s1/alta-condominio`) y 
 - Se queda el **menú por perfil** de `s1/semana-1` (`menu_items`, `menu_item_rol`, `/me/menu`, `/plataforma/me/menu`) y su middleware `App\Core\Tenancy\Http\ResolvePlataforma`.
 - Se retiran `/plataforma/catalogos`, `/plataforma/ubicaciones`, `safic:importar-dpa` y las migraciones `2026_10_12_000100…000500`: duplicaban `/plataforma/amenidades`, `/ubicaciones` y el catálogo INEC ya sembrado.
 
+### Rutas por módulo (3 oct 2026)
+
+- Cada módulo declara sus rutas en su carpeta `Routes/`, un archivo por ámbito:
+  - `Routes/condominio.php` → `auth:api` + `condominio` + `throttle:api`, con `X-Condominio-Id`. Cada ruta con su permiso.
+  - `Routes/plataforma.php` → `auth:api` + `plataforma` (equipo 0), prefijo `/plataforma`. Cada ruta con su permiso de plataforma.
+  - `Routes/sesion.php` → `auth:api`, sin condominio: solo catálogos compartidos (ej. `GET /ubicaciones`).
+  - Un módulo con pantallas en varios ámbitos (ej. Suscripciones: "Mi suscripción" y la cobranza del super admin) usa varios archivos.
+- `routes/api.php` solo declara los grupos y las rutas transversales (auth, `/me/*`) y carga los archivos de los módulos solo; crear un módulo no obliga a editarlo.
+- `RutasPorModuloTest` verifica la convención, el grupo y el permiso; `ContratoOpenApiTest`, que cada ruta esté en el contrato.
+

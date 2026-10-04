@@ -17,7 +17,8 @@ La arquitectura completa está en `docs/arquitectura.md` (enlaces a los document
 ## Estructura
 ```
 app/Core/         Transversal: Tenancy, Auth, Http (ApiResponse, errores), Permissions, Console
-app/Modules/<M>/  Un módulo por área: Models, Actions, Http/{Controllers,Requests,Resources}, routes.php
+app/Modules/<M>/  Un módulo por área: Models, Actions, Http/{Controllers,Requests,Resources}, Routes/
+routes/api.php    Solo grupos y rutas transversales (auth, /me); carga solas las Routes/ de cada módulo
 database/         migrations (una por tabla), factories, seeders
 tests/Feature/    Pruebas de API por módulo · tests/Feature/Tenancy: aislamiento obligatorio
 ```
@@ -28,6 +29,14 @@ FormRequest (valida) → Controller (delgado) → Action (caso de uso + transacc
 - Un controlador nunca tiene lógica de negocio ni hace `response()->json()`: usa `App\Core\Http\Responses\ApiResponse`.
 - Errores de negocio: `throw new ApiException('CODIGO_ESTABLE', 'Mensaje en español', 422)`.
 - Un módulo no llama a los modelos de otro módulo directamente: usa sus Actions públicas o eventos.
+
+## Rutas por módulo
+- Cada módulo tiene sus propios archivos de rutas, uno por ámbito, en `app/Modules/<M>/Routes/`:
+  - `condominio.php`: grupo `auth:api` + `condominio` (header `X-Condominio-Id`). Cada ruta con su permiso.
+  - `plataforma.php`: grupo `auth:api` + `plataforma` (equipo 0), prefijo `/plataforma`. Cada ruta con su permiso de plataforma.
+  - `sesion.php`: grupo `auth:api`, sin condominio. Solo catálogos compartidos que no exponen datos de un condominio.
+- `routes/api.php` los carga solos (orden alfabético) y solo declara los grupos y las rutas transversales (auth, `/me/*`): no se edita al crear un módulo.
+- `tests/Feature/Contrato/RutasPorModuloTest.php` falla si un archivo está fuera de la convención, si una ruta de condominio o plataforma no tiene permiso o si está en el grupo equivocado.
 
 ## Multi-condominio (NO NEGOCIABLE)
 Tres barreras; las tres son obligatorias en toda tabla con datos de un condominio:
@@ -48,7 +57,7 @@ Reglas:
 - Los **roles** son un catálogo global (`roles.condominio_id` nulo); solo el super admin los crea. Se asignan por condominio (`model_has_roles.condominio_id`; `0` = plataforma).
 - Presidente, vicepresidente, secretario y tesorero son **cargos**: se asignan por la tabla de cargos (única persona por cargo), no con `assignRole` directo.
 - Cada ruta exige su permiso: `->middleware('permission:unidades.editar')`. Ocultar un ítem del menú no es seguridad.
-- Rutas del panel de plataforma: `auth:api` + `plataforma` (fija el equipo 0 de spatie) + `permission:plataforma.*`, sin `X-Condominio-Id`. Viven en `app/Modules/Plataforma/routes.php`. Si escriben datos de un condominio, lo hacen dentro de `TenantContext::run($id, ...)` y a través de las Actions públicas del módulo dueño.
+- Rutas del panel de plataforma: `auth:api` + `plataforma` (fija el equipo 0 de spatie) + `permission:plataforma.*`, sin `X-Condominio-Id`. Viven en `app/Modules/<M>/Routes/plataforma.php`. Si escriben datos de un condominio, lo hacen dentro de `TenantContext::run($id, ...)` y a través de las Actions públicas del módulo dueño.
 - El JWT no lleva roles ni condominio.
 
 ## Convenciones
