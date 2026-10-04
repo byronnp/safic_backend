@@ -56,9 +56,10 @@ S1 se programó en dos ramas paralelas (`s1/semana-1` y `s1/alta-condominio`) y 
 
 ### Logs y auditoría por condominio (4 oct 2026)
 
-- El super admin y soporte consultan los registros desde el panel de plataforma, filtrados por condominio. Los usuarios de un condominio no los ven.
+- El super admin y soporte consultan los registros de todos los condominios desde el panel de plataforma, filtrados por condominio. El **administrador de cada condominio** ve los errores de su propio condominio, sin detalle técnico, con el código de soporte (`request_id`) para pasarlo a la plataforma. Ningún condominio ve registros de otro.
 - Cuatro tipos: **registros del sistema** (`warning`+, jobs e integraciones; tabla `registros_sistema`, 90 días), **eventos de seguridad** (canal `seguridad`, 1 año), **auditoría de cambios** (`laravel-auditing`, con `condominio_id` y RLS, 5 años) y **bitácora del contador** (`registros_acceso`, 5 años). El detalle `info`/`debug` va solo a stderr en JSON.
 - Cada línea lleva `request_id` (middleware `AsignarRequestId`, también en jobs), `condominio_id`, `usuario_id`, ámbito y ruta. `EnmascararDatosPersonales` quita cédula, RUC, teléfono, correo, contraseñas, tokens y cuentas antes de escribir.
-- `registros_sistema` es tabla de plataforma (sin RLS), particionada por mes; la app inserta por la cola `logs` y, si la base falla, el registro queda en stderr.
+- `registros_sistema` tiene `condominio_id`, `BelongsToCondominio` y RLS de doble ámbito: se lee si es del condominio del contexto o si la petición es de plataforma (`app.ambito = 'plataforma'`, que solo fija el middleware `plataforma`). Particionada por mes; la app inserta por la cola `logs` y, si la base falla, el registro queda en stderr.
 - Visor: `GET /plataforma/registros`, `/plataforma/registros/{id}`, `/plataforma/registros/resumen` (permiso `plataforma.registros`: super admin y soporte) y `GET /plataforma/condominios/{id}/auditoria` (`plataforma.auditoria`: super admin). Cada consulta al visor queda como evento de seguridad.
-- Se construye en dos partes: la base (request id, contexto, enmascarado, JSON a stderr) ahora; la tabla, el visor y las alertas en S4.
+- Vista del administrador: `GET /registros` y `GET /registros/{id}` (ruta de condominio, permiso `registros.ver`, por defecto del administrador). Sin `contexto` técnico ni enlace a Sentry; las acciones del equipo de la plataforma se muestran como "Equipo SAFIC". Pantalla "Registros de errores" en Configuración.
+- Se construye en dos partes: la base (request id, contexto, enmascarado, JSON a stderr) ahora; la tabla, los dos visores y las alertas en S4.
