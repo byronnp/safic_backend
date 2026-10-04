@@ -27,3 +27,11 @@ Plan: Sprint 0 (este esqueleto) → S1 alta de condominio → S2 unidades y resi
 - El frontend decide la entrada por perfil: solo plataforma → `/plataforma` (primera pantalla que permitan sus permisos); con condominios → selector o condominio principal; con ambos → puede cambiar de ámbito desde el menú de usuario.
 - Las rutas de plataforma (`meta.plataforma`) se validan con los permisos de plataforma, nunca con los del condominio. Los permisos de plataforma no se mezclan con `/me/contexto`.
 - El super admin **no** entra a un condominio por el header sin membresía (`CONDOMINIO_NO_PERMITIDO`). Las rutas `/api/v1/plataforma/*` llevarán su propio middleware que fija el equipo `0` (pendiente, con el módulo Plataforma).
+
+### Menú y pantallas por perfil (S1, semana 1)
+
+- El menú es un catálogo global del super admin: `menu_items` (ámbito `condominio` o `plataforma`, ícono `sym_r_*` obligatorio, permiso por hoja) y `menu_item_rol` (qué perfiles ven cada hoja). Se eligió **asignación manual por perfil** porque las pantallas y menús están definidos por perfil.
+- Una hoja se muestra si está asignada a un perfil del usuario en el equipo activo **y** el usuario tiene su permiso; los grupos solo si les queda alguna hoja. La API sigue exigiendo el permiso en cada ruta.
+- `GET /me/menu` (condominio del header) y `GET /plataforma/me/menu` (equipo 0). El frontend usa el mismo formato `ItemMenu`; en desarrollo suma las pantallas en vista previa del menú local.
+- `MenuSeeder` solo crea pantallas con API y asigna perfiles a los ítems nuevos según los permisos por defecto de cada rol; no pisa cambios del super admin.
+- Rutas `/api/v1/plataforma/*`: middleware `plataforma` (equipo 0); cada una con su permiso de plataforma.
