@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Core\Permissions\Rol;
+use App\Core\Privacy\DatosPersonales;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
 use App\Modules\Finanzas\Actions\GuardarConfiguracionCobroAction;
@@ -10,6 +11,8 @@ use App\Modules\Finanzas\Models\ConfiguracionCobro;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Plataforma\Models\Plan;
 use App\Modules\Unidades\Models\Bloque;
+use App\Modules\Unidades\Models\Ocupante;
+use App\Modules\Unidades\Models\Persona;
 use App\Modules\Unidades\Models\Unidad;
 use Illuminate\Database\Seeder;
 
@@ -81,6 +84,8 @@ class DemoSeeder extends Seeder
                 Unidad::firstOrCreate(['codigo' => sprintf('CS-%02d', $n)], ['tipo' => 'casa', 'area_m2' => '140.00', 'alicuota' => '1.0400']);
                 Unidad::firstOrCreate(['codigo' => sprintf('P-%02d', $n)], ['tipo' => 'parqueadero', 'area_m2' => '12.50']);
             }
+
+            $this->ocupantesDemo();
         });
 
         $tenant->run($arupos->id, function () {
@@ -88,6 +93,42 @@ class DemoSeeder extends Seeder
                 Bloque::firstOrCreate(['nombre' => $nombre], ['orden' => $i + 1]);
             }
         });
+    }
+
+    /**
+     * Personas y ocupantes de los mockups (ficticios): una ocupada, una arrendada y
+     * una con propietario que no reside.
+     */
+    private function ocupantesDemo(): void
+    {
+        $desde = now()->subYear()->startOfMonth()->toDateString();
+        $personas = [];
+        foreach ([
+            'carlos' => ['Carlos', 'Andrade', 'P0000001'],
+            'lucia' => ['Lucía', 'Paredes', 'P0000002'],
+            'diego' => ['Diego', 'Mora', 'P0000003'],
+            'andrea' => ['Andrea', 'Villacís', 'P0000004'],
+        ] as $clave => [$nombres, $apellidos, $pasaporte]) {
+            $hash = DatosPersonales::hashDocumento('pasaporte', $pasaporte);
+            $personas[$clave] = Persona::query()->where('documento_hash', $hash)->first()
+                ?? Persona::create([
+                    'tipo_documento' => 'pasaporte', 'documento' => $pasaporte, 'nombres' => $nombres,
+                    'apellidos' => $apellidos, 'telefono' => '09900000'.substr($pasaporte, -2),
+                ]);
+        }
+
+        $asignar = function (string $codigo, Persona $persona, string $relacion, bool $principal) use ($desde): void {
+            $unidad = Unidad::query()->where('codigo', $codigo)->firstOrFail();
+            Ocupante::firstOrCreate(
+                ['unidad_id' => $unidad->id, 'persona_id' => $persona->id, 'relacion' => $relacion],
+                ['es_principal' => $principal, 'fecha_inicio' => $desde],
+            );
+        };
+
+        $asignar('A-101', $personas['carlos'], 'propietario', true);
+        $asignar('A-102', $personas['lucia'], 'propietario', false);
+        $asignar('A-102', $personas['diego'], 'inquilino', true);
+        $asignar('B-104', $personas['andrea'], 'propietario', false);
     }
 
     private function membresia(User $user, Condominio $condominio, bool $principal): void
