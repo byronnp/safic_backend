@@ -28,6 +28,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $responsable_pago
  * @property-read Bloque|null $bloque
  * @property-read Collection<int, Ocupante> $ocupantesVigentes
+ * @property-read Collection<int, Vehiculo> $vehiculos
+ * @property-read Collection<int, Mascota> $mascotas
  */
 class Unidad extends Model
 {
@@ -65,6 +67,18 @@ class Unidad extends Model
     public function bloque(): BelongsTo
     {
         return $this->belongsTo(Bloque::class);
+    }
+
+    /** @return HasMany<Vehiculo, $this> */
+    public function vehiculos(): HasMany
+    {
+        return $this->hasMany(Vehiculo::class);
+    }
+
+    /** @return HasMany<Mascota, $this> */
+    public function mascotas(): HasMany
+    {
+        return $this->hasMany(Mascota::class);
     }
 
     /** @return HasMany<Ocupante, $this> */

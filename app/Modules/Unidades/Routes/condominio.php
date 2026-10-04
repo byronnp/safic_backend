@@ -2,9 +2,11 @@
 
 use App\Core\Permissions\Permiso;
 use App\Modules\Unidades\Http\Controllers\BloqueController;
+use App\Modules\Unidades\Http\Controllers\MascotaController;
 use App\Modules\Unidades\Http\Controllers\OcupanteController;
 use App\Modules\Unidades\Http\Controllers\PersonaController;
 use App\Modules\Unidades\Http\Controllers\UnidadController;
+use App\Modules\Unidades\Http\Controllers\VehiculoController;
 use Illuminate\Support\Facades\Route;
 
 // Rutas del módulo Unidades en el condominio. routes/api.php las carga dentro del
@@ -63,4 +65,29 @@ Route::get('personas/{persona}', [PersonaController::class, 'show'])
 
 Route::patch('personas/{persona}', [PersonaController::class, 'update'])
     ->whereNumber('persona')
+    ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
+// Vehículos y mascotas de una unidad
+Route::post('unidades/{unidad}/vehiculos', [VehiculoController::class, 'store'])
+    ->whereNumber('unidad')
+    ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
+Route::patch('vehiculos/{vehiculo}', [VehiculoController::class, 'update'])
+    ->whereNumber('vehiculo')
+    ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
+Route::delete('vehiculos/{vehiculo}', [VehiculoController::class, 'destroy'])
+    ->whereNumber('vehiculo')
+    ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
+Route::post('unidades/{unidad}/mascotas', [MascotaController::class, 'store'])
+    ->whereNumber('unidad')
+    ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
+Route::patch('mascotas/{mascota}', [MascotaController::class, 'update'])
+    ->whereNumber('mascota')
+    ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
+Route::delete('mascotas/{mascota}', [MascotaController::class, 'destroy'])
+    ->whereNumber('mascota')
     ->middleware('permission:'.Permiso::UnidadesEditar->value);

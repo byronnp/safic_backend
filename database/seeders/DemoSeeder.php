@@ -11,9 +11,11 @@ use App\Modules\Finanzas\Models\ConfiguracionCobro;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Plataforma\Models\Plan;
 use App\Modules\Unidades\Models\Bloque;
+use App\Modules\Unidades\Models\Mascota;
 use App\Modules\Unidades\Models\Ocupante;
 use App\Modules\Unidades\Models\Persona;
 use App\Modules\Unidades\Models\Unidad;
+use App\Modules\Unidades\Models\Vehiculo;
 use Illuminate\Database\Seeder;
 
 /**
@@ -129,6 +131,14 @@ class DemoSeeder extends Seeder
         $asignar('A-102', $personas['lucia'], 'propietario', false);
         $asignar('A-102', $personas['diego'], 'inquilino', true);
         $asignar('B-104', $personas['andrea'], 'propietario', false);
+
+        // Vehículos y mascotas de las unidades habitadas (ficticios)
+        $a101 = Unidad::query()->where('codigo', 'A-101')->firstOrFail();
+        $a102 = Unidad::query()->where('codigo', 'A-102')->firstOrFail();
+        Vehiculo::firstOrCreate(['placa' => 'PBA-1234'], ['unidad_id' => $a101->id, 'tipo' => 'auto', 'marca' => 'Kia', 'modelo' => 'Rio', 'color' => 'Gris']);
+        Vehiculo::firstOrCreate(['placa' => 'PCD-5678'], ['unidad_id' => $a102->id, 'tipo' => 'auto', 'marca' => 'Chevrolet', 'modelo' => 'Onix', 'color' => 'Blanco']);
+        Vehiculo::firstOrCreate(['placa' => 'IA-123B'], ['unidad_id' => $a102->id, 'tipo' => 'moto', 'marca' => 'Honda', 'color' => 'Negro']);
+        Mascota::firstOrCreate(['unidad_id' => $a102->id, 'nombre' => 'Luna'], ['especie' => 'perro', 'raza' => 'Mestiza']);
     }
 
     private function membresia(User $user, Condominio $condominio, bool $principal): void

@@ -4,9 +4,11 @@ use App\Core\Permissions\Rol;
 use App\Core\Tenancy\TenantContext;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Unidades\Models\Bloque;
+use App\Modules\Unidades\Models\Mascota;
 use App\Modules\Unidades\Models\Ocupante;
 use App\Modules\Unidades\Models\Persona;
 use App\Modules\Unidades\Models\Unidad;
+use App\Modules\Unidades\Models\Vehiculo;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -274,5 +276,44 @@ describe('Personas y ocupantes', function () {
     it('RLS filtra personas y ocupantes aunque se salte el scope de Eloquent', function () {
         expect(enCondominio($this->a, fn () => DB::table('personas')->count() + DB::table('unidad_persona')->count()))->toBe(0)
             ->and(enCondominio($this->b, fn () => DB::table('unidad_persona')->count()))->toBe(1);
+    });
+});
+
+describe('Vehículos y mascotas', function () {
+    beforeEach(function () {
+        [$this->vehiculoB, $this->mascotaB] = enCondominio($this->b, function () {
+            $unidad = Unidad::factory()->create();
+
+            return [
+                Vehiculo::create(['unidad_id' => $unidad->id, 'placa' => 'PBA-1234', 'tipo' => 'auto']),
+                Mascota::create(['unidad_id' => $unidad->id, 'nombre' => 'Luna', 'especie' => 'perro']),
+            ];
+        });
+        $this->unidadB = $this->vehiculoB->unidad_id;
+        [, $tokenA] = usuarioConToken($this->a);
+        $this->apiA = fn () => $this->withToken($tokenA)->withHeader('X-Condominio-Id', (string) $this->a->id);
+    });
+
+    it('no edita ni quita vehículos o mascotas de otro condominio', function () {
+        ($this->apiA)()->patchJson("/api/v1/vehiculos/{$this->vehiculoB->id}", ['color' => 'X'])->assertNotFound();
+        ($this->apiA)()->deleteJson("/api/v1/vehiculos/{$this->vehiculoB->id}")->assertNotFound();
+        ($this->apiA)()->patchJson("/api/v1/mascotas/{$this->mascotaB->id}", ['raza' => 'X'])->assertNotFound();
+        ($this->apiA)()->deleteJson("/api/v1/mascotas/{$this->mascotaB->id}")->assertNotFound();
+    });
+
+    it('no registra en una unidad de otro condominio', function () {
+        ($this->apiA)()->postJson("/api/v1/unidades/{$this->unidadB}/vehiculos", ['placa' => 'PBC-1111', 'tipo' => 'auto'])->assertNotFound();
+        ($this->apiA)()->postJson("/api/v1/unidades/{$this->unidadB}/mascotas", ['nombre' => 'X', 'especie' => 'gato'])->assertNotFound();
+    });
+
+    it('la misma placa puede estar en condominios distintos', function () {
+        $unidadA = enCondominio($this->a, fn () => Unidad::factory()->create());
+
+        ($this->apiA)()->postJson("/api/v1/unidades/{$unidadA->id}/vehiculos", ['placa' => 'PBA-1234', 'tipo' => 'auto'])->assertCreated();
+    });
+
+    it('RLS filtra vehículos y mascotas aunque se salte el scope de Eloquent', function () {
+        expect(enCondominio($this->a, fn () => DB::table('vehiculos')->count() + DB::table('mascotas')->count()))->toBe(0)
+            ->and(enCondominio($this->b, fn () => DB::table('vehiculos')->count() + DB::table('mascotas')->count()))->toBe(2);
     });
 });

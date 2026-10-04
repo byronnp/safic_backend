@@ -301,7 +301,7 @@ paths:
         - $ref: '#/components/parameters/CondominioId'
         - in: query
           name: buscar
-          description: Parte del código (ej. `A-1`) o del nombre de un ocupante vigente.
+          description: Parte del código (ej. `A-1`), del nombre de un ocupante vigente o de una placa (con o sin guion).
           schema: { type: string }
         - in: query
           name: tipo
@@ -626,6 +626,218 @@ paths:
           $ref: '#/components/responses/ConflictoOcupante'
         '422':
           $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /unidades/{unidad}/vehiculos:
+    post:
+      tags: [Unidades]
+      operationId: registrarVehiculo
+      summary: Registrar un vehículo en la unidad
+      description: 'Permiso: `unidades.editar`. La placa (autos PBA-1234 o ABC-123, motos IA-123B) se guarda normalizada y no se repite en el condominio.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/UnidadId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarVehiculo' }
+      responses:
+        '201':
+          description: Registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Vehiculo' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /vehiculos/{vehiculo}:
+    patch:
+      tags: [Unidades]
+      operationId: editarVehiculo
+      summary: Editar un vehículo
+      description: 'Permiso: `unidades.editar`. Solo se envían los campos que cambian.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - in: path
+          name: vehiculo
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarVehiculo' }
+      responses:
+        '200':
+          description: Actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Vehiculo' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    delete:
+      tags: [Unidades]
+      operationId: eliminarVehiculo
+      summary: Quitar un vehículo de la unidad
+      description: 'Permiso: `unidades.editar`. Borrado lógico.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - in: path
+          name: vehiculo
+          required: true
+          schema: { type: integer }
+      responses:
+        '204':
+          description: Eliminado.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /unidades/{unidad}/mascotas:
+    post:
+      tags: [Unidades]
+      operationId: registrarMascota
+      summary: Registrar una mascota en la unidad
+      description: 'Permiso: `unidades.editar`. La foto llega con el almacenamiento de archivos.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/UnidadId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarMascota' }
+      responses:
+        '201':
+          description: Registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Mascota' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /mascotas/{mascota}:
+    patch:
+      tags: [Unidades]
+      operationId: editarMascota
+      summary: Editar una mascota
+      description: 'Permiso: `unidades.editar`. Solo se envían los campos que cambian.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - in: path
+          name: mascota
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarMascota' }
+      responses:
+        '200':
+          description: Actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Mascota' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    delete:
+      tags: [Unidades]
+      operationId: eliminarMascota
+      summary: Quitar una mascota de la unidad
+      description: 'Permiso: `unidades.editar`. Borrado lógico.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - in: path
+          name: mascota
+          required: true
+          schema: { type: integer }
+      responses:
+        '204':
+          description: Eliminado.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
@@ -1431,12 +1643,58 @@ components:
       allOf:
         - $ref: '#/components/schemas/Unidad'
         - type: object
-          required: [ocupantes]
+          required: [ocupantes, vehiculos, mascotas]
           properties:
             ocupantes:
               type: array
               description: Ocupantes vigentes, el principal primero.
               items: { $ref: '#/components/schemas/Ocupante' }
+            vehiculos:
+              type: array
+              items: { $ref: '#/components/schemas/Vehiculo' }
+            mascotas:
+              type: array
+              items: { $ref: '#/components/schemas/Mascota' }
+
+    Vehiculo:
+      type: object
+      required: [id, unidad_id, placa, tipo, marca, modelo, color]
+      properties:
+        id: { type: integer }
+        unidad_id: { type: integer }
+        placa: { type: string, examples: ['PBA-1234', 'IA-123B'] }
+        tipo: { type: string, enum: [auto, moto] }
+        marca: { type: [string, 'null'] }
+        modelo: { type: [string, 'null'] }
+        color: { type: [string, 'null'] }
+
+    GuardarVehiculo:
+      type: object
+      description: En `POST`, `placa` y `tipo` son obligatorios; en `PATCH` todo es opcional.
+      properties:
+        placa: { type: string, maxLength: 10, description: 'Con o sin guion, en mayúsculas o minúsculas.', examples: ['pba1234'] }
+        tipo: { type: string, enum: [auto, moto] }
+        marca: { type: [string, 'null'], maxLength: 40 }
+        modelo: { type: [string, 'null'], maxLength: 40 }
+        color: { type: [string, 'null'], maxLength: 30 }
+
+    Mascota:
+      type: object
+      required: [id, unidad_id, nombre, especie, raza]
+      properties:
+        id: { type: integer }
+        unidad_id: { type: integer }
+        nombre: { type: string }
+        especie: { type: string, enum: [perro, gato, ave, otro] }
+        raza: { type: [string, 'null'] }
+
+    GuardarMascota:
+      type: object
+      description: En `POST`, `nombre` y `especie` son obligatorios; en `PATCH` todo es opcional.
+      properties:
+        nombre: { type: string, maxLength: 40 }
+        especie: { type: string, enum: [perro, gato, ave, otro] }
+        raza: { type: [string, 'null'], maxLength: 40 }
 
     RelacionOcupante:
       type: string

@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
 class UnidadController
 {
     /**
-     * Filtros: bloque_id, tipo, estado, buscar (código o nombre de un ocupante vigente).
+     * Filtros: bloque_id, tipo, estado, buscar (código, nombre de un ocupante vigente o placa).
      * Orden por código.
      */
     public function index(Request $request): JsonResponse
@@ -31,13 +31,17 @@ class UnidadController
         $bloqueId = $request->query('bloque_id');
         $porPagina = min(max((int) $request->query('por_pagina', 25), 1), 100);
         $patron = '%'.addcslashes($buscar, '%_\\').'%';
+        // Placa sin guion ni espacios: "pba1234" o "PBA 12" encuentran PBA-1234
+        $placa = strtoupper((string) preg_replace('/[\s\-]/', '', $buscar));
+        $patronPlaca = '%'.addcslashes($placa, '%_\\').'%';
 
         $pagina = Unidad::query()
             ->with(['bloque', 'ocupantesVigentes.persona'])
             ->when($buscar !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->where('codigo', 'like', mb_strtoupper($patron))
                 ->orWhereHas('ocupantesVigentes.persona', fn ($p) => $p
-                    ->whereRaw("(nombres || ' ' || apellidos) ilike ?", [$patron]))))
+                    ->whereRaw("(nombres || ' ' || apellidos) ilike ?", [$patron]))
+                ->orWhereHas('vehiculos', fn ($v) => $v->whereRaw("replace(placa, '-', '') like ?", [$patronPlaca]))))
             ->when(in_array($tipo, Unidad::TIPOS, true), fn ($q) => $q->where('tipo', $tipo))
             ->when(in_array($estado, Unidad::ESTADOS, true), fn ($q) => $q->conEstado($estado))
             ->when(is_string($bloqueId) && ctype_digit($bloqueId), fn ($q) => $q->where('bloque_id', (int) $bloqueId))
@@ -81,7 +85,7 @@ class UnidadController
 
     public function show(Unidad $unidad): JsonResponse
     {
-        return ApiResponse::ok(new UnidadDetalleResource($unidad->load(['bloque', 'ocupantesVigentes.persona'])));
+        return ApiResponse::ok(new UnidadDetalleResource($unidad->load(['bloque', 'ocupantesVigentes.persona', 'vehiculos', 'mascotas'])));
     }
 
     public function store(GuardarUnidadRequest $request, CrearUnidadAction $crear): JsonResponse
