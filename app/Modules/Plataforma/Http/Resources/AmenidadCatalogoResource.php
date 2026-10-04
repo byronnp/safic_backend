@@ -17,11 +17,13 @@ class AmenidadCatalogoResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'clave' => $this->clave,
+            'id' => $this->id,
             'nombre' => $this->nombre,
-            'icono' => $this->icono,
+            'categoria' => $this->categoria,
+            'descripcion' => $this->descripcion,
             'reservable' => $this->reservable,
             'esencial' => $this->esencial,
+            'requiere_aprobacion' => $this->requiere_aprobacion,
         ];
     }
 }

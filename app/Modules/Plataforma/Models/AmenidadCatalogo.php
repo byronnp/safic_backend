@@ -2,42 +2,42 @@
 
 namespace App\Modules\Plataforma\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Amenidad del catálogo global. Catálogo de plataforma (sin RLS).
+ * Amenidad del catálogo global (la administra el super admin). Sin RLS.
  *
  * @property int $id
- * @property string $clave
  * @property string $nombre
- * @property string $icono
+ * @property string $categoria
+ * @property string|null $descripcion
  * @property bool $reservable
  * @property bool $esencial
+ * @property bool $requiere_aprobacion
+ * @property int|null $capacidad
+ * @property int|null $duracion_maxima_min
  * @property int $orden
- * @property bool $activo
+ * @property bool $activa
  */
 class AmenidadCatalogo extends Model
 {
     protected $table = 'amenidades_catalogo';
 
-    protected $fillable = ['clave', 'nombre', 'icono', 'reservable', 'esencial', 'orden', 'activo'];
+    protected $fillable = [
+        'nombre', 'categoria', 'descripcion', 'reservable', 'esencial', 'requiere_aprobacion',
+        'capacidad', 'duracion_maxima_min', 'orden', 'activa',
+    ];
 
     protected function casts(): array
     {
         return [
             'reservable' => 'boolean',
             'esencial' => 'boolean',
+            'requiere_aprobacion' => 'boolean',
+            'capacidad' => 'integer',
+            'duracion_maxima_min' => 'integer',
             'orden' => 'integer',
-            'activo' => 'boolean',
+            'activa' => 'boolean',
         ];
-    }
-
-    /**
-     * @param  Builder<AmenidadCatalogo>  $query
-     */
-    public function scopeActivas(Builder $query): void
-    {
-        $query->where('activo', true)->orderBy('orden')->orderBy('nombre');
     }
 }

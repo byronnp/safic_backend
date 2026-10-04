@@ -4,82 +4,102 @@ namespace Database\Seeders;
 
 use App\Modules\Plataforma\Models\AmenidadCatalogo;
 use App\Modules\Plataforma\Models\Plan;
-use App\Modules\Plataforma\Models\Provincia;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 /**
- * Catálogos de plataforma. Idempotente: crea lo que falta y no pisa lo que el
- * super admin haya cambiado después (planes y amenidades se editan desde el panel).
- *
- * Cantones y parroquias se cargan con el archivo oficial del INEC:
- *     php artisan safic:importar-dpa storage/app/dpa.csv
+ * Catálogos de plataforma: planes, amenidades y división territorial del Ecuador.
+ * Idempotente: se puede correr en cada despliegue. No pisa lo que el super admin
+ * ajustó en planes o amenidades (solo crea los que faltan).
  */
 class CatalogosSeeder extends Seeder
 {
     public function run(): void
     {
-        foreach ($this->planes() as $orden => $plan) {
-            Plan::query()->firstOrCreate(['clave' => $plan['clave']], $plan + ['orden' => $orden + 1]);
-        }
+        $this->planes();
+        $this->amenidades();
+        $this->ubicaciones();
+    }
 
-        foreach ($this->provincias() as $codigo => $nombre) {
-            Provincia::query()->firstOrCreate(['codigo' => $codigo], ['nombre' => $nombre]);
-        }
+    private function planes(): void
+    {
+        $planes = [
+            ['codigo' => 'basico', 'nombre' => 'Básico', 'limite_administrativos' => 2, 'valor_unidad_sugerido' => '1.50', 'orden' => 1],
+            ['codigo' => 'profesional', 'nombre' => 'Profesional', 'limite_administrativos' => 3, 'valor_unidad_sugerido' => '2.00', 'orden' => 2],
+            ['codigo' => 'completo', 'nombre' => 'Completo', 'limite_administrativos' => 4, 'valor_unidad_sugerido' => '2.50', 'orden' => 3],
+        ];
 
-        foreach ($this->amenidades() as $orden => $amenidad) {
-            AmenidadCatalogo::query()->firstOrCreate(['clave' => $amenidad['clave']], $amenidad + ['orden' => $orden + 1]);
+        foreach ($planes as $plan) {
+            Plan::firstOrCreate(['codigo' => $plan['codigo']], $plan);
+        }
+    }
+
+    private function amenidades(): void
+    {
+        // nombre, categoría, descripción, reservable, esencial, requiere aprobación, capacidad, duración (min)
+        $amenidades = [
+            ['Piscina', 'recreacion', 'Piscina de uso común con horario', true, false, false, 30, 180],
+            ['Salón comunal', 'social', 'Eventos sociales y reuniones', true, false, true, 80, 360],
+            ['Área BBQ', 'social', 'Parrilla con mesas', true, false, false, 20, 240],
+            ['Cancha múltiple', 'deporte', 'Fútbol, básquet o vóley', true, false, false, 12, 120],
+            ['Gimnasio', 'deporte', 'Máquinas y pesas, uso libre', false, false, false, 15, null],
+            ['Parque infantil', 'recreacion', 'Juegos para niños', false, false, false, null, null],
+            ['Ascensor', 'servicios', 'Transporte vertical', false, true, false, null, null],
+            ['Generador eléctrico', 'servicios', 'Respaldo de energía', false, true, false, null, null],
+            ['Guardianía 24 h', 'seguridad', 'Control de acceso permanente', false, true, false, null, null],
+            ['Parqueadero de visitas', 'servicios', 'Estacionamiento para visitantes', false, false, false, null, null],
+        ];
+
+        foreach ($amenidades as $orden => [$nombre, $categoria, $descripcion, $reservable, $esencial, $aprobacion, $capacidad, $duracion]) {
+            AmenidadCatalogo::firstOrCreate(['nombre' => $nombre], [
+                'categoria' => $categoria,
+                'descripcion' => $descripcion,
+                'reservable' => $reservable,
+                'esencial' => $esencial,
+                'requiere_aprobacion' => $aprobacion,
+                'capacidad' => $capacidad,
+                'duracion_maxima_min' => $duracion,
+                'orden' => $orden + 1,
+                'activa' => true,
+            ]);
         }
     }
 
     /**
-     * Límite de usuarios administrativos por plan: Básico 2, Profesional 3, Completo 4.
-     *
-     * @return list<array{clave: string, nombre: string, max_administrativos: int, valor_unidad_sugerido: string}>
+     * Provincias, cantones y parroquias con sus códigos INEC (database/data).
+     * Upsert por código: corregir un nombre en el JSON lo actualiza al desplegar.
      */
-    private function planes(): array
+    private function ubicaciones(): void
     {
-        return [
-            ['clave' => Plan::BASICO, 'nombre' => 'Básico', 'max_administrativos' => 2, 'valor_unidad_sugerido' => '2.00'],
-            ['clave' => Plan::PROFESIONAL, 'nombre' => 'Profesional', 'max_administrativos' => 3, 'valor_unidad_sugerido' => '2.00'],
-            ['clave' => Plan::COMPLETO, 'nombre' => 'Completo', 'max_administrativos' => 4, 'valor_unidad_sugerido' => '2.00'],
-        ];
-    }
+        $ruta = database_path('data/division_territorial_ec.json');
+        $datos = json_decode((string) file_get_contents($ruta), true);
 
-    /**
-     * Las 24 provincias con su código de la DPA del INEC.
-     *
-     * @return array<string, string>
-     */
-    private function provincias(): array
-    {
-        return [
-            '01' => 'Azuay', '02' => 'Bolívar', '03' => 'Cañar', '04' => 'Carchi',
-            '05' => 'Cotopaxi', '06' => 'Chimborazo', '07' => 'El Oro', '08' => 'Esmeraldas',
-            '09' => 'Guayas', '10' => 'Imbabura', '11' => 'Loja', '12' => 'Los Ríos',
-            '13' => 'Manabí', '14' => 'Morona Santiago', '15' => 'Napo', '16' => 'Pastaza',
-            '17' => 'Pichincha', '18' => 'Tungurahua', '19' => 'Zamora Chinchipe', '20' => 'Galápagos',
-            '21' => 'Sucumbíos', '22' => 'Orellana', '23' => 'Santo Domingo de los Tsáchilas', '24' => 'Santa Elena',
-        ];
-    }
+        if (! is_array($datos) || ! isset($datos['provincias'])) {
+            throw new RuntimeException("No se pudo leer {$ruta}.");
+        }
 
-    /**
-     * Catálogo inicial. Reservable: pasa a la agenda de áreas comunes.
-     * Esencial: nunca se restringe por mora.
-     *
-     * @return list<array{clave: string, nombre: string, icono: string, reservable: bool, esencial: bool}>
-     */
-    private function amenidades(): array
-    {
-        return [
-            ['clave' => 'piscina', 'nombre' => 'Piscina', 'icono' => 'sym_r_pool', 'reservable' => true, 'esencial' => false],
-            ['clave' => 'gimnasio', 'nombre' => 'Gimnasio', 'icono' => 'sym_r_fitness_center', 'reservable' => false, 'esencial' => false],
-            ['clave' => 'salon_comunal', 'nombre' => 'Salón comunal', 'icono' => 'sym_r_meeting_room', 'reservable' => true, 'esencial' => false],
-            ['clave' => 'area_bbq', 'nombre' => 'Área BBQ', 'icono' => 'sym_r_outdoor_grill', 'reservable' => true, 'esencial' => false],
-            ['clave' => 'canchas', 'nombre' => 'Canchas', 'icono' => 'sym_r_sports_soccer', 'reservable' => true, 'esencial' => false],
-            ['clave' => 'parque_infantil', 'nombre' => 'Parque infantil', 'icono' => 'sym_r_park', 'reservable' => false, 'esencial' => false],
-            ['clave' => 'guardiania', 'nombre' => 'Guardianía 24 h', 'icono' => 'sym_r_local_police', 'reservable' => false, 'esencial' => true],
-            ['clave' => 'generador', 'nombre' => 'Generador', 'icono' => 'sym_r_bolt', 'reservable' => false, 'esencial' => true],
-            ['clave' => 'parqueadero_visitas', 'nombre' => 'Parqueadero de visitas', 'icono' => 'sym_r_local_parking', 'reservable' => false, 'esencial' => false],
-        ];
+        $provincias = $cantones = $parroquias = [];
+
+        foreach ($datos['provincias'] as $p) {
+            $provincias[] = ['codigo' => $p['codigo'], 'nombre' => $p['nombre'], 'latitud' => $p['lat'] ?? null, 'longitud' => $p['lng'] ?? null];
+
+            foreach ($p['cantones'] as $c) {
+                $cantones[] = ['codigo' => $c['codigo'], 'provincia_codigo' => $p['codigo'], 'nombre' => $c['nombre'], 'latitud' => $c['lat'] ?? null, 'longitud' => $c['lng'] ?? null];
+
+                foreach ($c['parroquias'] as $q) {
+                    $parroquias[] = ['codigo' => $q['codigo'], 'canton_codigo' => $c['codigo'], 'nombre' => $q['nombre']];
+                }
+            }
+        }
+
+        DB::transaction(function () use ($provincias, $cantones, $parroquias): void {
+            DB::table('ubicacion_provincias')->upsert($provincias, ['codigo'], ['nombre', 'latitud', 'longitud']);
+            DB::table('ubicacion_cantones')->upsert($cantones, ['codigo'], ['provincia_codigo', 'nombre', 'latitud', 'longitud']);
+
+            foreach (array_chunk($parroquias, 500) as $lote) {
+                DB::table('ubicacion_parroquias')->upsert($lote, ['codigo'], ['canton_codigo', 'nombre']);
+            }
+        });
     }
 }

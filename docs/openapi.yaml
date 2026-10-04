@@ -36,10 +36,10 @@ tags:
     description: Usuario actual y su contexto (roles y permisos) en un condominio.
   - name: Unidades
     description: Bloques, unidades y residentes del condominio.
+  - name: Catálogos
+    description: Datos compartidos que no dependen del condominio.
   - name: Plataforma
-    description: |
-      Panel del super admin (`/plataforma/*`). Solo perfiles de plataforma (equipo 0);
-      cada ruta exige su permiso de plataforma. No usa `X-Condominio-Id`.
+    description: Panel del super admin (sin X-Condominio-Id; permisos de plataforma).
 
 security:
   - bearer: []
@@ -288,15 +288,104 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /auth/invitaciones/{token}:
+    get:
+      tags: [Autenticación]
+      operationId: verInvitacion
+      summary: Datos de una invitación de primer ingreso
+      description: Sin sesión. El token llega por correo; vence a los 7 días y sirve una sola vez.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/TokenInvitacion'
+      responses:
+        '200':
+          description: A quién corresponde la invitación.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Invitacion' }
+        '404':
+          $ref: '#/components/responses/InvitacionInvalida'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /auth/invitaciones/{token}/aceptar:
+    post:
+      tags: [Autenticación]
+      operationId: aceptarInvitacion
+      summary: Crear la contraseña y activar la cuenta
+      description: Después, la SPA inicia sesión con `/auth/login` usando el correo devuelto.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/TokenInvitacion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password, password_confirmation]
+              properties:
+                password:
+                  type: string
+                  minLength: 10
+                  description: Al menos 10 caracteres, con letras y números.
+                password_confirmation: { type: string }
+      responses:
+        '200':
+          description: Contraseña creada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [email]
+                    properties:
+                      email: { type: string, format: email }
+                  message: { type: string }
+        '404':
+          $ref: '#/components/responses/InvitacionInvalida'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /ubicaciones:
+    get:
+      tags: [Catálogos]
+      operationId: listarUbicaciones
+      summary: Provincias, cantones y parroquias del Ecuador
+      description: Árbol completo con códigos INEC (≈ 80 KB). Cualquier usuario con sesión; no lleva condominio.
+      responses:
+        '200':
+          description: Árbol de la división territorial.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Provincia' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+
   /plataforma/me/menu:
     get:
       tags: [Plataforma]
       operationId: menuPlataforma
       summary: Menú del perfil de plataforma
-      description: 'Mismo filtro que /me/menu, con los perfiles y permisos de plataforma.'
+      description: Mismo filtro que /me/menu, con los perfiles y permisos de plataforma (equipo 0).
       responses:
         '200':
-          description: Menú del panel de plataforma.
+          description: Menú en el mismo formato que `ItemMenu` del frontend.
           content:
             application/json:
               schema:
@@ -309,20 +398,17 @@ paths:
         '401':
           $ref: '#/components/responses/NoAutenticado'
         '403':
-          $ref: '#/components/responses/SinPermisoPlataforma'
-        '429':
-          $ref: '#/components/responses/DemasiadosIntentos'
+          $ref: '#/components/responses/SinPermiso'
 
   /plataforma/planes:
     get:
       tags: [Plataforma]
       operationId: listarPlanes
-      summary: Planes activos
-      description: 'Permiso: `plataforma.condominios`. Para el asistente de alta. Ordenados por `orden`.'
+      summary: Planes activos de la plataforma
       x-permiso: plataforma.condominios
       responses:
         '200':
-          description: Planes activos.
+          description: Planes ordenados.
           content:
             application/json:
               schema:
@@ -335,45 +421,17 @@ paths:
         '401':
           $ref: '#/components/responses/NoAutenticado'
         '403':
-          $ref: '#/components/responses/SinPermisoPlataforma'
-        '429':
-          $ref: '#/components/responses/DemasiadosIntentos'
+          $ref: '#/components/responses/SinPermiso'
 
-  /plataforma/catalogos:
+  /plataforma/amenidades:
     get:
       tags: [Plataforma]
-      operationId: catalogosAlta
-      summary: Catálogos del alta de condominio
-      description: 'Permiso: `plataforma.condominios`. Tipos de condominio, métodos de cobro y amenidades del catálogo global.'
+      operationId: listarCatalogoAmenidades
+      summary: Amenidades activas del catálogo global
       x-permiso: plataforma.condominios
       responses:
         '200':
-          description: Catálogos.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    $ref: '#/components/schemas/CatalogosAlta'
-        '401':
-          $ref: '#/components/responses/NoAutenticado'
-        '403':
-          $ref: '#/components/responses/SinPermisoPlataforma'
-        '429':
-          $ref: '#/components/responses/DemasiadosIntentos'
-
-  /plataforma/ubicaciones:
-    get:
-      tags: [Plataforma]
-      operationId: listarUbicaciones
-      summary: Provincias, cantones y parroquias
-      description: 'Permiso: `plataforma.condominios`. Árbol de la DPA del INEC, ordenado por nombre. Cantones y parroquias se cargan con `safic:importar-dpa`.'
-      x-permiso: plataforma.condominios
-      responses:
-        '200':
-          description: Árbol de ubicaciones.
+          description: Catálogo ordenado.
           content:
             application/json:
               schema:
@@ -382,13 +440,148 @@ paths:
                 properties:
                   data:
                     type: array
-                    items: { $ref: '#/components/schemas/Provincia' }
+                    items: { $ref: '#/components/schemas/AmenidadCatalogo' }
         '401':
           $ref: '#/components/responses/NoAutenticado'
         '403':
-          $ref: '#/components/responses/SinPermisoPlataforma'
-        '429':
-          $ref: '#/components/responses/DemasiadosIntentos'
+          $ref: '#/components/responses/SinPermiso'
+
+  /plataforma/usuarios/buscar:
+    get:
+      tags: [Plataforma]
+      operationId: buscarUsuarioPorCorreo
+      summary: ¿El administrador ya tiene cuenta?
+      description: Devuelve `data null` si no existe o el correo no es válido.
+      x-permiso: plataforma.condominios
+      parameters:
+        - in: query
+          name: email
+          required: true
+          schema: { type: string, format: email }
+      responses:
+        '200':
+          description: Usuario encontrado o null.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    oneOf:
+                      - { $ref: '#/components/schemas/UsuarioEncontrado' }
+                      - { type: 'null' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+
+  /plataforma/condominios:
+    get:
+      tags: [Plataforma]
+      operationId: listarCondominiosPlataforma
+      summary: Condominios de la plataforma
+      description: Paginado y ordenado por nombre. `buscar` filtra por nombre, código o inicio del RUC.
+      x-permiso: plataforma.condominios
+      parameters:
+        - in: query
+          name: buscar
+          required: false
+          schema: { type: string }
+        - in: query
+          name: page
+          required: false
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: por_pagina
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 24 }
+      responses:
+        '200':
+          description: Página de condominios.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/CondominioPlataforma' }
+                  meta:
+                    type: object
+                    properties:
+                      pagination: { $ref: '#/components/schemas/Paginacion' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+    post:
+      tags: [Plataforma]
+      operationId: crearCondominio
+      summary: Alta de condominio (asistente de 5 pasos)
+      description: |
+        Todo o nada: condominio (estado `prueba` por 30 días), configuración de cobro,
+        amenidades y administrador. Si el correo del administrador ya tiene cuenta se
+        asocia; si no, se crea inactivo y se le envía la invitación por correo.
+        Errores de negocio: `CEDULA_EN_USO` (la cédula es de otra persona).
+      x-permiso: plataforma.condominios
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NuevoCondominio' }
+      responses:
+        '201':
+          description: Condominio creado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { $ref: '#/components/schemas/CondominioPlataforma' }
+                  meta:
+                    type: object
+                    required: [administrador_existente, invitacion_enviada]
+                    properties:
+                      administrador_existente: { type: boolean }
+                      invitacion_enviada: { type: boolean }
+                  message: { type: string }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /plataforma/condominios/{condominio}:
+    get:
+      tags: [Plataforma]
+      operationId: verCondominioPlataforma
+      summary: Detalle de un condominio
+      x-permiso: plataforma.condominios
+      parameters:
+        - in: path
+          name: condominio
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Condominio.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CondominioPlataforma' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
 
 components:
   securitySchemes:
@@ -464,11 +657,6 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
     SinPermisoOCondominio:
       description: '`SIN_PERMISO` (falta el permiso de la ruta) o `CONDOMINIO_NO_PERMITIDO`.'
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/Error' }
-    SinPermisoPlataforma:
-      description: '`SIN_PERMISO`: el usuario no tiene perfil de plataforma o le falta el permiso de la ruta.'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -565,6 +753,21 @@ components:
         roles: { type: array, items: { type: string } }
         permisos: { type: array, items: { type: string } }
 
+    ItemMenu:
+      type: object
+      description: Ítem del menú lateral. Las hojas tienen `ruta`; los módulos y secciones, `hijos`.
+      required: [id, etiqueta, icono]
+      properties:
+        id: { type: string, description: 'Clave estable (ej. `unidades.bloques`).' }
+        etiqueta: { type: string }
+        icono: { type: string, description: 'Material Symbols Rounded (`sym_r_*`). Obligatorio.' }
+        ruta: { type: string, description: Nombre de la ruta del frontend. Solo en hojas. }
+        permiso: { type: string, description: Permiso de la pantalla. Solo en hojas que lo piden. }
+        seccion: { type: boolean, description: 'Grupo siempre desplegado (CONFIGURACIÓN). Se omite si es falso.' }
+        hijos:
+          type: array
+          items: { $ref: '#/components/schemas/ItemMenu' }
+
     CondominioResumen:
       type: object
       required: [id, codigo, nombre, es_principal, estado, marca]
@@ -610,96 +813,192 @@ components:
         nombre: { type: string }
         orden: { type: integer }
 
-    ItemMenu:
-      type: object
-      description: Ítem del menú lateral. Las hojas tienen `ruta`; los módulos y secciones, `hijos`.
-      required: [id, etiqueta, icono]
-      properties:
-        id: { type: string, description: 'Clave estable (ej. `unidades.bloques`).' }
-        etiqueta: { type: string }
-        icono: { type: string, description: 'Material Symbols Rounded (`sym_r_*`). Obligatorio.' }
-        ruta: { type: string, description: Nombre de la ruta del frontend. Solo en hojas. }
-        permiso: { type: string, description: Permiso de la pantalla. Solo en hojas que lo piden. }
-        seccion: { type: boolean, description: 'Grupo siempre desplegado (CONFIGURACIÓN). Se omite si es falso.' }
-        hijos:
-          type: array
-          items: { $ref: '#/components/schemas/ItemMenu' }
+    Dinero:
+      type: string
+      pattern: '^\d+(\.\d{1,2})?$'
+      description: Monto en USD con 2 decimales como texto (decimal(12,2) en la base).
+      examples: ['80.00']
 
-    Plan:
+    Invitacion:
       type: object
-      required: [clave, nombre, max_administrativos, valor_unidad_sugerido]
+      required: [nombre, email, condominio, expira_en]
       properties:
-        clave: { type: string, examples: [profesional] }
-        nombre: { type: string, examples: [Profesional] }
-        max_administrativos:
-          type: integer
-          description: Administrador, tesorero y contador cuentan para este límite.
-        valor_unidad_sugerido: { type: string, pattern: '^\d+\.\d{2}$', examples: ['2.00'] }
-
-    OpcionCatalogo:
-      type: object
-      required: [valor, etiqueta]
-      properties:
-        valor: { type: string }
-        etiqueta: { type: string }
-
-    MetodoCobro:
-      type: object
-      required: [valor, etiqueta, descripcion]
-      properties:
-        valor:
-          type: string
-          enum: [valor_general, por_tipo, por_alicuota, por_unidad]
-        etiqueta: { type: string }
-        descripcion: { type: string }
-
-    AmenidadCatalogo:
-      type: object
-      required: [clave, nombre, icono, reservable, esencial]
-      properties:
-        clave: { type: string }
         nombre: { type: string }
-        icono: { type: string }
-        reservable: { type: boolean, description: Pasa a la agenda de áreas comunes. }
-        esencial: { type: boolean, description: Nunca se restringe por mora. }
-
-    CatalogosAlta:
-      type: object
-      required: [tipos_condominio, metodos_cobro, amenidades]
-      properties:
-        tipos_condominio:
-          type: array
-          items: { $ref: '#/components/schemas/OpcionCatalogo' }
-        metodos_cobro:
-          type: array
-          items: { $ref: '#/components/schemas/MetodoCobro' }
-        amenidades:
-          type: array
-          items: { $ref: '#/components/schemas/AmenidadCatalogo' }
+        email: { type: string, format: email }
+        condominio: { type: string }
+        expira_en: { type: string, format: date-time }
 
     Provincia:
       type: object
       required: [codigo, nombre, cantones]
       properties:
-        codigo: { type: string, pattern: '^\d{2}$' }
+        codigo: { type: string, examples: ['17'] }
         nombre: { type: string }
+        latitud: { type: [string, 'null'] }
+        longitud: { type: [string, 'null'] }
         cantones:
           type: array
-          items: { $ref: '#/components/schemas/Canton' }
+          items:
+            type: object
+            required: [codigo, nombre, parroquias]
+            properties:
+              codigo: { type: string, examples: ['1701'] }
+              nombre: { type: string }
+              latitud: { type: [string, 'null'] }
+              longitud: { type: [string, 'null'] }
+              parroquias:
+                type: array
+                items:
+                  type: object
+                  required: [codigo, nombre]
+                  properties:
+                    codigo: { type: string, examples: ['170156'] }
+                    nombre: { type: string }
 
-    Canton:
+    Plan:
       type: object
-      required: [codigo, nombre, parroquias]
+      required: [codigo, nombre, limite_administrativos, valor_unidad_sugerido]
       properties:
-        codigo: { type: string, pattern: '^\d{4}$' }
+        codigo: { type: string, enum: [basico, profesional, completo] }
         nombre: { type: string }
-        parroquias:
+        limite_administrativos: { type: integer }
+        valor_unidad_sugerido: { $ref: '#/components/schemas/Dinero' }
+
+    AmenidadCatalogo:
+      type: object
+      required: [id, nombre, categoria, reservable, esencial, requiere_aprobacion]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        categoria: { type: string, enum: [recreacion, deporte, social, servicios, seguridad] }
+        descripcion: { type: [string, 'null'] }
+        reservable: { type: boolean }
+        esencial: { type: boolean, description: Nunca se restringe por mora. }
+        requiere_aprobacion: { type: boolean }
+
+    UsuarioEncontrado:
+      type: object
+      required: [id, nombre, activo, condominios]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        activo: { type: boolean }
+        condominios: { type: integer, description: Condominios donde ya es miembro. }
+
+    CondominioPlataforma:
+      type: object
+      required: [id, codigo, nombre, tipo, estado, total_unidades, ubicacion, contacto, administradores, creado_en]
+      properties:
+        id: { type: integer }
+        codigo: { type: string, examples: ['SF-0012'] }
+        nombre: { type: string }
+        tipo: { type: string, enum: [conjunto, edificio, urbanizacion, mixto] }
+        ruc: { type: [string, 'null'] }
+        razon_social: { type: [string, 'null'] }
+        estado: { type: string, enum: [prueba, activo, solo_lectura, suspendido] }
+        prueba_hasta: { type: [string, 'null'], format: date }
+        total_unidades: { type: integer }
+        valor_unidad:
+          oneOf:
+            - { $ref: '#/components/schemas/Dinero' }
+            - { type: 'null' }
+        mensualidad:
+          description: total_unidades × valor_unidad, sin IVA.
+          oneOf:
+            - { $ref: '#/components/schemas/Dinero' }
+            - { type: 'null' }
+        plan:
+          oneOf:
+            - type: object
+              required: [codigo, nombre]
+              properties:
+                codigo: { type: string }
+                nombre: { type: string }
+            - { type: 'null' }
+        ubicacion:
+          type: object
+          properties:
+            provincia: { type: [string, 'null'] }
+            canton: { type: [string, 'null'] }
+            parroquia: { type: [string, 'null'] }
+            direccion: { type: [string, 'null'] }
+            latitud: { type: [string, 'null'] }
+            longitud: { type: [string, 'null'] }
+        contacto:
+          type: object
+          properties:
+            telefono: { type: [string, 'null'] }
+            email: { type: [string, 'null'] }
+        administradores:
           type: array
-          items: { $ref: '#/components/schemas/Parroquia' }
+          items:
+            type: object
+            required: [id, nombre, email, estado]
+            properties:
+              id: { type: integer }
+              nombre: { type: string }
+              email: { type: string }
+              estado: { type: string, enum: [activo, invitado] }
+        creado_en: { type: string, format: date-time }
 
-    Parroquia:
+    NuevoCondominio:
       type: object
-      required: [codigo, nombre]
+      required: [nombre, tipo, ruc, razon_social, provincia_codigo, canton_codigo, parroquia_codigo, direccion, total_unidades, plan_codigo, valor_unidad, latitud, longitud, cobro, administrador]
       properties:
-        codigo: { type: string, pattern: '^\d{6}$' }
-        nombre: { type: string }
+        nombre: { type: string, maxLength: 120 }
+        tipo: { type: string, enum: [conjunto, edificio, urbanizacion, mixto] }
+        ruc: { type: string, pattern: '^\d{13}$', description: RUC válido y único en la plataforma. }
+        razon_social: { type: string, maxLength: 160 }
+        provincia_codigo: { type: string, examples: ['17'] }
+        canton_codigo: { type: string, description: Cantón de esa provincia. }
+        parroquia_codigo: { type: string, description: Parroquia de ese cantón. }
+        direccion: { type: string, maxLength: 200 }
+        telefono: { type: [string, 'null'], pattern: '^0\d{8,9}$' }
+        email_contacto: { type: [string, 'null'], format: email }
+        total_unidades: { type: integer, minimum: 1, maximum: 10000, description: Límite de registro y base de la mensualidad. }
+        plan_codigo: { type: string, enum: [basico, profesional, completo] }
+        valor_unidad: { $ref: '#/components/schemas/Dinero' }
+        latitud: { type: number, minimum: -5.1, maximum: 1.7 }
+        longitud: { type: number, minimum: -92.1, maximum: -75.1 }
+        cobro:
+          type: object
+          required: [metodo, dia_vencimiento, primera_cuota]
+          properties:
+            metodo: { type: string, enum: [general, tipo, alicuota, unidad] }
+            cuota_general:
+              description: Obligatoria con método general.
+              oneOf:
+                - { $ref: '#/components/schemas/Dinero' }
+                - { type: 'null' }
+            presupuesto_mensual:
+              description: Obligatorio con método por alícuota.
+              oneOf:
+                - { $ref: '#/components/schemas/Dinero' }
+                - { type: 'null' }
+            valores_tipo:
+              description: Obligatorio con método por tipo.
+              type: [array, 'null']
+              items:
+                type: object
+                required: [tipo, valor]
+                properties:
+                  tipo: { type: string, enum: [departamento, casa, local, parqueadero, bodega] }
+                  valor: { $ref: '#/components/schemas/Dinero' }
+            dia_vencimiento: { type: integer, minimum: 0, maximum: 28, description: 0 = último día del mes. }
+            primera_cuota: { type: string, pattern: '^\d{4}-\d{2}$', description: Mes actual o futuro (AAAA-MM). }
+        amenidades:
+          type: [array, 'null']
+          items:
+            type: object
+            required: [amenidad_id, cantidad]
+            properties:
+              amenidad_id: { type: integer }
+              cantidad: { type: integer, minimum: 1, maximum: 999 }
+        administrador:
+          type: object
+          required: [cedula, nombre, email]
+          properties:
+            cedula: { type: string, pattern: '^\d{10}$', description: Cédula ecuatoriana válida. }
+            nombre: { type: string, maxLength: 120 }
+            email: { type: string, format: email }
+            celular: { type: [string, 'null'], pattern: '^09\d{8}$' }

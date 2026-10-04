@@ -1,17 +1,33 @@
 <?php
 
 use App\Core\Auth\Http\Controllers\AuthController;
+use App\Core\Auth\Http\Controllers\InvitacionController;
 use App\Core\Menu\Http\Controllers\MenuController;
 use Illuminate\Support\Facades\Route;
 
 /*
 | API de SAFIC · prefijo /api/v1 (bootstrap/app.php)
 |
-| - Rutas de autenticación: sin condominio.
-| - Rutas de negocio: auth:api + condominio (header X-Condominio-Id) + permiso.
-| - Panel de plataforma: auth:api + plataforma (equipo 0) + permiso de plataforma.
-| - Cada módulo registra sus rutas en app/Modules/<Modulo>/routes.php.
+| Este archivo solo declara los grupos y las rutas transversales (auth, /me).
+| Las rutas de negocio viven en cada módulo, un archivo por ámbito, y se cargan
+| solas (orden alfabético de módulo):
+|
+| - app/Modules/<Modulo>/Routes/condominio.php → auth:api + condominio (X-Condominio-Id) + permiso
+| - app/Modules/<Modulo>/Routes/plataforma.php → auth:api + plataforma (equipo 0), prefijo /plataforma + permiso
+| - app/Modules/<Modulo>/Routes/sesion.php     → auth:api, sin condominio (catálogos compartidos)
 */
+
+/**
+ * Carga el archivo de rutas de cada módulo para un ámbito.
+ */
+$rutasDeModulos = function (string $ambito): void {
+    $archivos = glob(app_path("Modules/*/Routes/{$ambito}.php")) ?: [];
+    sort($archivos);
+
+    foreach ($archivos as $archivo) {
+        require $archivo;
+    }
+};
 
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
@@ -27,28 +43,25 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// Catálogos compartidos que no dependen del condominio
-Route::middleware(['auth:api', 'throttle:api'])->group(function () {
-    Route::get('ubicaciones', [CatalogoController::class, 'ubicaciones']);
+// Con sesión y sin condominio: catálogos compartidos
+Route::middleware(['auth:api', 'throttle:api'])->group(function () use ($rutasDeModulos) {
+    $rutasDeModulos('sesion');
 });
 
-// Panel de plataforma (super admin, soporte, cobranza): sin X-Condominio-Id
-Route::middleware(['auth:api', 'plataforma', 'throttle:api'])->group(function () {
-    require base_path('app/Modules/Plataforma/routes.php');
-});
-
-Route::middleware(['auth:api', 'condominio', 'throttle:api'])->group(function () {
+// Condominio activo (X-Condominio-Id)
+Route::middleware(['auth:api', 'condominio', 'throttle:api'])->group(function () use ($rutasDeModulos) {
     // Roles y permisos del usuario en el condominio activo
     Route::get('me/contexto', [AuthController::class, 'contexto']);
     // Menú del perfil en el condominio activo
     Route::get('me/menu', [MenuController::class, 'condominio']);
 
-    require base_path('app/Modules/Unidades/routes.php');
+    $rutasDeModulos('condominio');
 });
 
-Route::middleware(['auth:api', 'plataforma', 'throttle:api'])->prefix('plataforma')->group(function () {
+// Panel de plataforma (super admin, soporte, cobranza): equipo 0, sin X-Condominio-Id
+Route::middleware(['auth:api', 'plataforma', 'throttle:api'])->prefix('plataforma')->group(function () use ($rutasDeModulos) {
     // Menú del perfil de plataforma
     Route::get('me/menu', [MenuController::class, 'plataforma']);
 
-    require base_path('app/Modules/Plataforma/routes.php');
+    $rutasDeModulos('plataforma');
 });

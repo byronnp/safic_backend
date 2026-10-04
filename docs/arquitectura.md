@@ -35,3 +35,14 @@ Plan: Sprint 0 (este esqueleto) → S1 alta de condominio → S2 unidades y resi
 - `GET /me/menu` (condominio del header) y `GET /plataforma/me/menu` (equipo 0). El frontend usa el mismo formato `ItemMenu`; en desarrollo suma las pantallas en vista previa del menú local.
 - `MenuSeeder` solo crea pantallas con API y asigna perfiles a los ítems nuevos según los permisos por defecto de cada rol; no pisa cambios del super admin.
 - Rutas `/api/v1/plataforma/*`: middleware `plataforma` (equipo 0); cada una con su permiso de plataforma.
+
+### Rutas por módulo (3 oct 2026)
+
+- Cada módulo declara sus rutas en su carpeta `Routes/`, un archivo por ámbito:
+  - `Routes/condominio.php` → `auth:api` + `condominio` + `throttle:api`, con `X-Condominio-Id`. Cada ruta con su permiso.
+  - `Routes/plataforma.php` → `auth:api` + `plataforma` (equipo 0), prefijo `/plataforma`. Cada ruta con su permiso de plataforma.
+  - `Routes/sesion.php` → `auth:api`, sin condominio: solo catálogos compartidos (ej. `GET /ubicaciones`).
+  - Un módulo con pantallas en varios ámbitos (ej. Suscripciones: "Mi suscripción" y la cobranza del super admin) usa varios archivos.
+- `routes/api.php` solo declara los grupos y las rutas transversales (auth, `/me/*`) y carga los archivos de los módulos solo; crear un módulo no obliga a editarlo.
+- `RutasPorModuloTest` verifica la convención, el grupo y el permiso; `ContratoOpenApiTest`, que cada ruta esté en el contrato.
+
