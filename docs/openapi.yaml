@@ -378,7 +378,7 @@ components:
 
     Usuario:
       type: object
-      required: [id, nombre, email]
+      required: [id, nombre, email, plataforma]
       properties:
         id: { type: integer }
         nombre: { type: string }
@@ -387,6 +387,19 @@ components:
           type: array
           description: Solo condominios con membresía activa (los del selector).
           items: { $ref: '#/components/schemas/CondominioResumen' }
+        plataforma:
+          description: Perfil de plataforma (super admin, soporte, cobranza…) o null si no tiene.
+          oneOf:
+            - { $ref: '#/components/schemas/ContextoPlataforma' }
+            - { type: 'null' }
+
+    ContextoPlataforma:
+      type: object
+      description: Roles y permisos de plataforma (equipo 0). No sirven dentro de un condominio.
+      required: [roles, permisos]
+      properties:
+        roles: { type: array, items: { type: string } }
+        permisos: { type: array, items: { type: string } }
 
     CondominioResumen:
       type: object
