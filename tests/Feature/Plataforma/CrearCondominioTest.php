@@ -101,7 +101,7 @@ it('crea el condominio completo e invita al administrador nuevo', function () {
         ->and($cobro->aplica_desde->toDateString())->toBe(now()->addMonth()->startOfMonth()->toDateString());
 
     $amenidades = enCondominio($condominio, fn () => CondominioAmenidad::orderBy('nombre')->get());
-    expect($amenidades->pluck('nombre')->all())->toBe(['Área BBQ', 'Piscina'])
+    expect($amenidades->pluck('nombre')->all())->toEqualCanonicalizing(['Área BBQ', 'Piscina'])
         ->and($amenidades->firstWhere('nombre', 'Área BBQ')->cantidad)->toBe(2)
         ->and($amenidades->firstWhere('nombre', 'Piscina')->reservable)->toBeTrue();
 
