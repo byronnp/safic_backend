@@ -2,6 +2,7 @@
 
 namespace App\Modules\Unidades\Http\Resources;
 
+use App\Modules\Unidades\Models\Ocupante;
 use App\Modules\Unidades\Models\Unidad;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -33,6 +34,27 @@ class UnidadResource extends JsonResource
             'valor_personalizado' => $this->valor_personalizado,
             'responsable_pago' => $this->responsable_pago,
             'estado' => $this->estado(),
+            // Nombres de los propietarios vigentes (el principal primero)
+            'propietarios' => $this->ocupantesVigentes
+                ->where('relacion', 'propietario')
+                ->sortByDesc('es_principal')
+                ->map(fn (Ocupante $o) => $o->persona->nombreCompleto())
+                ->values()
+                ->all(),
+            'ocupante_principal' => $this->principal(),
+        ];
+    }
+
+    /**
+     * @return array{nombre: string, relacion: string}|null
+     */
+    private function principal(): ?array
+    {
+        $principal = $this->ocupantesVigentes->firstWhere('es_principal', true);
+
+        return $principal === null ? null : [
+            'nombre' => $principal->persona->nombreCompleto(),
+            'relacion' => $principal->relacion,
         ];
     }
 }

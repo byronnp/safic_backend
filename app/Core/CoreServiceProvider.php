@@ -3,6 +3,7 @@
 namespace App\Core;
 
 use App\Core\Console\GenerarLlavesJwt;
+use App\Core\Tenancy\Calendario;
 use App\Core\Tenancy\TenantContext;
 use App\Core\Tenancy\TenantDatabase;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -17,6 +18,7 @@ class CoreServiceProvider extends ServiceProvider
         // scoped: una instancia por petición o job (seguro también con Octane)
         $this->app->scoped(TenantDatabase::class);
         $this->app->scoped(TenantContext::class);
+        $this->app->scoped(Calendario::class);
     }
 
     public function boot(): void

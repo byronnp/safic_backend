@@ -4,6 +4,8 @@ use App\Core\Permissions\Rol;
 use App\Core\Tenancy\TenantContext;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Unidades\Models\Bloque;
+use App\Modules\Unidades\Models\Ocupante;
+use App\Modules\Unidades\Models\Persona;
 use App\Modules\Unidades\Models\Unidad;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -224,5 +226,53 @@ describe('Unidades', function () {
     it('RLS filtra unidades aunque se salte el scope de Eloquent', function () {
         expect(enCondominio($this->a, fn () => DB::table('unidades')->count()))->toBe(0)
             ->and(enCondominio($this->b, fn () => DB::table('unidades')->count()))->toBe(1);
+    });
+});
+
+describe('Personas y ocupantes', function () {
+    beforeEach(function () {
+        [$this->personaB, $this->unidadB] = enCondominio($this->b, fn () => [
+            Persona::factory()->create(),
+            Unidad::factory()->create(),
+        ]);
+        $this->ocupanteB = enCondominio($this->b, fn () => Ocupante::create([
+            'unidad_id' => $this->unidadB->id, 'persona_id' => $this->personaB->id,
+            'relacion' => 'propietario', 'fecha_inicio' => now()->subYear()->toDateString(),
+        ]));
+        [, $tokenA] = usuarioConToken($this->a);
+        $this->apiA = fn () => $this->withToken($tokenA)->withHeader('X-Condominio-Id', (string) $this->a->id);
+    });
+
+    it('no lista, ve ni edita personas de otro condominio', function () {
+        ($this->apiA)()->getJson('/api/v1/personas')->assertJsonCount(0, 'data');
+        ($this->apiA)()->getJson("/api/v1/personas/{$this->personaB->id}")->assertNotFound();
+        ($this->apiA)()->patchJson("/api/v1/personas/{$this->personaB->id}", ['nombres' => 'X'])->assertNotFound();
+    });
+
+    it('no asigna a una unidad propia una persona de otro condominio', function () {
+        $unidadA = enCondominio($this->a, fn () => Unidad::factory()->create());
+
+        ($this->apiA)()->postJson("/api/v1/unidades/{$unidadA->id}/ocupantes", [
+            'persona_id' => $this->personaB->id, 'relacion' => 'propietario', 'fecha_inicio' => now()->toDateString(),
+        ])->assertUnprocessable()->assertJsonValidationErrors('persona_id', 'error.fields');
+    });
+
+    it('no ve ni finaliza ocupantes de otro condominio', function () {
+        ($this->apiA)()->getJson("/api/v1/unidades/{$this->unidadB->id}/ocupantes")->assertNotFound();
+        ($this->apiA)()->patchJson("/api/v1/ocupantes/{$this->ocupanteB->id}/finalizar", ['fecha_fin' => now()->toDateString()])->assertNotFound();
+    });
+
+    it('permite el mismo documento en condominios distintos', function () {
+        $documento = enCondominio($this->b, fn () => Persona::find($this->personaB->id)->documento);
+
+        ($this->apiA)()->postJson('/api/v1/personas', [
+            'tipo_documento' => 'pasaporte', 'documento' => $documento, 'nombres' => 'Otra',
+            'apellidos' => 'Persona', 'telefono' => '0991112233',
+        ])->assertCreated();
+    });
+
+    it('RLS filtra personas y ocupantes aunque se salte el scope de Eloquent', function () {
+        expect(enCondominio($this->a, fn () => DB::table('personas')->count() + DB::table('unidad_persona')->count()))->toBe(0)
+            ->and(enCondominio($this->b, fn () => DB::table('unidad_persona')->count()))->toBe(1);
     });
 });

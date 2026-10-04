@@ -301,11 +301,14 @@ paths:
         - $ref: '#/components/parameters/CondominioId'
         - in: query
           name: buscar
-          description: Parte del código (ej. `A-1`).
+          description: Parte del código (ej. `A-1`) o del nombre de un ocupante vigente.
           schema: { type: string }
         - in: query
           name: tipo
           schema: { $ref: '#/components/schemas/TipoUnidad' }
+        - in: query
+          name: estado
+          schema: { type: string, enum: [ocupada, arrendada, vacia] }
         - in: query
           name: bloque_id
           schema: { type: integer }
@@ -413,7 +416,7 @@ paths:
     get:
       tags: [Unidades]
       operationId: verUnidad
-      summary: Ver una unidad
+      summary: Ver una unidad con sus ocupantes vigentes
       description: 'Permiso: `unidades.ver`. Una unidad de otro condominio responde 404.'
       x-permiso: unidades.ver
       parameters:
@@ -421,14 +424,14 @@ paths:
         - $ref: '#/components/parameters/UnidadId'
       responses:
         '200':
-          description: Unidad.
+          description: Unidad con ocupantes vigentes (principal primero).
           content:
             application/json:
               schema:
                 type: object
                 required: [data]
                 properties:
-                  data: { $ref: '#/components/schemas/Unidad' }
+                  data: { $ref: '#/components/schemas/UnidadDetalle' }
         '400':
           $ref: '#/components/responses/CondominioRequerido'
         '401':
@@ -500,6 +503,278 @@ paths:
           $ref: '#/components/responses/SinPermisoOCondominio'
         '404':
           $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /unidades/{unidad}/ocupantes:
+    get:
+      tags: [Unidades]
+      operationId: historialOcupantes
+      summary: Historial de ocupantes de una unidad
+      description: 'Permiso: `unidades.ver`. Vigentes y terminados, los más recientes primero.'
+      x-permiso: unidades.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/UnidadId'
+      responses:
+        '200':
+          description: Ocupantes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Ocupante' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    post:
+      tags: [Unidades]
+      operationId: asignarOcupante
+      summary: Asignar un ocupante a la unidad
+      description: |
+        Permiso: `unidades.editar`. Un solo ocupante principal por periodo (409 `PRINCIPAL_OCUPADO`,
+        `details.ocupante_id`); la misma persona no repite relación en fechas que se cruzan
+        (409 `OCUPANTE_DUPLICADO`). Un contacto de emergencia no puede ser principal (422).
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/UnidadId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AsignarOcupante' }
+      responses:
+        '201':
+          description: Ocupante asignado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Ocupante' }
+                  message: { type: string, examples: ['Ocupante asignado.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoOcupante'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /ocupantes/{ocupante}/finalizar:
+    patch:
+      tags: [Unidades]
+      operationId: finalizarOcupante
+      summary: Terminar una ocupación
+      description: 'Permiso: `unidades.editar`. No borra: llena `fecha_fin` y queda en el historial. Si ya terminó responde 409 `OCUPANTE_FINALIZADO`.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - in: path
+          name: ocupante
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fecha_fin]
+              properties:
+                fecha_fin: { type: string, format: date, description: 'No anterior a `fecha_inicio`.' }
+      responses:
+        '200':
+          description: Ocupación finalizada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Ocupante' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoOcupante'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /personas:
+    get:
+      tags: [Unidades]
+      operationId: listarPersonas
+      summary: Listar personas del condominio
+      description: |
+        Permiso: `unidades.ver`. `buscar` filtra por nombre (contiene) y, solo con
+        `residentes.ver_datos`, por documento exacto. Sin ese permiso documento, teléfono
+        y correo salen enmascarados.
+      x-permiso: unidades.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - in: query
+          name: buscar
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: por_pagina
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        '200':
+          description: Página de personas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Persona' }
+                  meta:
+                    type: object
+                    required: [pagination]
+                    properties:
+                      pagination: { $ref: '#/components/schemas/Paginacion' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    post:
+      tags: [Unidades]
+      operationId: crearPersona
+      summary: Registrar una persona
+      description: 'Permiso: `unidades.editar`. El documento se valida según su tipo y no se repite en el condominio.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarPersona' }
+      responses:
+        '201':
+          description: Persona registrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Persona' }
+                  message: { type: string, examples: ['Persona registrada.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /personas/{persona}:
+    get:
+      tags: [Unidades]
+      operationId: verPersona
+      summary: Ver una persona
+      description: 'Permiso: `unidades.ver`. Una persona de otro condominio responde 404.'
+      x-permiso: unidades.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/PersonaId'
+      responses:
+        '200':
+          description: Persona.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Persona' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    patch:
+      tags: [Unidades]
+      operationId: editarPersona
+      summary: Editar una persona
+      description: 'Permiso: `unidades.editar`. Solo se envían los campos que cambian; al cambiar `tipo_documento` se envía también `documento`.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/PersonaId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarPersona' }
+      responses:
+        '200':
+          description: Persona actualizada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Persona' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
@@ -819,6 +1094,11 @@ components:
       in: path
       required: true
       schema: { type: integer }
+    PersonaId:
+      name: persona
+      in: path
+      required: true
+      schema: { type: integer }
     CondominioId:
       in: header
       name: X-Condominio-Id
@@ -889,6 +1169,11 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
     LimiteUnidades:
       description: '`LIMITE_UNIDADES`: se alcanzó el total de unidades contratadas. `error.details` trae `total` y `registradas`.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ConflictoOcupante:
+      description: '`PRINCIPAL_OCUPADO` (`details.ocupante_id`), `OCUPANTE_DUPLICADO` u `OCUPANTE_FINALIZADO`.'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -1028,7 +1313,7 @@ components:
 
     Unidad:
       type: object
-      required: [id, codigo, bloque, tipo, piso, area_m2, alicuota, cuota_mensual, valor_personalizado, responsable_pago, estado]
+      required: [id, codigo, bloque, tipo, piso, area_m2, alicuota, cuota_mensual, valor_personalizado, responsable_pago, estado, propietarios, ocupante_principal]
       properties:
         id: { type: integer }
         codigo: { type: string, examples: ['A-102'] }
@@ -1055,7 +1340,84 @@ components:
         estado:
           type: string
           enum: [ocupada, arrendada, vacia]
-          description: Se calcula con los ocupantes vigentes.
+          description: 'Con inquilino vigente: arrendada; con ocupante principal o residente vigente: ocupada; si no, vacía.'
+        propietarios:
+          type: array
+          description: Nombres de los propietarios vigentes, el principal primero.
+          items: { type: string }
+        ocupante_principal:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [nombre, relacion]
+              properties:
+                nombre: { type: string }
+                relacion: { $ref: '#/components/schemas/RelacionOcupante' }
+
+    UnidadDetalle:
+      allOf:
+        - $ref: '#/components/schemas/Unidad'
+        - type: object
+          required: [ocupantes]
+          properties:
+            ocupantes:
+              type: array
+              description: Ocupantes vigentes, el principal primero.
+              items: { $ref: '#/components/schemas/Ocupante' }
+
+    RelacionOcupante:
+      type: string
+      enum: [propietario, inquilino, residente, contacto_emergencia]
+
+    Ocupante:
+      type: object
+      required: [id, unidad_id, persona, relacion, es_principal, fecha_inicio, fecha_fin, vigente]
+      properties:
+        id: { type: integer }
+        unidad_id: { type: integer }
+        persona: { $ref: '#/components/schemas/Persona' }
+        relacion: { $ref: '#/components/schemas/RelacionOcupante' }
+        es_principal: { type: boolean, description: Quien vive en la unidad como titular. }
+        fecha_inicio: { type: string, format: date }
+        fecha_fin: { type: [string, 'null'], format: date }
+        vigente: { type: boolean, description: 'Hoy, en la zona horaria del condominio.' }
+
+    AsignarOcupante:
+      type: object
+      required: [persona_id, relacion, fecha_inicio]
+      properties:
+        persona_id: { type: integer }
+        relacion: { $ref: '#/components/schemas/RelacionOcupante' }
+        es_principal: { type: boolean, default: false }
+        fecha_inicio: { type: string, format: date }
+        fecha_fin: { type: [string, 'null'], format: date }
+
+    Persona:
+      type: object
+      required: [id, tipo_documento, documento, nombres, apellidos, nombre_completo, telefono, email, datos_enmascarados]
+      properties:
+        id: { type: integer }
+        tipo_documento: { type: string, enum: [cedula, ruc, pasaporte] }
+        documento: { type: string, examples: ['1712345689', '17••••••89'] }
+        nombres: { type: string }
+        apellidos: { type: string }
+        nombre_completo: { type: string }
+        telefono: { type: [string, 'null'], examples: ['0991234534', '09••••••34'] }
+        email: { type: [string, 'null'] }
+        datos_enmascarados:
+          type: boolean
+          description: 'true si documento, teléfono y correo vienen enmascarados (sin `residentes.ver_datos`).'
+
+    GuardarPersona:
+      type: object
+      description: En `POST` todo es obligatorio salvo `email`; en `PATCH` todo es opcional.
+      properties:
+        tipo_documento: { type: string, enum: [cedula, ruc, pasaporte] }
+        documento: { type: string, description: 'Cédula (módulo 10), RUC o pasaporte (5 a 20 letras o números). Único en el condominio.' }
+        nombres: { type: string, maxLength: 80 }
+        apellidos: { type: string, maxLength: 80 }
+        telefono: { type: string, pattern: '^09\d{8}$' }
+        email: { type: [string, 'null'], format: email, maxLength: 160 }
 
     GuardarUnidad:
       type: object
@@ -1075,7 +1437,7 @@ components:
 
     ResumenUnidades:
       type: object
-      required: [registradas, total_contratadas, suma_alicuotas, metodo_cobro, cuota_general]
+      required: [registradas, total_contratadas, suma_alicuotas, metodo_cobro, cuota_general, ocupadas, residentes]
       properties:
         registradas: { type: integer, description: 'Departamentos, casas y locales registrados (parqueaderos y bodegas no cuentan).' }
         total_contratadas: { type: integer }
@@ -1084,6 +1446,8 @@ components:
         cuota_general:
           oneOf: [{ $ref: '#/components/schemas/Dinero' }, { type: 'null' }]
           description: 'Lo que paga cada unidad con método `general`; null con los demás métodos.'
+        ocupadas: { type: integer, description: 'Departamentos, casas y locales ocupados o arrendados.' }
+        residentes: { type: integer, description: 'Personas distintas con relación vigente (sin contactos de emergencia).' }
 
     Bloque:
       type: object

@@ -4,9 +4,12 @@ namespace App\Modules\Unidades\Models;
 
 use App\Core\Tenancy\BelongsToCondominio;
 use Database\Factories\UnidadFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -24,6 +27,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $valor_personalizado
  * @property string $responsable_pago
  * @property-read Bloque|null $bloque
+ * @property-read Collection<int, Ocupante> $ocupantesVigentes
  */
 class Unidad extends Model
 {
@@ -33,6 +37,8 @@ class Unidad extends Model
     public const TIPOS = ['departamento', 'casa', 'local', 'parqueadero', 'bodega'];
 
     public const RESPONSABLES_PAGO = ['propietario', 'inquilino'];
+
+    public const ESTADOS = ['ocupada', 'arrendada', 'vacia'];
 
     protected $table = 'unidades';
 
@@ -61,13 +67,53 @@ class Unidad extends Model
         return $this->belongsTo(Bloque::class);
     }
 
+    /** @return HasMany<Ocupante, $this> */
+    public function ocupantes(): HasMany
+    {
+        return $this->hasMany(Ocupante::class);
+    }
+
+    /** @return HasMany<Ocupante, $this> */
+    public function ocupantesVigentes(): HasMany
+    {
+        return $this->ocupantes()->vigentes();
+    }
+
     /**
-     * Ocupada, arrendada o vacía. Se calcula con los ocupantes vigentes; hasta que
-     * existan (S2 · ocupantes) toda unidad está vacía.
+     * Ocupada, arrendada o vacía, según los ocupantes vigentes:
+     * - arrendada: hay un inquilino vigente;
+     * - ocupada: hay un ocupante principal o un residente vigente;
+     * - vacía: nadie vive ahí (un propietario que no reside no la ocupa).
      */
     public function estado(): string
     {
-        return 'vacia';
+        $vigentes = $this->ocupantesVigentes;
+
+        if ($vigentes->contains('relacion', 'inquilino')) {
+            return 'arrendada';
+        }
+
+        return $vigentes->contains(fn (Ocupante $o) => $o->es_principal || $o->relacion === 'residente')
+            ? 'ocupada'
+            : 'vacia';
+    }
+
+    /**
+     * Filtra por estado con la misma regla que estado().
+     *
+     * @param  Builder<Unidad>  $query
+     */
+    public function scopeConEstado(Builder $query, string $estado): void
+    {
+        $inquilino = fn (Builder $q) => Ocupante::filtrarVigentes($q)->where('relacion', 'inquilino');
+        $habitada = fn (Builder $q) => Ocupante::filtrarVigentes($q)->where(fn (Builder $w) => $w->where('es_principal', true)->orWhere('relacion', 'residente'));
+
+        match ($estado) {
+            'arrendada' => $query->whereHas('ocupantes', $inquilino),
+            'ocupada' => $query->whereDoesntHave('ocupantes', $inquilino)->whereHas('ocupantes', $habitada),
+            'vacia' => $query->whereDoesntHave('ocupantes', $inquilino)->whereDoesntHave('ocupantes', $habitada),
+            default => null,
+        };
     }
 
     protected static function newFactory(): UnidadFactory

@@ -65,6 +65,8 @@ describe('listar', function () {
                 'suma_alicuotas' => '1.8600',
                 'metodo_cobro' => 'general',
                 'cuota_general' => null,
+                'ocupadas' => 0,
+                'residentes' => 0,
             ]]);
     });
 

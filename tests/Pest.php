@@ -39,3 +39,13 @@ function sembrarCatalogos(): void
 {
     test()->seed(CatalogosSeeder::class);
 }
+
+/**
+ * Para hacer la siguiente petición con otro token en la misma prueba: el guard y
+ * el singleton de JWT guardan el usuario y el token de la petición anterior.
+ */
+function cambiarDeUsuario(): void
+{
+    app('auth')->forgetGuards();
+    app('tymon.jwt')->unsetToken();
+}
