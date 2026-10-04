@@ -69,6 +69,12 @@ Reglas:
 - Catálogos de plataforma (planes, amenidades, provincias/cantones/parroquias INEC) se cargan con `CatalogosSeeder`, idempotente, en cada despliegue. En pruebas: `sembrarCatalogos()` solo donde se usan.
 - Cédula y RUC: reglas `App\Core\Validation\Rules\CedulaEc` y `RucEc`.
 
+## Auditoría de cambios
+- Todo modelo de condominio con datos de negocio implementa `OwenIt\Auditing\Contracts\Auditable` y usa el trait `Auditable` (hoy: módulo Unidades). Los cambios van a `audits` (modelo `App\Core\Audit\Auditoria`, con `condominio_id` y RLS).
+- `audits` es de solo inserción: `safic_app` no tiene UPDATE, DELETE ni TRUNCATE. La retención (5 años) la ejecuta el dueño de la tabla.
+- Datos personales fuera de la auditoría: `protected array $auditExclude = [...]` (ver `Persona`). Un modelo nuevo con cédula, teléfono, correo o cuentas debe excluirlos.
+- El visor (`/plataforma/condominios/{id}/auditoria`) llega en S4.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.

@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use OwenIt\Auditing\Auditable;
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
  * Unidad del condominio (departamento, casa, local, parqueadero o bodega).
@@ -31,10 +33,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read Collection<int, Vehiculo> $vehiculos
  * @property-read Collection<int, Mascota> $mascotas
  */
-class Unidad extends Model
+class Unidad extends Model implements AuditableContract
 {
     /** @use HasFactory<UnidadFactory> */
-    use BelongsToCondominio, HasFactory, SoftDeletes;
+    use Auditable, BelongsToCondominio, HasFactory, SoftDeletes;
 
     public const TIPOS = ['departamento', 'casa', 'local', 'parqueadero', 'bodega'];
 

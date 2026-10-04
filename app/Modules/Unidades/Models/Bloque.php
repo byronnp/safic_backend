@@ -6,6 +6,8 @@ use App\Core\Tenancy\BelongsToCondominio;
 use Database\Factories\BloqueFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use OwenIt\Auditing\Auditable;
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
  * Bloque, torre o etapa del condominio. Primera tabla de condominio: sirve de
@@ -16,10 +18,10 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $nombre
  * @property int $orden
  */
-class Bloque extends Model
+class Bloque extends Model implements AuditableContract
 {
     /** @use HasFactory<BloqueFactory> */
-    use BelongsToCondominio, HasFactory;
+    use Auditable, BelongsToCondominio, HasFactory;
 
     protected $table = 'bloques';
 
