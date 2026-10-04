@@ -17,10 +17,24 @@ Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('refresh', [AuthController::class, 'refresh'])->middleware('throttle:refresh');
 
+    // Primer ingreso por invitación (sin sesión: el token del correo identifica a la persona)
+    Route::get('invitaciones/{token}', [InvitacionController::class, 'show'])->middleware('throttle:invitacion');
+    Route::post('invitaciones/{token}/aceptar', [InvitacionController::class, 'aceptar'])->middleware('throttle:invitacion');
+
     Route::middleware('auth:api')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
     });
+});
+
+// Catálogos compartidos que no dependen del condominio
+Route::middleware(['auth:api', 'throttle:api'])->group(function () {
+    Route::get('ubicaciones', [CatalogoController::class, 'ubicaciones']);
+});
+
+// Panel de plataforma (super admin, soporte, cobranza): sin X-Condominio-Id
+Route::middleware(['auth:api', 'plataforma', 'throttle:api'])->group(function () {
+    require base_path('app/Modules/Plataforma/routes.php');
 });
 
 Route::middleware(['auth:api', 'condominio', 'throttle:api'])->group(function () {

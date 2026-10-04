@@ -5,7 +5,10 @@ namespace Database\Seeders;
 use App\Core\Permissions\Rol;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
+use App\Modules\Finanzas\Actions\GuardarConfiguracionCobroAction;
+use App\Modules\Finanzas\Models\ConfiguracionCobro;
 use App\Modules\Plataforma\Models\Condominio;
+use App\Modules\Plataforma\Models\Plan;
 use App\Modules\Unidades\Models\Bloque;
 use Illuminate\Database\Seeder;
 
@@ -19,13 +22,21 @@ class DemoSeeder extends Seeder
     {
         $password = 'Safic2026!';
 
+        $profesional = Plan::query()->where('codigo', 'profesional')->value('id');
+
         $jardines = Condominio::updateOrCreate(['codigo' => 'SF-0001'], [
             'nombre' => 'Conjunto Jardines del Valle', 'tipo' => 'conjunto',
             'total_unidades' => 148, 'estado' => Condominio::ESTADO_ACTIVO,
+            'plan_id' => $profesional, 'valor_unidad' => '2.00',
+            'provincia_codigo' => '17', 'canton_codigo' => '1701', 'parroquia_codigo' => '170157',
+            'direccion' => 'Vía Interoceánica km 12', 'latitud' => '-0.201500', 'longitud' => '-78.433900',
         ]);
         $arupos = Condominio::updateOrCreate(['codigo' => 'SF-0012'], [
             'nombre' => 'Conjunto Los Arupos', 'tipo' => 'conjunto',
             'total_unidades' => 130, 'estado' => Condominio::ESTADO_ACTIVO,
+            'plan_id' => $profesional, 'valor_unidad' => '2.00',
+            'provincia_codigo' => '17', 'canton_codigo' => '1701', 'parroquia_codigo' => '170156',
+            'direccion' => 'Av. Ilaló y calle Los Arupos', 'latitud' => '-0.285412', 'longitud' => '-78.471236',
         ]);
 
         $superAdmin = User::updateOrCreate(['email' => 'admin@safic.ec'], ['name' => 'Administrador SAFIC', 'password' => $password, 'activo' => true]);
@@ -40,6 +51,14 @@ class DemoSeeder extends Seeder
         $diego = User::updateOrCreate(['email' => 'diego@correo.ec'], ['name' => 'Diego Mora', 'password' => $password, 'activo' => true]);
         $this->membresia($diego, $jardines, principal: true);
         $this->asignar($diego, $jardines->id, Rol::Residente);
+
+        // Ambos cobran un valor general (como el condominio piloto)
+        foreach ([$jardines, $arupos] as $condominio) {
+            $tenant->run($condominio->id, fn () => app(GuardarConfiguracionCobroAction::class)->execute([
+                'metodo' => ConfiguracionCobro::METODO_GENERAL, 'cuota_general' => '80.00',
+                'dia_vencimiento' => 10, 'aplica_desde' => now()->startOfMonth()->toDateString(),
+            ]));
+        }
 
         $tenant->run($jardines->id, function () {
             foreach (['Torre A', 'Torre B', 'Torre C'] as $i => $nombre) {

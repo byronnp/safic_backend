@@ -1,5 +1,6 @@
 <?php
 
+use App\Core\Auth\Http\Middleware\ResolvePlataforma;
 use App\Core\Http\Exceptions\ApiExceptionRenderer;
 use App\Core\Http\Middleware\ForzarJson;
 use App\Core\Tenancy\Http\ResolveCondominio;

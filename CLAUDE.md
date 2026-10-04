@@ -21,7 +21,7 @@ app/Modules/<M>/  Un módulo por área: Models, Actions, Http/{Controllers,Reque
 database/         migrations (una por tabla), factories, seeders
 tests/Feature/    Pruebas de API por módulo · tests/Feature/Tenancy: aislamiento obligatorio
 ```
-Módulos previstos: Plataforma, Unidades, Finanzas, Reservas, Garita, Comunicacion, Asambleas, Suscripciones.
+Módulos previstos: Plataforma, Unidades, Finanzas, Amenidades, Reservas, Garita, Comunicacion, Asambleas, Suscripciones.
 
 ## Capas (flujo de una petición)
 FormRequest (valida) → Controller (delgado) → Action (caso de uso + transacción) → Services (lógica reutilizable) → Models → Resource + `ApiResponse`.
@@ -48,6 +48,7 @@ Reglas:
 - Los **roles** son un catálogo global (`roles.condominio_id` nulo); solo el super admin los crea. Se asignan por condominio (`model_has_roles.condominio_id`; `0` = plataforma).
 - Presidente, vicepresidente, secretario y tesorero son **cargos**: se asignan por la tabla de cargos (única persona por cargo), no con `assignRole` directo.
 - Cada ruta exige su permiso: `->middleware('permission:unidades.editar')`. Ocultar un ítem del menú no es seguridad.
+- Rutas del panel de plataforma: `auth:api` + `plataforma` (fija el equipo 0 de spatie) + `permission:plataforma.*`, sin `X-Condominio-Id`. Viven en `app/Modules/Plataforma/routes.php`. Si escriben datos de un condominio, lo hacen dentro de `TenantContext::run($id, ...)` y a través de las Actions públicas del módulo dueño.
 - El JWT no lleva roles ni condominio.
 
 ## Convenciones
@@ -56,6 +57,8 @@ Reglas:
 - Códigos de error en MAYÚSCULAS_CON_GUION_BAJO y estables (el frontend los traduce).
 - Mensajes al usuario en español de Ecuador, cortos y claros.
 - Cada migración hace una sola cosa y tiene `down()`.
+- Catálogos de plataforma (planes, amenidades, provincias/cantones/parroquias INEC) se cargan con `CatalogosSeeder`, idempotente, en cada despliegue. En pruebas: `sembrarCatalogos()` solo donde se usan.
+- Cédula y RUC: reglas `App\Core\Validation\Rules\CedulaEc` y `RucEc`.
 
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
