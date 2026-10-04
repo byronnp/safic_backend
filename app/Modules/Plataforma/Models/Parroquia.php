@@ -3,25 +3,27 @@
 namespace App\Modules\Plataforma\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Parroquia urbana o rural del Ecuador (código INEC). Catálogo de plataforma.
+ * Parroquia urbana o rural (código INEC de seis dígitos). Catálogo de plataforma.
  *
+ * @property int $id
+ * @property int $canton_id
  * @property string $codigo
- * @property string $canton_codigo
  * @property string $nombre
  */
 class Parroquia extends Model
 {
-    protected $table = 'ubicacion_parroquias';
+    protected $table = 'parroquias';
 
-    protected $primaryKey = 'codigo';
+    protected $fillable = ['canton_id', 'codigo', 'nombre'];
 
-    protected $keyType = 'string';
-
-    public $incrementing = false;
-
-    public $timestamps = false;
-
-    protected $fillable = ['codigo', 'canton_codigo', 'nombre'];
+    /**
+     * @return BelongsTo<Canton, $this>
+     */
+    public function canton(): BelongsTo
+    {
+        return $this->belongsTo(Canton::class);
+    }
 }

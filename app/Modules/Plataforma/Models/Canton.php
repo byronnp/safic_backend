@@ -3,36 +3,36 @@
 namespace App\Modules\Plataforma\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Cantón del Ecuador (código INEC). Catálogo de plataforma.
+ * Cantón (código INEC de cuatro dígitos). Catálogo de plataforma.
  *
+ * @property int $id
+ * @property int $provincia_id
  * @property string $codigo
- * @property string $provincia_codigo
  * @property string $nombre
- * @property string|null $latitud
- * @property string|null $longitud
  */
 class Canton extends Model
 {
-    protected $table = 'ubicacion_cantones';
+    protected $table = 'cantones';
 
-    protected $primaryKey = 'codigo';
+    protected $fillable = ['provincia_id', 'codigo', 'nombre'];
 
-    protected $keyType = 'string';
-
-    public $incrementing = false;
-
-    public $timestamps = false;
-
-    protected $fillable = ['codigo', 'provincia_codigo', 'nombre', 'latitud', 'longitud'];
+    /**
+     * @return BelongsTo<Provincia, $this>
+     */
+    public function provincia(): BelongsTo
+    {
+        return $this->belongsTo(Provincia::class);
+    }
 
     /**
      * @return HasMany<Parroquia, $this>
      */
     public function parroquias(): HasMany
     {
-        return $this->hasMany(Parroquia::class, 'canton_codigo', 'codigo');
+        return $this->hasMany(Parroquia::class);
     }
 }

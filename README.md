@@ -27,6 +27,18 @@ make setup                    # levanta contenedores, instala dependencias, llav
 
 La primera vez `composer install` resuelve las versiones exactas de los paquetes y crea `composer.lock`: **haz commit de `composer.lock`**.
 
+## Ubicaciones del Ecuador (INEC)
+`make setup` siembra las 24 provincias. Los cantones y parroquias salen del archivo oficial de la
+División Político-Administrativa del INEC (Clasificador Geográfico Estadístico): guárdalo como CSV
+con las columnas `DPA_PROVIN, DPA_DESPRO, DPA_CANTON, DPA_DESCAN, DPA_PARROQ, DPA_DESPAR` en
+`storage/app/dpa.csv` y corre:
+
+```bash
+docker compose exec api php artisan safic:importar-dpa storage/app/dpa.csv
+```
+
+Se puede correr de nuevo cuando el INEC publique cambios: actualiza por código y no duplica.
+
 ## Servicios locales
 | Servicio | URL |
 | --- | --- |
@@ -64,6 +76,11 @@ curl -s http://localhost:8000/api/v1/bloques \
 | GET | /api/v1/auth/me | Usuario, condominios activos (para el selector) y perfil de plataforma |
 | GET | /api/v1/me/contexto | Roles y permisos en el condominio del header |
 | GET/POST | /api/v1/bloques | Bloques del condominio (permiso `unidades.ver` / `unidades.editar`) |
+| GET | /api/v1/me/menu | Menú del perfil en el condominio del header |
+| GET | /api/v1/plataforma/me/menu | Menú del perfil de plataforma |
+| GET | /api/v1/plataforma/planes | Planes activos (permiso `plataforma.condominios`) |
+| GET | /api/v1/plataforma/catalogos | Tipos de condominio, métodos de cobro y amenidades (`plataforma.condominios`) |
+| GET | /api/v1/plataforma/ubicaciones | Provincias, cantones y parroquias del INEC (`plataforma.condominios`) |
 
 ## Comandos
 | Comando | Qué hace |

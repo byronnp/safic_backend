@@ -10,6 +10,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(RolesYPermisosSeeder::class);
         $this->call(CatalogosSeeder::class);
+        $this->call(MenuSeeder::class);
 
         if (app()->environment(['local', 'staging'])) {
             $this->call(DemoSeeder::class);
