@@ -290,6 +290,219 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /unidades:
+    get:
+      tags: [Unidades]
+      operationId: listarUnidades
+      summary: Listar unidades del condominio
+      description: 'Permiso: `unidades.ver`. Paginado y ordenado por código.'
+      x-permiso: unidades.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - in: query
+          name: buscar
+          description: Parte del código (ej. `A-1`).
+          schema: { type: string }
+        - in: query
+          name: tipo
+          schema: { $ref: '#/components/schemas/TipoUnidad' }
+        - in: query
+          name: bloque_id
+          schema: { type: integer }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: por_pagina
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      responses:
+        '200':
+          description: Página de unidades.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Unidad' }
+                  meta:
+                    type: object
+                    required: [pagination]
+                    properties:
+                      pagination: { $ref: '#/components/schemas/Paginacion' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    post:
+      tags: [Unidades]
+      operationId: crearUnidad
+      summary: Crear una unidad
+      description: |
+        Permiso: `unidades.editar`. Los montos dependen del método de cobro del condominio
+        (ver `GET /unidades/resumen`): `alicuota` exige `alicuota` y admite `valor_personalizado`;
+        `tipo` admite `valor_personalizado`; `unidad` exige `cuota_mensual`; `general` no pide montos.
+        Departamentos, casas y locales cuentan para el total contratado: sin cupo responde 409 `LIMITE_UNIDADES`.
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarUnidad' }
+      responses:
+        '201':
+          description: Unidad creada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Unidad' }
+                  message: { type: string, examples: ['Unidad creada.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          $ref: '#/components/responses/LimiteUnidades'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /unidades/resumen:
+    get:
+      tags: [Unidades]
+      operationId: resumenUnidades
+      summary: Resumen de unidades del condominio
+      description: 'Permiso: `unidades.ver`. Avance de carga frente al total contratado, suma de alícuotas y método de cobro.'
+      x-permiso: unidades.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Resumen.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ResumenUnidades' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /unidades/{unidad}:
+    get:
+      tags: [Unidades]
+      operationId: verUnidad
+      summary: Ver una unidad
+      description: 'Permiso: `unidades.ver`. Una unidad de otro condominio responde 404.'
+      x-permiso: unidades.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/UnidadId'
+      responses:
+        '200':
+          description: Unidad.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Unidad' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    patch:
+      tags: [Unidades]
+      operationId: editarUnidad
+      summary: Editar una unidad
+      description: |
+        Permiso: `unidades.editar`. Solo se envían los campos que cambian. Pasar de parqueadero o
+        bodega a un tipo que cuenta para el total exige cupo (409 `LIMITE_UNIDADES`).
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/UnidadId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarUnidad' }
+      responses:
+        '200':
+          description: Unidad actualizada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Unidad' }
+                  message: { type: string, examples: ['Unidad actualizada.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/LimiteUnidades'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    delete:
+      tags: [Unidades]
+      operationId: eliminarUnidad
+      summary: Eliminar una unidad
+      description: 'Permiso: `unidades.editar`. Borrado lógico: conserva el historial y libera el cupo.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/UnidadId'
+      responses:
+        '204':
+          description: Unidad eliminada.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /plataforma/me/menu:
     get:
       tags: [Plataforma]
@@ -601,6 +814,11 @@ components:
       required: true
       description: Token de 64 caracteres recibido por correo.
       schema: { type: string }
+    UnidadId:
+      name: unidad
+      in: path
+      required: true
+      schema: { type: integer }
     CondominioId:
       in: header
       name: X-Condominio-Id
@@ -666,6 +884,11 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
     SinPermisoPlataforma:
       description: '`SIN_PERMISO`: el usuario no tiene perfil de plataforma o le falta el permiso de la ruta.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    LimiteUnidades:
+      description: '`LIMITE_UNIDADES`: se alcanzó el total de unidades contratadas. `error.details` trae `total` y `registradas`.'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -798,6 +1021,67 @@ components:
           type: array
           description: Nombres del enum `Permiso`, ordenados.
           items: { type: string, examples: [unidades.ver] }
+
+    TipoUnidad:
+      type: string
+      enum: [departamento, casa, local, parqueadero, bodega]
+
+    Unidad:
+      type: object
+      required: [id, codigo, bloque, tipo, piso, area_m2, alicuota, cuota_mensual, valor_personalizado, responsable_pago, estado]
+      properties:
+        id: { type: integer }
+        codigo: { type: string, examples: ['A-102'] }
+        bloque:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, nombre]
+              properties:
+                id: { type: integer }
+                nombre: { type: string }
+        tipo: { $ref: '#/components/schemas/TipoUnidad' }
+        piso: { type: [integer, 'null'] }
+        area_m2: { type: string, pattern: '^\d+\.\d{2}$', examples: ['84.00'] }
+        alicuota:
+          type: [string, 'null']
+          pattern: '^\d+\.\d{4}$'
+          description: Porcentaje con 4 decimales (`0.6200` = 0,62 %).
+        cuota_mensual:
+          oneOf: [{ $ref: '#/components/schemas/Dinero' }, { type: 'null' }]
+        valor_personalizado:
+          oneOf: [{ $ref: '#/components/schemas/Dinero' }, { type: 'null' }]
+        responsable_pago: { type: string, enum: [propietario, inquilino] }
+        estado:
+          type: string
+          enum: [ocupada, arrendada, vacia]
+          description: Se calcula con los ocupantes vigentes.
+
+    GuardarUnidad:
+      type: object
+      description: En `POST`, `codigo`, `tipo` y `area_m2` son obligatorios; en `PATCH` todos son opcionales.
+      properties:
+        codigo: { type: string, maxLength: 20, examples: ['A-102'] }
+        bloque_id: { type: [integer, 'null'] }
+        tipo: { $ref: '#/components/schemas/TipoUnidad' }
+        piso: { type: [integer, 'null'], minimum: -5, maximum: 200 }
+        area_m2: { type: number, exclusiveMinimum: 0, examples: [84] }
+        responsable_pago: { type: string, enum: [propietario, inquilino], default: propietario }
+        alicuota: { type: [number, 'null'], exclusiveMinimum: 0, maximum: 100, description: 'Obligatoria con método `alicuota`.' }
+        cuota_mensual: { type: number, exclusiveMinimum: 0, description: 'Solo y obligatoria con método `unidad`.' }
+        valor_personalizado: { type: [number, 'null'], exclusiveMinimum: 0, description: 'Solo con método `tipo` o `alicuota`.' }
+
+    ResumenUnidades:
+      type: object
+      required: [registradas, total_contratadas, suma_alicuotas, metodo_cobro, cuota_general]
+      properties:
+        registradas: { type: integer, description: 'Departamentos, casas y locales registrados (parqueaderos y bodegas no cuentan).' }
+        total_contratadas: { type: integer }
+        suma_alicuotas: { type: string, examples: ['99.6200'], description: Debe llegar a 100. }
+        metodo_cobro: { type: string, enum: [general, tipo, alicuota, unidad] }
+        cuota_general:
+          oneOf: [{ $ref: '#/components/schemas/Dinero' }, { type: 'null' }]
+          description: 'Lo que paga cada unidad con método `general`; null con los demás métodos.'
 
     Bloque:
       type: object
