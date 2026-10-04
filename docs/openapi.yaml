@@ -635,8 +635,9 @@ paths:
       operationId: listarPersonas
       summary: Listar personas del condominio
       description: |
-        Permiso: `unidades.ver`. `buscar` filtra por nombre (contiene) o por documento exacto.
-        Documento, teléfono y correo salen enmascarados sin `residentes.ver_datos`.
+        Permiso: `unidades.ver`. `buscar` filtra por nombre (contiene) y, solo con
+        `residentes.ver_datos`, por documento exacto. Sin ese permiso documento, teléfono
+        y correo salen enmascarados.
       x-permiso: unidades.ver
       parameters:
         - $ref: '#/components/parameters/CondominioId'

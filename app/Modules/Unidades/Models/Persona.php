@@ -66,14 +66,18 @@ class Persona extends Model
     }
 
     /**
-     * Por nombre (contiene) o por documento exacto en cualquier tipo.
+     * Por nombre (contiene) y, si $porDocumento, también por documento exacto en
+     * cualquier tipo. Sin residentes.ver_datos no se busca por documento: permitiría
+     * confirmar si una cédula está registrada aunque la respuesta salga enmascarada.
      *
      * @param  Builder<Persona>  $query
      */
-    public function scopeBuscar(Builder $query, string $texto): void
+    public function scopeBuscar(Builder $query, string $texto, bool $porDocumento = true): void
     {
         $texto = trim($texto);
-        $hashes = array_map(fn (string $tipo) => DatosPersonales::hashDocumento($tipo, $texto), self::TIPOS_DOCUMENTO);
+        $hashes = $porDocumento
+            ? array_map(fn (string $tipo) => DatosPersonales::hashDocumento($tipo, $texto), self::TIPOS_DOCUMENTO)
+            : [];
         $patron = '%'.addcslashes($texto, '%_\\').'%';
 
         $query->where(fn (Builder $q) => $q

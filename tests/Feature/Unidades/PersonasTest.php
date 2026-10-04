@@ -10,6 +10,7 @@ beforeEach(function () {
     [, $token] = usuarioConToken($this->condominio);
     $this->api = fn (?string $t = null) => $this->withToken($t ?? $token)->withHeader('X-Condominio-Id', (string) $this->condominio->id);
     $this->datos = [
+        // Cédula ficticia: solo cumple el módulo 10
         'tipo_documento' => 'cedula', 'documento' => '1710034065', 'nombres' => 'Lucía',
         'apellidos' => 'Paredes', 'telefono' => '099 123 4534', 'email' => ' Lucia@Correo.EC ',
     ];
@@ -53,6 +54,15 @@ it('busca por nombre o por documento exacto', function () {
     ($this->api)()->getJson('/api/v1/personas?buscar=1710034065')->assertJsonCount(1, 'data');
     ($this->api)()->getJson('/api/v1/personas?buscar=171003')->assertJsonCount(0, 'data');
     ($this->api)()->getJson('/api/v1/personas')->assertJsonPath('meta.pagination.total', 2);
+});
+
+it('sin residentes.ver_datos no busca por documento (no confirma si una cédula existe)', function () {
+    ($this->api)()->postJson('/api/v1/personas', $this->datos)->assertCreated();
+    [, $guardia] = usuarioConToken($this->condominio, Rol::Guardia);
+    cambiarDeUsuario();
+
+    ($this->api)($guardia)->getJson('/api/v1/personas?buscar=1710034065')->assertJsonCount(0, 'data');
+    ($this->api)($guardia)->getJson('/api/v1/personas?buscar=paredes')->assertJsonCount(1, 'data');
 });
 
 it('enmascara los datos personales para quien no tiene residentes.ver_datos', function () {

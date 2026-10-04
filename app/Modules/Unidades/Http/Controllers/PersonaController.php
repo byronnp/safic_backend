@@ -3,6 +3,7 @@
 namespace App\Modules\Unidades\Http\Controllers;
 
 use App\Core\Http\Responses\ApiResponse;
+use App\Core\Permissions\Permiso;
 use App\Modules\Unidades\Actions\GuardarPersonaAction;
 use App\Modules\Unidades\Http\Requests\GuardarPersonaRequest;
 use App\Modules\Unidades\Http\Resources\PersonaResource;
@@ -13,7 +14,8 @@ use Illuminate\Http\Request;
 class PersonaController
 {
     /**
-     * Filtro: buscar (nombre o documento exacto). Orden por apellidos.
+     * Filtro: buscar (nombre; documento exacto solo con residentes.ver_datos).
+     * Orden por apellidos.
      */
     public function index(Request $request): JsonResponse
     {
@@ -21,7 +23,10 @@ class PersonaController
         $porPagina = min(max((int) $request->query('por_pagina', 25), 1), 100);
 
         $pagina = Persona::query()
-            ->when($buscar !== '', fn ($q) => $q->buscar($buscar))
+            ->when($buscar !== '', fn ($q) => $q->buscar(
+                $buscar,
+                (bool) $request->user()?->can(Permiso::ResidentesVerDatos->value),
+            ))
             ->orderBy('apellidos')
             ->orderBy('nombres')
             ->paginate($porPagina);
