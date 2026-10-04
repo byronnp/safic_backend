@@ -35,3 +35,11 @@ Plan: Sprint 0 (este esqueleto) → S1 alta de condominio → S2 unidades y resi
 - `GET /me/menu` (condominio del header) y `GET /plataforma/me/menu` (equipo 0). El frontend usa el mismo formato `ItemMenu`; en desarrollo suma las pantallas en vista previa del menú local.
 - `MenuSeeder` solo crea pantallas con API y asigna perfiles a los ítems nuevos según los permisos por defecto de cada rol; no pisa cambios del super admin.
 - Rutas `/api/v1/plataforma/*`: middleware `plataforma` (equipo 0); cada una con su permiso de plataforma.
+
+### Reconciliación de S1 (3-oct-2026)
+
+S1 se programó en dos ramas paralelas (`s1/semana-1` y `s1/alta-condominio`) y el merge dejó `main` roto (dos `ResolvePlataforma`, tablas `planes`/`amenidades_catalogo` creadas dos veces, rutas del alta perdidas). Decisión:
+- Se queda el **alta completa** de `s1/alta-condominio`: tablas `ubicacion_*` (INEC con coordenadas, desde `database/data`), `planes` con `codigo`/`limite_administrativos`, amenidades, cobro, invitación y sus rutas.
+- Se queda el **menú por perfil** de `s1/semana-1` (`menu_items`, `menu_item_rol`, `/me/menu`, `/plataforma/me/menu`) y su middleware `App\Core\Tenancy\Http\ResolvePlataforma`.
+- Se retiran `/plataforma/catalogos`, `/plataforma/ubicaciones`, `safic:importar-dpa` y las migraciones `2026_10_12_000100…000500`: duplicaban `/plataforma/amenidades`, `/ubicaciones` y el catálogo INEC ya sembrado.
+

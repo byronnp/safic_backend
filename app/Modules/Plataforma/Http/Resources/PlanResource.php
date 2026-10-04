@@ -17,10 +17,9 @@ class PlanResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'clave' => $this->clave,
+            'codigo' => $this->codigo,
             'nombre' => $this->nombre,
-            'max_administrativos' => $this->max_administrativos,
-            // Dinero como texto con dos decimales: "2.00"
+            'limite_administrativos' => $this->limite_administrativos,
             'valor_unidad_sugerido' => $this->valor_unidad_sugerido,
         ];
     }

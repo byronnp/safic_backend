@@ -1,7 +1,9 @@
 <?php
 
 use App\Core\Auth\Http\Controllers\AuthController;
+use App\Core\Auth\Http\Controllers\InvitacionController;
 use App\Core\Menu\Http\Controllers\MenuController;
+use App\Modules\Plataforma\Http\Controllers\CatalogoController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -32,11 +34,6 @@ Route::middleware(['auth:api', 'throttle:api'])->group(function () {
     Route::get('ubicaciones', [CatalogoController::class, 'ubicaciones']);
 });
 
-// Panel de plataforma (super admin, soporte, cobranza): sin X-Condominio-Id
-Route::middleware(['auth:api', 'plataforma', 'throttle:api'])->group(function () {
-    require base_path('app/Modules/Plataforma/routes.php');
-});
-
 Route::middleware(['auth:api', 'condominio', 'throttle:api'])->group(function () {
     // Roles y permisos del usuario en el condominio activo
     Route::get('me/contexto', [AuthController::class, 'contexto']);
@@ -46,6 +43,7 @@ Route::middleware(['auth:api', 'condominio', 'throttle:api'])->group(function ()
     require base_path('app/Modules/Unidades/routes.php');
 });
 
+// Panel de plataforma (super admin, soporte, cobranza): sin X-Condominio-Id
 Route::middleware(['auth:api', 'plataforma', 'throttle:api'])->prefix('plataforma')->group(function () {
     // Menú del perfil de plataforma
     Route::get('me/menu', [MenuController::class, 'plataforma']);

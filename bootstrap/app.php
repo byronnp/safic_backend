@@ -1,11 +1,9 @@
 <?php
 
-use App\Core\Auth\Http\Middleware\ResolvePlataforma;
 use App\Core\Http\Exceptions\ApiExceptionRenderer;
 use App\Core\Http\Middleware\ForzarJson;
 use App\Core\Tenancy\Http\ResolveCondominio;
 use App\Core\Tenancy\Http\ResolvePlataforma;
-use App\Modules\Plataforma\Console\ImportarDpa;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -21,7 +19,6 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withCommands([ImportarDpa::class])
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [ForzarJson::class]);
 
