@@ -2218,6 +2218,196 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /plataforma/menu-sistema:
+    get:
+      tags: [Plataforma]
+      operationId: listarMenuSistema
+      summary: Ítems del menú de un ámbito, con los perfiles que los ven
+      description: |
+        Permiso: `plataforma.roles`. `ambito` = `condominio` | `plataforma`. Devuelve los ítems en orden (cada grupo seguido
+        de sus hijos) y los perfiles y permisos que se pueden elegir en ese ámbito.
+      x-permiso: plataforma.roles
+      parameters:
+        - { name: ambito, in: query, required: true, schema: { type: string, enum: [condominio, plataforma] } }
+      responses:
+        '200':
+          description: Menú del ámbito.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MenuSistema' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '422':
+          description: Falta el ámbito.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    post:
+      tags: [Plataforma]
+      operationId: crearMenuItem
+      summary: Agregar una pantalla o un grupo al menú
+      description: |
+        Permiso: `plataforma.roles`. Sin `ruta` es un grupo (no lleva padre ni perfiles); con `ruta` es una pantalla, que
+        puede ir dentro de un grupo. La clave se genera (`{ambito}.{slug}`) y va al final de sus hermanos. El cambio rige
+        para todos los condominios al instante. 422 `PERFIL_INVALIDO` si algún perfil no es del ámbito.
+      x-permiso: plataforma.roles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ambito, etiqueta, icono]
+              properties:
+                ambito: { type: string, enum: [condominio, plataforma] }
+                padre_id: { type: [integer, 'null'] }
+                etiqueta: { type: string, minLength: 2, maxLength: 60 }
+                icono: { type: string, examples: ['sym_r_gavel'] }
+                ruta: { type: [string, 'null'], examples: ['reglamento'] }
+                permiso: { type: [string, 'null'] }
+                seccion: { type: boolean }
+                activo: { type: boolean }
+                roles: { type: array, items: { type: string } }
+      responses:
+        '201':
+          description: Ítem creado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MenuSistemaItem' }
+                  message: { type: string, examples: ['Ítem agregado al menú.'] }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '422':
+          description: Datos inválidos o `PERFIL_INVALIDO`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /plataforma/menu-sistema/vista-previa:
+    get:
+      tags: [Plataforma]
+      operationId: vistaPreviaMenuSistema
+      summary: Cómo ve el menú un perfil
+      description: 'Permiso: `plataforma.roles`. `menu` es lo que ve el perfil; `ocultos`, los ítems activos que no le llegan.'
+      x-permiso: plataforma.roles
+      parameters:
+        - { name: ambito, in: query, required: true, schema: { type: string, enum: [condominio, plataforma] } }
+        - { name: perfil, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Vista previa.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [menu, ocultos]
+                    properties:
+                      menu: { type: array, items: { type: object, additionalProperties: true } }
+                      ocultos: { type: integer, description: Pantallas activas que no le llegan al perfil. }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+
+  /plataforma/menu-sistema/{item}:
+    patch:
+      tags: [Plataforma]
+      operationId: editarMenuItem
+      summary: Editar un ítem del menú
+      description: |
+        Permiso: `plataforma.roles`. Solo lo que cambia (etiqueta, ícono, ruta, permiso, activo, perfiles). Los ítems no se
+        borran: se desactivan. Una pantalla no puede quedar sin ruta, un grupo no tiene ruta ni perfiles.
+      x-permiso: plataforma.roles
+      parameters:
+        - { name: item, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                etiqueta: { type: string, minLength: 2, maxLength: 60 }
+                icono: { type: string }
+                ruta: { type: string }
+                permiso: { type: [string, 'null'] }
+                activo: { type: boolean }
+                roles: { type: array, items: { type: string } }
+      responses:
+        '200':
+          description: Ítem actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MenuSistemaItem' }
+                  message: { type: string, examples: ['Cambios guardados.'] }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          description: Datos inválidos o `PERFIL_INVALIDO`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /plataforma/menu-sistema/{item}/mover:
+    post:
+      tags: [Plataforma]
+      operationId: moverMenuItem
+      summary: Subir o bajar un ítem entre sus hermanos
+      description: 'Permiso: `plataforma.roles`. En el extremo no cambia nada. Devuelve todos los ítems del ámbito en su nuevo orden.'
+      x-permiso: plataforma.roles
+      parameters:
+        - { name: item, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [direccion]
+              properties:
+                direccion: { type: string, enum: [arriba, abajo] }
+      responses:
+        '200':
+          description: Ítems del ámbito en orden.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/MenuSistemaItem' } }
+                  message: { type: string, examples: ['Orden actualizado.'] }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
   /plataforma/usuarios/buscar:
     get:
       tags: [Plataforma]
@@ -2934,6 +3124,39 @@ components:
         acta: { type: string, maxLength: 80, examples: ['Acta 2026-03'] }
         periodo_hasta: { type: string, format: date, description: 'Después de hoy y hasta 4 años.' }
 
+    MenuSistemaItem:
+      type: object
+      required: [id, clave, padre_id, etiqueta, icono, ruta, permiso, es_grupo, seccion, orden, activo, roles]
+      properties:
+        id: { type: integer }
+        clave: { type: string, examples: ['condominio.reglamento'] }
+        padre_id: { type: [integer, 'null'] }
+        etiqueta: { type: string }
+        icono: { type: string, examples: ['sym_r_gavel'] }
+        ruta: { type: [string, 'null'] }
+        permiso: { type: [string, 'null'] }
+        es_grupo: { type: boolean }
+        seccion: { type: boolean }
+        orden: { type: integer }
+        activo: { type: boolean }
+        roles: { type: array, items: { type: string }, description: Perfiles que lo ven (solo pantallas). }
+    MenuSistema:
+      type: object
+      required: [items, roles, permisos]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/MenuSistemaItem' } }
+        roles:
+          type: array
+          items:
+            type: object
+            required: [clave, nombre]
+            properties: { clave: { type: string }, nombre: { type: string } }
+        permisos:
+          type: array
+          items:
+            type: object
+            required: [clave, etiqueta, grupo]
+            properties: { clave: { type: string }, etiqueta: { type: string }, grupo: { type: string } }
     CatalogoAmenidadAdmin:
       type: object
       required: [id, nombre, descripcion, categoria, reservable, esencial, requiere_aprobacion, capacidad, duracion_maxima_min, orden, activa, uso]
