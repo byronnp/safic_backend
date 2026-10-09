@@ -5,6 +5,8 @@ namespace App\Modules\Finanzas\Models;
 use App\Core\Tenancy\BelongsToCondominio;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use OwenIt\Auditing\Auditable;
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
  * Cómo cobra el condominio sus cuotas (una fila por condominio).
@@ -17,9 +19,9 @@ use Illuminate\Support\Carbon;
  * @property int $dia_vencimiento 1–28; 0 = último día del mes
  * @property Carbon $aplica_desde
  */
-class ConfiguracionCobro extends Model
+class ConfiguracionCobro extends Model implements AuditableContract
 {
-    use BelongsToCondominio;
+    use Auditable, BelongsToCondominio;
 
     public const METODO_GENERAL = 'general';
 

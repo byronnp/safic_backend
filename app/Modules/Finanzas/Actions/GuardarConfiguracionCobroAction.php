@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Caso de uso público del módulo Finanzas: guardar cómo cobra el condominio activo
- * sus cuotas. Lo usan el asistente de alta (Plataforma) y, en S2, la pantalla
- * Configuración › Cobro de cuotas. Debe correr dentro de un condominio activo.
+ * sus cuotas. Lo usan el asistente de alta (Plataforma) y la pantalla
+ * Configuración › Cobro de cuotas (ActualizarCobroAction). Debe correr dentro de un condominio activo.
  */
 final class GuardarConfiguracionCobroAction
 {
@@ -35,12 +35,19 @@ final class GuardarConfiguracionCobroAction
                 'aplica_desde' => $datos['aplica_desde'],
             ])->save();
 
-            CobroValorTipo::query()->delete();
+            // Uno a uno (no con delete() masivo): cada cambio de valor queda en la auditoría
+            $nuevos = $metodo === ConfiguracionCobro::METODO_TIPO
+                ? collect($datos['valores_tipo'] ?? [])->pluck('valor', 'tipo')
+                : collect();
 
-            if ($metodo === ConfiguracionCobro::METODO_TIPO) {
-                foreach ($datos['valores_tipo'] ?? [] as $valor) {
-                    CobroValorTipo::create(['tipo_unidad' => $valor['tipo'], 'valor' => $valor['valor']]);
+            foreach (CobroValorTipo::query()->get() as $actual) {
+                if (! $nuevos->has($actual->tipo_unidad)) {
+                    $actual->delete();
                 }
+            }
+
+            foreach ($nuevos as $tipo => $valor) {
+                CobroValorTipo::query()->updateOrCreate(['tipo_unidad' => $tipo], ['valor' => $valor]);
             }
 
             return $configuracion;

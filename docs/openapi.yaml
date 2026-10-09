@@ -36,6 +36,8 @@ tags:
     description: Usuario actual y su contexto (roles y permisos) en un condominio.
   - name: Unidades
     description: Bloques, unidades y residentes del condominio.
+  - name: Finanzas
+    description: Cobro de cuotas del condominio.
   - name: Catálogos
     description: Datos compartidos que no dependen del condominio.
   - name: Plataforma
@@ -218,6 +220,81 @@ paths:
           $ref: '#/components/responses/NoAutenticado'
         '403':
           $ref: '#/components/responses/CondominioNoPermitido'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /cobro:
+    get:
+      tags: [Finanzas]
+      operationId: verCobro
+      summary: Cobro de cuotas del condominio
+      description: |
+        Permiso: `condominio.editar`. La configuración vigente (sin configuración devuelve el valor general
+        con `configurado: false`), las unidades por tipo para proyectar la próxima emisión y el historial de
+        cambios, que sale de la auditoría (el más reciente primero). Las acciones del equipo de la plataforma
+        se muestran como `Equipo SAFIC`.
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Cobro de cuotas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CobroCuotas' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    put:
+      tags: [Finanzas]
+      operationId: guardarCobro
+      summary: Cambiar el cobro de cuotas
+      description: |
+        Permiso: `condominio.editar`. Reemplaza la configuración completa. Rige desde `aplica_desde` (desde el mes
+        siguiente hasta 12 meses adelante); las cuotas ya emitidas no cambian y el cambio queda en la auditoría.
+        409 `UNIDADES_SIN_ALICUOTA` / `UNIDADES_SIN_CUOTA` si se pasa a alícuota o a por unidad y a alguna unidad
+        le falta ese dato (`error.details.unidades` trae cuántas).
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarCobro' }
+      responses:
+        '200':
+          description: Cobro guardado (misma forma que `GET /cobro`).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CobroCuotas' }
+                  message: { type: string, examples: ['Cambios guardados.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`UNIDADES_SIN_ALICUOTA` o `UNIDADES_SIN_CUOTA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
@@ -1893,6 +1970,83 @@ components:
         alicuota: { type: [string, number, 'null'], pattern: '^\d+(\.\d{1,4})?$', examples: ['0.6200'], description: 'Porcentaje mayor que 0 y hasta 100, con hasta 4 decimales. Obligatoria con método `alicuota`.' }
         cuota_mensual: { type: [string, number], pattern: '^\d+(\.\d{1,2})?$', examples: ['90.00'], description: 'Monto mayor que 0 como texto decimal. Solo y obligatoria con método `unidad`.' }
         valor_personalizado: { type: [string, number, 'null'], pattern: '^\d+(\.\d{1,2})?$', examples: ['75.50'], description: 'Monto mayor que 0 como texto decimal. Solo con método `tipo` o `alicuota`.' }
+
+    GuardarCobro:
+      type: object
+      required: [metodo, dia_vencimiento, aplica_desde]
+      properties:
+        metodo: { type: string, enum: [general, tipo, alicuota, unidad] }
+        cuota_general:
+          description: Obligatoria con método general.
+          oneOf:
+            - { $ref: '#/components/schemas/Dinero' }
+            - { type: 'null' }
+        presupuesto_mensual:
+          description: Obligatorio con método por alícuota.
+          oneOf:
+            - { $ref: '#/components/schemas/Dinero' }
+            - { type: 'null' }
+        valores_tipo:
+          description: Obligatorio con método por tipo.
+          type: [array, 'null']
+          items:
+            type: object
+            required: [tipo, valor]
+            properties:
+              tipo: { type: string, enum: [departamento, casa, local, parqueadero, bodega] }
+              valor: { $ref: '#/components/schemas/Dinero' }
+        dia_vencimiento: { type: integer, minimum: 0, maximum: 28, description: 0 = último día del mes. }
+        aplica_desde: { type: string, pattern: '^\d{4}-\d{2}$', description: 'Primer mes con el cambio (AAAA-MM): del mes siguiente a 12 meses adelante.' }
+
+    CobroCuotas:
+      type: object
+      required: [configurado, metodo, cuota_general, presupuesto_mensual, valores_tipo, dia_vencimiento, aplica_desde, unidades, historial]
+      properties:
+        configurado: { type: boolean, description: 'false si el condominio nunca configuró el cobro.' }
+        metodo: { type: string, enum: [general, tipo, alicuota, unidad] }
+        cuota_general: { type: [string, 'null'], examples: ['80.00'] }
+        presupuesto_mensual: { type: [string, 'null'], examples: ['12000.00'] }
+        valores_tipo:
+          type: array
+          items:
+            type: object
+            required: [tipo, valor]
+            properties:
+              tipo: { type: string, enum: [departamento, casa, local, parqueadero, bodega] }
+              valor: { type: string, examples: ['80.00'] }
+        dia_vencimiento: { type: integer, description: 0 = último día del mes. }
+        aplica_desde: { type: [string, 'null'], examples: ['2026-11'] }
+        unidades:
+          type: object
+          description: Para proyectar la próxima emisión y validar un cambio de método.
+          required: [por_tipo, con_cupo, suma_cuotas, sin_alicuota, sin_cuota_mensual]
+          properties:
+            por_tipo:
+              type: object
+              additionalProperties: { type: integer }
+              examples: [{ departamento: 136, casa: 12, local: 0, parqueadero: 0, bodega: 0 }]
+            con_cupo: { type: integer, description: 'Departamentos, casas y locales (el método general los cobra a todos por igual).' }
+            suma_cuotas: { type: string, description: 'Suma de la cuota mensual de las unidades (método por unidad).', examples: ['12615.00'] }
+            sin_alicuota: { type: integer }
+            sin_cuota_mensual: { type: integer }
+        historial:
+          type: array
+          items:
+            type: object
+            required: [fecha, quien, inicial, cambios]
+            properties:
+              fecha: { type: string, format: date-time }
+              quien: { type: string, examples: ['María Rivas'] }
+              inicial: { type: boolean, description: 'Es la configuración inicial (alta del condominio).' }
+              cambios:
+                type: array
+                items:
+                  type: object
+                  required: [campo, antes, despues]
+                  properties:
+                    campo: { type: string, description: 'metodo, cuota_general, presupuesto_mensual, dia_vencimiento, aplica_desde o valor_tipo:<tipo>.', examples: [cuota_general] }
+                    antes: { type: [string, 'null'] }
+                    despues: { type: [string, 'null'] }
 
     ResultadoImportacionUnidades:
       type: object

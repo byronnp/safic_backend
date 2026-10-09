@@ -4,8 +4,7 @@ namespace App\Modules\Plataforma\Http\Requests;
 
 use App\Core\Validation\Rules\CedulaEc;
 use App\Core\Validation\Rules\RucEc;
-use App\Modules\Finanzas\Models\CobroValorTipo;
-use App\Modules\Finanzas\Models\ConfiguracionCobro;
+use App\Modules\Finanzas\Services\ReglasCobro;
 use App\Modules\Plataforma\Models\Condominio;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -34,7 +33,6 @@ class CrearCondominioRequest extends FormRequest
     public function rules(): array
     {
         $metodo = $this->input('cobro.metodo');
-        $dinero = ['decimal:0,2', 'gt:0', 'max:99999'];
 
         return [
             // Paso 1 · datos generales y contrato con la plataforma
@@ -58,13 +56,7 @@ class CrearCondominioRequest extends FormRequest
 
             // Paso 3 · cobro de cuotas a residentes
             'cobro' => ['required', 'array'],
-            'cobro.metodo' => ['required', Rule::in(ConfiguracionCobro::METODOS)],
-            'cobro.cuota_general' => [Rule::requiredIf($metodo === ConfiguracionCobro::METODO_GENERAL), 'nullable', ...$dinero],
-            'cobro.presupuesto_mensual' => [Rule::requiredIf($metodo === ConfiguracionCobro::METODO_ALICUOTA), 'nullable', 'decimal:0,2', 'gt:0', 'max:9999999'],
-            'cobro.valores_tipo' => [Rule::requiredIf($metodo === ConfiguracionCobro::METODO_TIPO), 'nullable', 'array', 'min:1'],
-            'cobro.valores_tipo.*.tipo' => ['required', 'distinct', Rule::in(CobroValorTipo::TIPOS_UNIDAD)],
-            'cobro.valores_tipo.*.valor' => ['required', ...$dinero],
-            'cobro.dia_vencimiento' => ['required', 'integer', 'between:0,28'],
+            ...ReglasCobro::reglas($metodo, 'cobro.'),
             'cobro.primera_cuota' => ['required', 'date_format:Y-m', 'after_or_equal:'.now()->format('Y-m')],
 
             // Paso 4 · amenidades del catálogo
