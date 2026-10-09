@@ -111,7 +111,7 @@ final class CrearCondominioAction
 
     /**
      * @param  list<array{amenidad_id: int, cantidad: int}>  $elegidas
-     * @return list<array{amenidad_catalogo_id: int, nombre: string, cantidad: int, reservable: bool, esencial: bool, requiere_aprobacion: bool}>
+     * @return list<array{amenidad_catalogo_id: int, nombre: string, categoria: string, cantidad: int, reservable: bool, esencial: bool, requiere_aprobacion: bool}>
      */
     private function amenidadesDelCatalogo(array $elegidas): array
     {
@@ -131,6 +131,7 @@ final class CrearCondominioAction
             $amenidades[] = [
                 'amenidad_catalogo_id' => $item->id,
                 'nombre' => $item->nombre,
+                'categoria' => $item->categoria,
                 'cantidad' => (int) $elegida['cantidad'],
                 'reservable' => $item->reservable,
                 'esencial' => $item->esencial,

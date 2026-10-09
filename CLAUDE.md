@@ -107,6 +107,10 @@ Reglas:
 - El menú que ve cada perfil sale de `menu_items` (`MenuSeeder`). **Una pantalla entra al seeder cuando pasa de vista previa a datos reales** (en el mismo PR que la conecta), nunca antes: el frontend solo muestra las vistas previas en desarrollo. `MenuPorPerfilTest` fija la lista de rutas permitidas.
 - `MenuSeeder`, `RolesYPermisosSeeder` y `CatalogosSeeder` son idempotentes (solo crean lo que falta) y corren en cada despliegue (`.github/workflows/staging.yml`). En local, tras traer cambios: `php artisan db:seed --class=MenuSeeder`.
 
+## Amenidades del condominio
+- `condominio_amenidades` (RLS + auditoría) copia los valores del catálogo al agregar. Reservable con varias unidades → registros separados numerados («Área BBQ 1», «Área BBQ 2», la numeración sigue donde iba); no reservable → un registro con su cantidad («Ascensor (3)»). Una propia no puede llamarse como una del catálogo.
+- «Desactivar» es `activa = false` (no se borra: otras fases, como Reservas, referenciarán la amenidad). El mantenimiento termina solo al pasar `mantenimiento_hasta`.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.
