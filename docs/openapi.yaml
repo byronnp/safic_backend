@@ -1815,10 +1815,11 @@ components:
       properties:
         unidad:
           type: object
-          required: [id, codigo, bloque]
+          required: [id, codigo, tipo, bloque]
           properties:
             id: { type: integer }
             codigo: { type: string, examples: [A-102] }
+            tipo: { type: string, enum: [departamento, casa, local, parqueadero, bodega] }
             bloque: { type: [string, 'null'], examples: [Torre A] }
         ocupantes:
           type: array

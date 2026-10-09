@@ -49,13 +49,15 @@ it('muestra nombre, unidad, teléfono completo y vehículo, y nada más', functi
     $r = ($this->guardia)()->getJson('/api/v1/garita/directorio?buscar=PBC')->assertOk();
 
     expect($r->json('data.0'))->toBe([
-        'unidad' => ['id' => $r->json('data.0.unidad.id'), 'codigo' => 'A-102', 'bloque' => 'Torre A'],
+        'unidad' => ['id' => $r->json('data.0.unidad.id'), 'codigo' => 'A-102', 'tipo' => $r->json('data.0.unidad.tipo'), 'bloque' => 'Torre A'],
         'ocupantes' => [['nombre' => 'Diego Mora', 'relacion' => 'inquilino', 'telefono' => '0983307710']],
         'vehiculos' => [
             ['placa' => 'PBC-4821', 'descripcion' => 'Kia Sportage · Gris', 'coincide' => true],
             ['placa' => 'PBD-1000', 'descripcion' => '', 'coincide' => false],
         ],
     ]);
+
+    expect(Unidad::TIPOS)->toContain($r->json('data.0.unidad.tipo'));
 
     // Ni cédula ni correo viajan en la respuesta, ni de quien ya no vive ahí
     expect($r->getContent())->not->toContain('1710034065')

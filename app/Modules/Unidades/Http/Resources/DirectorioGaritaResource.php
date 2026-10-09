@@ -30,6 +30,7 @@ class DirectorioGaritaResource extends JsonResource
             'unidad' => [
                 'id' => $this->id,
                 'codigo' => $this->codigo,
+                'tipo' => $this->tipo,
                 'bloque' => $this->bloque?->nombre,
             ],
             'ocupantes' => $this->ocupantesVigentes
