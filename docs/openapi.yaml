@@ -384,6 +384,91 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /unidades/importacion/plantilla:
+    get:
+      tags: [Unidades]
+      operationId: plantillaImportacionUnidades
+      summary: Plantilla de Excel para importar unidades
+      description: |
+        Permiso: `unidades.editar`. Descarga un .xlsx con la hoja `Unidades` (solo los títulos de columna)
+        y la hoja `Instrucciones`. Las columnas dependen del método de cobro del condominio.
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Archivo .xlsx.
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /unidades/importacion:
+    post:
+      tags: [Unidades]
+      operationId: importarUnidades
+      summary: Importar unidades desde Excel (vista previa o creación)
+      description: |
+        Permiso: `unidades.editar`. Recibe el .xlsx (máx. 2 MB y 500 filas) en `multipart/form-data`.
+        Sin `confirmar` solo valida y responde 200 con la vista previa (errores por fila, bloques que se crearían
+        y si alcanza el total contratado); no guarda nada. Con `confirmar=1` crea todas las unidades o ninguna:
+        201 si salió bien, 422 `IMPORTACION_CON_ERRORES` si alguna fila tiene error (`error.details.errores`),
+        409 `LIMITE_UNIDADES` si no alcanza el total contratado. Cada fila usa las reglas de `POST /unidades`;
+        los bloques que no existen se crean. Otros 422: `IMPORTACION_COLUMNAS`, `IMPORTACION_ARCHIVO_INVALIDO`,
+        `IMPORTACION_MUY_GRANDE`, `IMPORTACION_VACIA`.
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo]
+              properties:
+                archivo: { type: string, format: binary, description: 'Excel .xlsx (plantilla).' }
+                confirmar: { type: boolean, description: 'true crea las unidades; omitido o false solo valida.' }
+      responses:
+        '200':
+          description: Vista previa (no se guardó nada).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ResultadoImportacionUnidades' }
+        '201':
+          description: Unidades creadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ResultadoImportacionUnidades' }
+                  message: { type: string, examples: ['Unidades importadas.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          $ref: '#/components/responses/LimiteUnidades'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /garita/directorio:
     get:
       tags: [Unidades]
@@ -1808,6 +1893,36 @@ components:
         alicuota: { type: [string, number, 'null'], pattern: '^\d+(\.\d{1,4})?$', examples: ['0.6200'], description: 'Porcentaje mayor que 0 y hasta 100, con hasta 4 decimales. Obligatoria con método `alicuota`.' }
         cuota_mensual: { type: [string, number], pattern: '^\d+(\.\d{1,2})?$', examples: ['90.00'], description: 'Monto mayor que 0 como texto decimal. Solo y obligatoria con método `unidad`.' }
         valor_personalizado: { type: [string, number, 'null'], pattern: '^\d+(\.\d{1,2})?$', examples: ['75.50'], description: 'Monto mayor que 0 como texto decimal. Solo con método `tipo` o `alicuota`.' }
+
+    ResultadoImportacionUnidades:
+      type: object
+      required: [confirmado, total_filas, validas, con_errores, errores, bloques_nuevos, cupo, creadas]
+      properties:
+        confirmado: { type: boolean }
+        total_filas: { type: integer }
+        validas: { type: integer }
+        con_errores: { type: integer, description: 'Filas con al menos un error.' }
+        errores:
+          type: array
+          items:
+            type: object
+            required: [fila, campo, mensaje]
+            properties:
+              fila: { type: integer, description: 'Número de fila en Excel (la 1 son los títulos).' }
+              campo: { type: string, examples: [area_m2] }
+              mensaje: { type: string }
+        bloques_nuevos:
+          type: array
+          items: { type: string }
+        cupo:
+          type: object
+          required: [total, registradas, nuevas, alcanza]
+          properties:
+            total: { type: integer }
+            registradas: { type: integer }
+            nuevas: { type: integer, description: 'Unidades que cuentan para el total contratado.' }
+            alcanza: { type: boolean }
+        creadas: { type: integer }
 
     DirectorioGarita:
       type: object

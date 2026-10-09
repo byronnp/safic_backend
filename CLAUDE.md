@@ -86,6 +86,10 @@ Reglas:
 - Para que no sirva para volcar la lista de residentes: búsqueda de mínimo 2 letras o números, máximo 20 unidades y 30 consultas por minuto (`throttle:directorio`). No ampliar estos topes ni agregar campos sin revisión de seguridad.
 - Los permisos nuevos no llegan a roles que ya existen (el seeder solo los da al crear el rol): una migración de datos se los da, como `2026_10_29_000100_dar_garita_directorio…`.
 
+## Importación desde Excel
+- `openspout/openspout` lee y escribe .xlsx en streaming (sin cargar el libro entero ni ejecutar fórmulas). Solo se usa dentro del módulo que importa (Unidades: `Services/LectorExcelUnidades`, `PlantillaUnidades`).
+- Flujo de toda importación: vista previa sin guardar (errores por fila) → `confirmar=1` crea todo o nada en una transacción. Cada fila se valida con las mismas reglas del formulario y respeta los límites del plan. Máx. 2 MB y 500 filas.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.

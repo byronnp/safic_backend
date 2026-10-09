@@ -3,6 +3,7 @@
 use App\Core\Permissions\Permiso;
 use App\Modules\Unidades\Http\Controllers\BloqueController;
 use App\Modules\Unidades\Http\Controllers\DirectorioGaritaController;
+use App\Modules\Unidades\Http\Controllers\ImportacionUnidadesController;
 use App\Modules\Unidades\Http\Controllers\MascotaController;
 use App\Modules\Unidades\Http\Controllers\OcupanteController;
 use App\Modules\Unidades\Http\Controllers\PersonaController;
@@ -26,6 +27,13 @@ Route::get('unidades/resumen', [UnidadController::class, 'resumen'])
     ->middleware('permission:'.Permiso::UnidadesVer->value);
 
 Route::post('unidades', [UnidadController::class, 'store'])
+    ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
+// Importación desde Excel (antes de unidades/{unidad}: la ruta es fija)
+Route::get('unidades/importacion/plantilla', [ImportacionUnidadesController::class, 'plantilla'])
+    ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
+Route::post('unidades/importacion', [ImportacionUnidadesController::class, 'importar'])
     ->middleware('permission:'.Permiso::UnidadesEditar->value);
 
 Route::get('unidades/{unidad}', [UnidadController::class, 'show'])
