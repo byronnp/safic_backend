@@ -78,7 +78,7 @@ Reglas:
 ## Archivos (S3)
 - Todo archivo de un condominio se guarda con `App\Core\Storage\ArchivosCondominio` (disco `archivos`: S3 en AWS, MinIO en Docker). Ruta `condominios/{id}/{carpeta}/{uuid}.ext`; el prefijo sale del condominio activo, nunca de la petición.
 - El bucket es privado: se entrega solo `urlTemporal()` (10 min). No guardar el nombre original del archivo ni usar `Storage::disk('s3')` directo.
-- Variables: `ARCHIVOS_DISK=s3`, `AWS_ENDPOINT=http://minio:9000`, `AWS_USE_PATH_STYLE_ENDPOINT=true`, `AWS_TEMPORARY_URL_ENDPOINT=http://localhost:9002`, `AWS_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`. En AWS real se dejan vacíos `AWS_ENDPOINT` y `AWS_TEMPORARY_URL_ENDPOINT`. MinIO: API en :9002, consola en :9003.
+- Variables (`.env`): `ARCHIVOS_DISK=s3`, `AWS_ENDPOINT=http://host.docker.internal:9100`, `AWS_USE_PATH_STYLE_ENDPOINT=true`, `AWS_TEMPORARY_URL_ENDPOINT=http://localhost:9100`, `AWS_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION=us-east-1`. El bucket se crea a mano en la consola (http://localhost:9101); este compose no levanta MinIO. En AWS real se dejan vacíos `AWS_ENDPOINT` y `AWS_TEMPORARY_URL_ENDPOINT`.
 - Pruebas: `config(['filesystems.disco_archivos' => 'local'])` + `Storage::fake('local')`.
 
 ## Contrato OpenAPI
