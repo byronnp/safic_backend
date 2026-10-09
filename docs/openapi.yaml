@@ -298,6 +298,167 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /condominio:
+    get:
+      tags: [Plataforma]
+      operationId: verDatosCondominio
+      summary: Datos del propio condominio
+      description: 'Permiso: `condominio.editar`. Datos generales, ubicación y apariencia del condominio del header.'
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Datos del condominio.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/DatosCondominio' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    patch:
+      tags: [Plataforma]
+      operationId: actualizarDatosCondominio
+      summary: Editar los datos del propio condominio
+      description: |
+        Permiso: `condominio.editar`. Nombre, contacto, dirección, ubicación y colores. El RUC, la razón social,
+        el tipo y el plan no se cambian aquí (los gestiona la plataforma).
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActualizarDatosCondominio' }
+      responses:
+        '200':
+          description: Datos guardados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/DatosCondominio' }
+                  message: { type: string, examples: ['Cambios guardados.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /condominio/logo/{variante}:
+    post:
+      tags: [Plataforma]
+      operationId: subirLogoCondominio
+      summary: Subir el logo del condominio
+      description: |
+        Permiso: `condominio.editar`. PNG de hasta 1 MB y entre 64 y 2000 píxeles por lado (no se acepta SVG).
+        Reemplaza el logo de esa variante y borra el anterior.
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/VarianteLogo'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo]
+              properties:
+                archivo: { type: string, format: binary }
+      responses:
+        '200':
+          description: Logo guardado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/DatosCondominio' }
+                  message: { type: string, examples: ['Logo guardado.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    delete:
+      tags: [Plataforma]
+      operationId: quitarLogoCondominio
+      summary: Quitar el logo del condominio
+      description: 'Permiso: `condominio.editar`. Borra el logo de esa variante y su archivo.'
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/VarianteLogo'
+      responses:
+        '200':
+          description: Logo quitado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/DatosCondominio' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /marca/{codigo}/logo/{variante}:
+    get:
+      tags: [Plataforma]
+      operationId: verLogoCondominio
+      summary: Logo del condominio (público)
+      description: |
+        Sin sesión: el logo aparece en el login, recibos y correos. Responde la imagen PNG con caché de un día;
+        404 si el condominio no tiene logo de esa variante.
+      security: []
+      parameters:
+        - { name: codigo, in: path, required: true, schema: { type: string }, example: SF-0001 }
+        - $ref: '#/components/parameters/VarianteLogo'
+      responses:
+        '200':
+          description: Imagen PNG.
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /bloques:
     get:
       tags: [Unidades]
@@ -1589,6 +1750,12 @@ components:
       in: path
       required: true
       schema: { type: integer }
+    VarianteLogo:
+      name: variante
+      in: path
+      required: true
+      description: Fondo sobre el que se usa el logo.
+      schema: { type: string, enum: [claro, oscuro] }
     CondominioId:
       in: header
       name: X-Condominio-Id
@@ -1778,11 +1945,61 @@ components:
 
     MarcaCondominio:
       type: object
-      description: Apariencia del condominio. Los colores de estado no se personalizan.
+      description: |
+        Apariencia del condominio. Los colores de estado no se personalizan. Los logos son enlaces relativos a
+        `/api/v1/marca/{codigo}/logo/{variante}` (públicos, con `?v=` para la caché); la ruta interna del archivo
+        nunca sale de la API.
+      required: [color_primario, color_acento, logo_url, logo_claro_url, logo_oscuro_url]
       properties:
-        logo_url: { type: [string, 'null'], format: uri }
-        color_primario: { type: [string, 'null'], pattern: '^#[0-9A-Fa-f]{6}$' }
-        color_acento: { type: [string, 'null'], pattern: '^#[0-9A-Fa-f]{6}$' }
+        color_primario: { type: [string, 'null'], pattern: '^#[0-9A-F]{6}$' }
+        color_acento: { type: [string, 'null'], pattern: '^#[0-9A-F]{6}$' }
+        logo_url: { type: [string, 'null'], description: 'El logo de fondo claro (o el oscuro si es el único).' }
+        logo_claro_url: { type: [string, 'null'] }
+        logo_oscuro_url: { type: [string, 'null'] }
+
+    DatosCondominio:
+      type: object
+      description: Datos del propio condominio. RUC, razón social y tipo los cambia la plataforma.
+      required: [id, codigo, nombre, tipo, ruc, razon_social, telefono, email_contacto, direccion, provincia, canton, parroquia, latitud, longitud, marca]
+      properties:
+        id: { type: integer }
+        codigo: { type: string }
+        nombre: { type: string }
+        tipo: { type: [string, 'null'], enum: [conjunto, edificio, urbanizacion, mixto, null] }
+        ruc: { type: [string, 'null'] }
+        razon_social: { type: [string, 'null'] }
+        telefono: { type: [string, 'null'], examples: ['022334455'] }
+        email_contacto: { type: [string, 'null'] }
+        direccion: { type: [string, 'null'] }
+        provincia: { $ref: '#/components/schemas/UbicacionCodigoNombre' }
+        canton: { $ref: '#/components/schemas/UbicacionCodigoNombre' }
+        parroquia: { $ref: '#/components/schemas/UbicacionCodigoNombre' }
+        latitud: { type: [string, 'null'], examples: ['-0.180000'] }
+        longitud: { type: [string, 'null'], examples: ['-78.470000'] }
+        marca: { $ref: '#/components/schemas/MarcaCondominio' }
+
+    UbicacionCodigoNombre:
+      type: [object, 'null']
+      required: [codigo, nombre]
+      properties:
+        codigo: { type: string }
+        nombre: { type: string }
+
+    ActualizarDatosCondominio:
+      type: object
+      description: Solo viaja lo que cambia. Provincia, cantón y parroquia van juntos; latitud y longitud también.
+      properties:
+        nombre: { type: string, maxLength: 120 }
+        telefono: { type: [string, 'null'], pattern: '^0\d{8,9}$' }
+        email_contacto: { type: [string, 'null'], format: email, maxLength: 160 }
+        direccion: { type: string, maxLength: 200 }
+        provincia_codigo: { type: string }
+        canton_codigo: { type: string }
+        parroquia_codigo: { type: string }
+        latitud: { type: number, minimum: -5.1, maximum: 1.7 }
+        longitud: { type: number, minimum: -92.1, maximum: -75.1 }
+        color_primario: { type: [string, 'null'], pattern: '^#[0-9A-Fa-f]{6}$', description: 'null restablece el color de SAFIC.' }
+        color_acento: { type: [string, 'null'], pattern: '^#[0-9A-Fa-f]{6}$', description: 'null restablece el color de SAFIC.' }
 
     ContextoCondominio:
       type: object

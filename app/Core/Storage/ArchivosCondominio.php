@@ -45,6 +45,14 @@ final class ArchivosCondominio
         return $this->disco()->temporaryUrl($ruta, $expira ?? now()->addMinutes(10));
     }
 
+    /** Contenido del archivo (para servirlo por la API). Falla si la ruta no es del condominio activo. */
+    public function contenido(string $ruta): ?string
+    {
+        $this->exigirPropio($ruta);
+
+        return $this->disco()->get($ruta);
+    }
+
     public function eliminar(string $ruta): void
     {
         $this->exigirPropio($ruta);

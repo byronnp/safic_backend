@@ -2,6 +2,7 @@
 
 use App\Core\Auth\Http\Controllers\AuthController;
 use App\Core\Auth\Http\Controllers\InvitacionController;
+use App\Core\Marca\Http\Controllers\LogoPublicoController;
 use App\Core\Menu\Http\Controllers\MenuController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,6 +43,9 @@ Route::prefix('auth')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
     });
 });
+
+// Logo del condominio (público: aparece en el login, recibos y correos)
+Route::get('marca/{codigo}/logo/{variante}', [LogoPublicoController::class, 'show'])->middleware('throttle:marca');
 
 // Con sesión y sin condominio: catálogos compartidos
 Route::middleware(['auth:api', 'throttle:api'])->group(function () use ($rutasDeModulos) {
