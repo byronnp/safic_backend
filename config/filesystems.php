@@ -16,6 +16,12 @@ return [
     'default' => env('FILESYSTEM_DISK', 'local'),
 
     /*
+    | Disco de los archivos de los condominios (App\Core\Storage\ArchivosCondominio).
+    | Local y producción: `s3` (MinIO en Docker, S3 en AWS). Pruebas: `local`.
+    */
+    'disco_archivos' => env('ARCHIVOS_DISK', 's3'),
+
+    /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
@@ -55,6 +61,9 @@ return [
             'bucket' => env('AWS_BUCKET'),
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
+            // Host que ve el navegador en los enlaces temporales (en Docker el
+            // endpoint interno es http://minio:9000 y el navegador usa localhost:9000).
+            'temporary_url' => env('AWS_TEMPORARY_URL_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,
