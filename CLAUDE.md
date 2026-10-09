@@ -102,6 +102,10 @@ Reglas:
 - Directiva (`cargos_directiva`, con RLS y auditoría): un cargo, una persona; una persona, un cargo (índices parciales + `AsignarCargoAction`). Solo propietarios con correo. Cambiar al titular cierra su periodo y le quita solo ese cargo. El módulo Usuarios consulta Unidades solo por sus Actions públicas (`PropietariosVigentesAction`, `ResumenPersonasAction`). Pendiente: la regla «sin mora» (Decreto 462) cuando exista Finanzas.
 - Los cambios de membresía no pasan por `audits` (tabla de plataforma, sin `condominio_id`): pendiente decidir su bitácora.
 
+## Menú de producción
+- El menú que ve cada perfil sale de `menu_items` (`MenuSeeder`). **Una pantalla entra al seeder cuando pasa de vista previa a datos reales** (en el mismo PR que la conecta), nunca antes: el frontend solo muestra las vistas previas en desarrollo. `MenuPorPerfilTest` fija la lista de rutas permitidas.
+- `MenuSeeder`, `RolesYPermisosSeeder` y `CatalogosSeeder` son idempotentes (solo crean lo que falta) y corren en cada despliegue (`.github/workflows/staging.yml`). En local, tras traer cambios: `php artisan db:seed --class=MenuSeeder`.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.

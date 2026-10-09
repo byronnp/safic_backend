@@ -6,7 +6,7 @@ El workflow `.github/workflows/staging.yml` está **preparado pero apagado**. Mi
 
 1. Construye la imagen (`docker/php/Dockerfile`, etapa `prod`) y la publica en ECR con el SHA del commit como etiqueta.
 2. Registra una nueva revisión de la task definition de cada servicio con esa imagen.
-3. Corre las migraciones como tarea de un solo uso (`migrate --database=pgsql_owner` y `CatalogosSeeder`). Si fallan, **no** se actualiza ningún servicio.
+3. Corre las migraciones como tarea de un solo uso (`migrate --database=pgsql_owner`) y los seeders idempotentes `CatalogosSeeder`, `RolesYPermisosSeeder` y `MenuSeeder` (catálogos, permisos nuevos y menú; solo crean lo que falta, no pisan lo que el super admin ajustó). Si fallan, **no** se actualiza ningún servicio.
 4. Actualiza los servicios ECS y espera a que queden estables.
 
 ## Lo que tienes que crear en AWS
