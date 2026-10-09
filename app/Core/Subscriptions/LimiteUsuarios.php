@@ -7,6 +7,7 @@ use App\Core\Permissions\Rol;
 use App\Core\Tenancy\Calendario;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -37,6 +38,12 @@ final class LimiteUsuarios
 
     public function usados(): int
     {
+        return $this->consultaUsados()->distinct()->count('cu.user_id');
+    }
+
+    /** Membresías activas y vigentes con un perfil que consume cupo. */
+    private function consultaUsados(): Builder
+    {
         return DB::table('condominio_user as cu')
             ->join('model_has_roles as mr', function ($join): void {
                 $join->on('mr.model_id', '=', 'cu.user_id')
@@ -47,9 +54,13 @@ final class LimiteUsuarios
             ->where('cu.condominio_id', $this->tenant->require())
             ->where('cu.activo', true)
             ->where(fn ($q) => $q->whereNull('cu.acceso_hasta')->orWhere('cu.acceso_hasta', '>=', $this->calendario->hoy()))
-            ->whereIn('r.name', Rol::nombresQueCuentanParaCupo())
-            ->distinct()
-            ->count('cu.user_id');
+            ->whereIn('r.name', Rol::nombresQueCuentanParaCupo());
+    }
+
+    /** ¿Esta persona ya ocupa un lugar del cupo en el condominio activo? */
+    public function consume(int $userId): bool
+    {
+        return $this->consultaUsados()->where('cu.user_id', $userId)->exists();
     }
 
     /**

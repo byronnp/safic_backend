@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Permissions\Permiso;
+use App\Modules\Usuarios\Http\Controllers\DirectivaController;
 use App\Modules\Usuarios\Http\Controllers\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,4 +20,16 @@ Route::patch('usuarios/{usuario}', [UsuarioController::class, 'update'])
 
 Route::post('usuarios/{usuario}/invitacion', [UsuarioController::class, 'reenviar'])
     ->whereNumber('usuario')
+    ->middleware('permission:'.Permiso::UsuariosGestionar->value);
+
+// Directiva: cuatro cargos, una persona por cargo
+Route::get('directiva', [DirectivaController::class, 'index'])
+    ->middleware('permission:'.Permiso::UsuariosGestionar->value);
+
+Route::get('directiva/{cargo}/candidatos', [DirectivaController::class, 'candidatos'])
+    ->whereIn('cargo', ['presidente', 'vicepresidente', 'secretario', 'tesorero'])
+    ->middleware('permission:'.Permiso::UsuariosGestionar->value);
+
+Route::post('directiva/{cargo}', [DirectivaController::class, 'asignar'])
+    ->whereIn('cargo', ['presidente', 'vicepresidente', 'secretario', 'tesorero'])
     ->middleware('permission:'.Permiso::UsuariosGestionar->value);
