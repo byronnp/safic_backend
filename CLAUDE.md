@@ -75,6 +75,12 @@ Reglas:
 - Datos personales fuera de la auditoría: `protected array $auditExclude = [...]` (ver `Persona`). Un modelo nuevo con cédula, teléfono, correo o cuentas debe excluirlos.
 - El visor (`/plataforma/condominios/{id}/auditoria`) llega en S4.
 
+## Archivos (S3)
+- Todo archivo de un condominio se guarda con `App\Core\Storage\ArchivosCondominio` (disco `archivos`: S3 en AWS, MinIO en Docker). Ruta `condominios/{id}/{carpeta}/{uuid}.ext`; el prefijo sale del condominio activo, nunca de la petición.
+- El bucket es privado: se entrega solo `urlTemporal()` (10 min). No guardar el nombre original del archivo ni usar `Storage::disk('s3')` directo.
+- Variables (`.env`): `ARCHIVOS_DISK=s3`, `AWS_ENDPOINT=http://host.docker.internal:9100`, `AWS_USE_PATH_STYLE_ENDPOINT=true`, `AWS_TEMPORARY_URL_ENDPOINT=http://localhost:9100`, `AWS_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION=us-east-1`. El bucket se crea a mano en la consola (http://localhost:9101); este compose no levanta MinIO. En AWS real se dejan vacíos `AWS_ENDPOINT` y `AWS_TEMPORARY_URL_ENDPOINT`.
+- Pruebas: `config(['filesystems.disco_archivos' => 'local'])` + `Storage::fake('local')`.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.
