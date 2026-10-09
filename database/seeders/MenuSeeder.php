@@ -12,7 +12,7 @@ use Spatie\Permission\Models\Role;
  * Menú inicial del sistema. Idempotente: solo crea los ítems que faltan y solo
  * asigna perfiles a los ítems nuevos, para no pisar lo que el super admin cambió.
  *
- * Aquí van solo las pantallas que ya tienen API. Las pantallas en vista previa
+ * Aquí van solo las pantallas que ya tienen API (una pantalla en vista previa no se agrega). Las pantallas en vista previa
  * las agrega el frontend en desarrollo; cuando una pasa a datos reales, se suma
  * su ítem a este archivo (mismo `clave` que el `id` del frontend).
  *
@@ -93,17 +93,28 @@ class MenuSeeder extends Seeder
                     ['clave' => 'unidades.bloques', 'etiqueta' => 'Bloques', 'icono' => 'sym_r_domain', 'ruta' => 'bloques', 'permiso' => Permiso::UnidadesVer],
                 ],
             ],
+            [
+                'clave' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true,
+                'hijos' => [
+                    ['clave' => 'configuracion.condominio', 'etiqueta' => 'Datos del condominio', 'icono' => 'sym_r_domain', 'ruta' => 'configuracion-condominio', 'permiso' => Permiso::CondominioEditar],
+                    ['clave' => 'configuracion.cobro', 'etiqueta' => 'Cobro de cuotas', 'icono' => 'sym_r_request_quote', 'ruta' => 'configuracion-cobro', 'permiso' => Permiso::CondominioEditar],
+                    ['clave' => 'configuracion.usuarios', 'etiqueta' => 'Usuarios', 'icono' => 'sym_r_manage_accounts', 'ruta' => 'configuracion-usuarios', 'permiso' => Permiso::UsuariosGestionar],
+                ],
+            ],
         ];
     }
 
     /**
-     * El panel de plataforma todavía no tiene pantallas con API: se suman aquí
-     * a medida que pasan de vista previa a datos reales.
+     * Solo las pantallas del panel de plataforma que ya tienen API: se suman aquí a
+     * medida que pasan de vista previa a datos reales (una pantalla en vista previa
+     * nunca debe llegar al menú de producción).
      *
      * @return list<array<string, mixed>>
      */
     private function menuPlataforma(): array
     {
-        return [];
+        return [
+            ['clave' => 'plataforma.condominios', 'etiqueta' => 'Condominios', 'icono' => 'sym_r_location_city', 'ruta' => 'plataforma-condominios', 'permiso' => Permiso::PlataformaCondominios],
+        ];
     }
 }
