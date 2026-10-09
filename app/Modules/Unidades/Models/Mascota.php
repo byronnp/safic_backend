@@ -6,6 +6,8 @@ use App\Core\Tenancy\BelongsToCondominio;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use OwenIt\Auditing\Auditable;
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
  * @property int $id
@@ -15,9 +17,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $especie
  * @property string|null $raza
  */
-class Mascota extends Model
+class Mascota extends Model implements AuditableContract
 {
-    use BelongsToCondominio, SoftDeletes;
+    use Auditable, BelongsToCondominio, SoftDeletes;
 
     public const ESPECIES = ['perro', 'gato', 'ave', 'otro'];
 

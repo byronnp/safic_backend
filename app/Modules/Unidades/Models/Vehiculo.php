@@ -7,6 +7,8 @@ use App\Core\Validation\Rules\PlacaEc;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use OwenIt\Auditing\Auditable;
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
  * @property int $id
@@ -18,9 +20,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $modelo
  * @property string|null $color
  */
-class Vehiculo extends Model
+class Vehiculo extends Model implements AuditableContract
 {
-    use BelongsToCondominio, SoftDeletes;
+    use Auditable, BelongsToCondominio, SoftDeletes;
 
     public const TIPOS = ['auto', 'moto'];
 

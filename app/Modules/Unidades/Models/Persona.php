@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use OwenIt\Auditing\Auditable;
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
  * Persona del condominio (propietario, inquilino, residente o contacto). Es distinta
@@ -25,14 +27,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string|null $telefono
  * @property string|null $email
  */
-class Persona extends Model
+class Persona extends Model implements AuditableContract
 {
     /** @use HasFactory<PersonaFactory> */
-    use BelongsToCondominio, HasFactory, SoftDeletes;
+    use Auditable, BelongsToCondominio, HasFactory, SoftDeletes;
 
     public const TIPOS_DOCUMENTO = ['cedula', 'ruc', 'pasaporte'];
 
     protected $table = 'personas';
+
+    /** Datos personales: la auditoría registra que cambiaron, no sus valores. */
+    protected array $auditExclude = ['documento', 'documento_hash', 'telefono', 'email'];
 
     protected $fillable = ['tipo_documento', 'documento', 'nombres', 'apellidos', 'telefono', 'email'];
 

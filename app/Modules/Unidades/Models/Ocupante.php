@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use OwenIt\Auditing\Auditable;
+use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
 /**
  * Relación de una persona con una unidad, con fechas de vigencia (tabla unidad_persona).
@@ -23,9 +25,9 @@ use Illuminate\Support\Carbon;
  * @property-read Persona $persona
  * @property-read Unidad $unidad
  */
-class Ocupante extends Model
+class Ocupante extends Model implements AuditableContract
 {
-    use BelongsToCondominio;
+    use Auditable, BelongsToCondominio;
 
     public const RELACIONES = ['propietario', 'inquilino', 'residente', 'contacto_emergencia'];
 
