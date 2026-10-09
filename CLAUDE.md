@@ -96,6 +96,9 @@ Migración + endpoint + Resource + pruebas (incluida la de aislamiento y la de p
 - Hooks: Pint formatea cada PHP editado; al terminar, si hay cambios en PHP, corren Pint --test, Larastan y Pest en Docker y un fallo se devuelve a Claude para que lo corrija. Requieren `make up`.
 - `.claude/settings.local.json` es personal y no se sube.
 
+## Staging
+- `.github/workflows/staging.yml` construye la imagen de producción en cada cambio a `main`. El despliegue a AWS (ECR + ECS) está apagado hasta que `vars.STAGING_HABILITADO` sea `true`; guía y recursos necesarios en `docs/staging.md`. Sin llaves de AWS en GitHub: acceso por OIDC.
+
 ## Seguridad
 - Nunca subir `.env`, llaves JWT (`storage/jwt/*.pem`) ni datos reales de residentes.
 - Datos personales (cédula, teléfono, correo) se enmascaran para roles sin `residentes.ver_datos`.
