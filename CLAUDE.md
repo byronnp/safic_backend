@@ -81,6 +81,11 @@ Reglas:
 - Variables (`.env`): `ARCHIVOS_DISK=s3`, `AWS_ENDPOINT=http://host.docker.internal:9100`, `AWS_USE_PATH_STYLE_ENDPOINT=true`, `AWS_TEMPORARY_URL_ENDPOINT=http://localhost:9100`, `AWS_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION=us-east-1`. El bucket se crea a mano en la consola (http://localhost:9101); este compose no levanta MinIO. En AWS real se dejan vacíos `AWS_ENDPOINT` y `AWS_TEMPORARY_URL_ENDPOINT`.
 - Pruebas: `config(['filesystems.disco_archivos' => 'local'])` + `Storage::fake('local')`.
 
+## Directorio de garita
+- `GET /garita/directorio` (permiso `garita.directorio`: guardia y administrador) es la **única** ruta que entrega el teléfono sin enmascarar sin `residentes.ver_datos`. Devuelve una lista cerrada (nombre, relación, unidad, bloque, teléfono, vehículos); nunca cédula, correo ni ids de persona.
+- Para que no sirva para volcar la lista de residentes: búsqueda de mínimo 2 letras o números, máximo 20 unidades y 30 consultas por minuto (`throttle:directorio`). No ampliar estos topes ni agregar campos sin revisión de seguridad.
+- Los permisos nuevos no llegan a roles que ya existen (el seeder solo los da al crear el rol): una migración de datos se los da, como `2026_10_29_000100_dar_garita_directorio…`.
+
 ## Importación desde Excel
 - `openspout/openspout` lee y escribe .xlsx en streaming (sin cargar el libro entero ni ejecutar fórmulas). Solo se usa dentro del módulo que importa (Unidades: `Services/LectorExcelUnidades`, `PlantillaUnidades`).
 - Flujo de toda importación: vista previa sin guardar (errores por fila) → `confirmar=1` crea todo o nada en una transacción. Cada fila se valida con las mismas reglas del formulario y respeta los límites del plan. Máx. 2 MB y 500 filas.

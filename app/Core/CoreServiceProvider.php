@@ -36,6 +36,9 @@ class CoreServiceProvider extends ServiceProvider
 
         RateLimiter::for('refresh', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
+        // El directorio muestra teléfonos sin enmascarar: se limita para que no sirva para volcar la lista completa
+        RateLimiter::for('directorio', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->getAuthIdentifier() ?? $request->ip()));
+
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->getAuthIdentifier() ?? $request->ip()));
     }
 }

@@ -469,6 +469,49 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /garita/directorio:
+    get:
+      tags: [Unidades]
+      operationId: directorioGarita
+      summary: Directorio de garita (nombre, unidad, teléfono y placas)
+      description: |
+        Permiso: `garita.directorio` (guardia y administrador). Busca por nombre de un ocupante vigente,
+        código de unidad o placa (con o sin guion). Máximo 20 unidades por consulta y 30 consultas por minuto.
+        Es una lista cerrada: devuelve nombre, relación, unidad, bloque, **teléfono completo** y vehículos;
+        nunca cédula ni correo. El teléfono completo solo sale aquí; en el resto de la API sigue enmascarado
+        sin `residentes.ver_datos`.
+      x-permiso: garita.directorio
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - name: buscar
+          in: query
+          required: true
+          description: Al menos 2 letras o números; máximo 60 caracteres.
+          schema: { type: string, minLength: 2, maxLength: 60 }
+      responses:
+        '200':
+          description: Unidades que coinciden (puede ser una lista vacía).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 20
+                    items: { $ref: '#/components/schemas/DirectorioGarita' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /unidades/resumen:
     get:
       tags: [Unidades]
@@ -1880,6 +1923,38 @@ components:
             nuevas: { type: integer, description: 'Unidades que cuentan para el total contratado.' }
             alcanza: { type: boolean }
         creadas: { type: integer }
+
+    DirectorioGarita:
+      type: object
+      required: [unidad, ocupantes, vehiculos]
+      properties:
+        unidad:
+          type: object
+          required: [id, codigo, tipo, bloque]
+          properties:
+            id: { type: integer }
+            codigo: { type: string, examples: [A-102] }
+            tipo: { type: string, enum: [departamento, casa, local, parqueadero, bodega] }
+            bloque: { type: [string, 'null'], examples: [Torre A] }
+        ocupantes:
+          type: array
+          description: Ocupantes vigentes, el principal primero.
+          items:
+            type: object
+            required: [nombre, relacion, telefono]
+            properties:
+              nombre: { type: string }
+              relacion: { type: string, enum: [propietario, inquilino, residente, contacto_emergencia] }
+              telefono: { type: [string, 'null'], description: 'Completo (sin enmascarar).' }
+        vehiculos:
+          type: array
+          items:
+            type: object
+            required: [placa, descripcion, coincide]
+            properties:
+              placa: { type: string, examples: [PBC-4821] }
+              descripcion: { type: string, description: 'Marca, modelo y color; puede venir vacía.', examples: ['Kia Sportage · Gris'] }
+              coincide: { type: boolean, description: 'La placa coincide con la búsqueda (para resaltarla).' }
 
     ResumenUnidades:
       type: object
