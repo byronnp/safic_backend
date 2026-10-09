@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Permissions\Permiso;
+use App\Modules\Plataforma\Http\Controllers\CatalogoAmenidadesController;
 use App\Modules\Plataforma\Http\Controllers\CatalogoController;
 use App\Modules\Plataforma\Http\Controllers\CondominioController;
 use App\Modules\Plataforma\Http\Controllers\UsuarioPlataformaController;
@@ -21,4 +22,14 @@ Route::post('condominios', [CondominioController::class, 'store'])->middleware($
 Route::get('condominios/{condominio}', [CondominioController::class, 'show'])->whereNumber('condominio')->middleware($condominios);
 Route::post('condominios/{condominio}/administradores/{usuario}/invitacion', [CondominioController::class, 'reenviarInvitacion'])
     ->whereNumber(['condominio', 'usuario'])
+    ->middleware($condominios);
+
+// Catálogo global de amenidades y amenidades propias de los condominios
+Route::get('catalogo-amenidades', [CatalogoAmenidadesController::class, 'index'])->middleware($condominios);
+Route::get('catalogo-amenidades/propias', [CatalogoAmenidadesController::class, 'propias'])->middleware($condominios);
+Route::post('catalogo-amenidades', [CatalogoAmenidadesController::class, 'store'])->middleware($condominios);
+Route::patch('catalogo-amenidades/{amenidad}', [CatalogoAmenidadesController::class, 'update'])->whereNumber('amenidad')->middleware($condominios);
+Route::delete('catalogo-amenidades/{amenidad}', [CatalogoAmenidadesController::class, 'destroy'])->whereNumber('amenidad')->middleware($condominios);
+Route::post('catalogo-amenidades/propias/{condominio}/{amenidad}/promover', [CatalogoAmenidadesController::class, 'promover'])
+    ->whereNumber(['condominio', 'amenidad'])
     ->middleware($condominios);

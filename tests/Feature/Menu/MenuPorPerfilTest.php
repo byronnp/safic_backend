@@ -58,7 +58,7 @@ it('ninguna pantalla en vista previa llega al menú de producción', function ()
     // Solo rutas que ya tienen pantalla con API; una vista previa se suma cuando pasa a datos reales
     $rutas = MenuItem::query()->whereNotNull('ruta')->pluck('ruta')->sort()->values()->all();
 
-    expect($rutas)->toBe(['bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'inicio', 'plataforma-condominios', 'unidades']);
+    expect($rutas)->toBe(['bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'unidades']);
 });
 
 it('un perfil sin permisos de configuración no ve esa sección', function () {
@@ -129,7 +129,7 @@ describe('menú de plataforma', function () {
             ->assertJsonPath('data.0.id', 'plataforma.condominios');
     });
 
-    it('soporte ve Condominios por defecto y no lo ve si se le quita la hoja', function () {
+    it('soporte ve Condominios por defecto y no lo ve si se le quitan las hojas', function () {
         $user = User::factory()->dePlataforma(Rol::Soporte)->create();
 
         $this->withToken(auth('api')->tokenById($user->id))
@@ -137,7 +137,9 @@ describe('menú de plataforma', function () {
             ->assertOk()
             ->assertJsonPath('data.0.id', 'plataforma.condominios');
 
-        $this->itemPlataforma->roles()->detach(rolGlobal(Rol::Soporte)->id);
+        // Se le quitan todas las hojas de plataforma (Condominios y Catálogo de amenidades)
+        MenuItem::query()->where('ambito', MenuItem::AMBITO_PLATAFORMA)->get()
+            ->each(fn (MenuItem $item) => $item->roles()->detach(rolGlobal(Rol::Soporte)->id));
         app('auth')->forgetGuards();
         app('tymon.jwt')->unsetToken();
 

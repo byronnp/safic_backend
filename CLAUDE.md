@@ -109,6 +109,7 @@ Reglas:
 
 ## Amenidades del condominio
 - `condominio_amenidades` (RLS + auditoría) copia los valores del catálogo al agregar. Reservable con varias unidades → registros separados numerados («Área BBQ 1», «Área BBQ 2», la numeración sigue donde iba); no reservable → un registro con su cantidad («Ascensor (3)»). Una propia no puede llamarse como una del catálogo.
+- Catálogo global (super admin, `/plataforma/catalogo-amenidades`): al agregar, el condominio recibe una **copia** de los valores; editar el catálogo no altera a quien ya la tiene. Un tipo en uso solo se desactiva (`AMENIDAD_EN_USO`). Las amenidades propias de todos los condominios se leen recorriendo cada condominio en su contexto (`ResumenAmenidadesPorCondominioAction`): la plataforma nunca ve tablas con RLS sin contexto. Promover una propia crea el tipo y la vincula.
 - «Desactivar» es `activa = false` (no se borra: otras fases, como Reservas, referenciarán la amenidad). El mantenimiento termina solo al pasar `mantenimiento_hasta`.
 
 ## Contrato OpenAPI
