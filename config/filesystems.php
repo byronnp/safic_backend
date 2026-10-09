@@ -19,7 +19,7 @@ return [
     | Disco de los archivos de los condominios (App\Core\Storage\ArchivosCondominio).
     | Local y producción: `s3` (MinIO en Docker, S3 en AWS). Pruebas: `local`.
     */
-    'disco_archivos' => env('ARCHIVOS_DISK', 's3'),
+    'disco_archivos' => env('ARCHIVOS_DISK') ?: 's3',
 
     /*
     |--------------------------------------------------------------------------
@@ -65,7 +65,8 @@ return [
             // endpoint interno es http://minio:9000 y el navegador usa localhost:9000).
             'temporary_url' => env('AWS_TEMPORARY_URL_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
+            // Un archivo que no se guardó no puede pasar como guardado: lanza la excepción.
+            'throw' => true,
             'report' => false,
         ],
 
