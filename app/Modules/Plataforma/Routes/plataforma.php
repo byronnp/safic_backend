@@ -5,6 +5,7 @@ use App\Modules\Plataforma\Http\Controllers\CatalogoAmenidadesController;
 use App\Modules\Plataforma\Http\Controllers\CatalogoController;
 use App\Modules\Plataforma\Http\Controllers\CondominioController;
 use App\Modules\Plataforma\Http\Controllers\MenuSistemaController;
+use App\Modules\Plataforma\Http\Controllers\RolesAdminController;
 use App\Modules\Plataforma\Http\Controllers\UsuarioPlataformaController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,3 +43,8 @@ Route::get('menu-sistema/vista-previa', [MenuSistemaController::class, 'vistaPre
 Route::post('menu-sistema', [MenuSistemaController::class, 'store'])->middleware($roles);
 Route::patch('menu-sistema/{item}', [MenuSistemaController::class, 'update'])->whereNumber('item')->middleware($roles);
 Route::post('menu-sistema/{item}/mover', [MenuSistemaController::class, 'mover'])->whereNumber('item')->middleware($roles);
+
+// Roles y permisos (plantillas globales de los condominios)
+Route::get('roles', [RolesAdminController::class, 'index'])->middleware($roles);
+Route::post('roles', [RolesAdminController::class, 'store'])->middleware($roles);
+Route::put('roles/{rol}/permisos', [RolesAdminController::class, 'permisos'])->where('rol', '[a-z0-9_]+')->middleware($roles);

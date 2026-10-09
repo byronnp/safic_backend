@@ -69,6 +69,12 @@ enum Permiso: string
         ], true);
     }
 
+    /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
+    public function esEscritura(): bool
+    {
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar], true);
+    }
+
     public function esDePlataforma(): bool
     {
         return $this->modulo() === 'plataforma';

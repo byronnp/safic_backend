@@ -121,6 +121,7 @@ class MenuSeeder extends Seeder
             [
                 'clave' => 'plataforma.acceso', 'etiqueta' => 'Acceso', 'icono' => 'sym_r_lock', 'seccion' => true,
                 'hijos' => [
+                    ['clave' => 'plataforma.roles', 'etiqueta' => 'Roles y permisos', 'icono' => 'sym_r_shield_person', 'ruta' => 'plataforma-roles', 'permiso' => Permiso::PlataformaRoles],
                     ['clave' => 'plataforma.menu', 'etiqueta' => 'Menú del sistema', 'icono' => 'sym_r_menu_open', 'ruta' => 'plataforma-menu', 'permiso' => Permiso::PlataformaRoles],
                 ],
             ],
