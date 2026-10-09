@@ -2319,7 +2319,7 @@ paths:
                     required: [menu, ocultos]
                     properties:
                       menu: { type: array, items: { type: object, additionalProperties: true } }
-                      ocultos: { type: array, items: { type: object, additionalProperties: true } }
+                      ocultos: { type: integer, description: Pantallas activas que no le llegan al perfil. }
         '401':
           $ref: '#/components/responses/NoAutenticado'
         '403':
