@@ -4,6 +4,7 @@ use App\Core\Permissions\Permiso;
 use App\Modules\Plataforma\Http\Controllers\CatalogoAmenidadesController;
 use App\Modules\Plataforma\Http\Controllers\CatalogoController;
 use App\Modules\Plataforma\Http\Controllers\CondominioController;
+use App\Modules\Plataforma\Http\Controllers\MenuSistemaController;
 use App\Modules\Plataforma\Http\Controllers\UsuarioPlataformaController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Route;
 // el permiso se mira en el equipo 0 (roles de plataforma). Cada ruta exige su permiso.
 
 $condominios = 'permission:'.Permiso::PlataformaCondominios->value;
+$roles = 'permission:'.Permiso::PlataformaRoles->value;
 
 Route::get('planes', [CatalogoController::class, 'planes'])->middleware($condominios);
 Route::get('amenidades', [CatalogoController::class, 'amenidades'])->middleware($condominios);
@@ -33,3 +35,10 @@ Route::delete('catalogo-amenidades/{amenidad}', [CatalogoAmenidadesController::c
 Route::post('catalogo-amenidades/propias/{condominio}/{amenidad}/promover', [CatalogoAmenidadesController::class, 'promover'])
     ->whereNumber(['condominio', 'amenidad'])
     ->middleware($condominios);
+
+// Menú del sistema (catálogo global de pantallas del menú): solo quien gestiona roles y permisos
+Route::get('menu-sistema', [MenuSistemaController::class, 'index'])->middleware($roles);
+Route::get('menu-sistema/vista-previa', [MenuSistemaController::class, 'vistaPrevia'])->middleware($roles);
+Route::post('menu-sistema', [MenuSistemaController::class, 'store'])->middleware($roles);
+Route::patch('menu-sistema/{item}', [MenuSistemaController::class, 'update'])->whereNumber('item')->middleware($roles);
+Route::post('menu-sistema/{item}/mover', [MenuSistemaController::class, 'mover'])->whereNumber('item')->middleware($roles);
