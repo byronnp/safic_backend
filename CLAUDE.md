@@ -100,6 +100,7 @@ Reglas:
 - Cupo de usuarios administrativos (`planes.limite_administrativos`): `Rol::cuentaParaCupo()` (administrador, contador, tesorero). Siempre con `LimiteUsuarios::asegurarCupo()` dentro de la transacción (409 `LIMITE_USUARIOS`). Una invitación pendiente reserva su lugar.
 - Reglas fijas: nadie cambia su propio acceso (`USUARIO_PROPIO`), el condominio no se queda sin administrador (`ULTIMO_ADMINISTRADOR`) y el contador siempre tiene `acceso_hasta`. Las personas se resuelven por membresía del condominio activo: otro condominio responde 404.
 - Directiva (`cargos_directiva`, con RLS y auditoría): un cargo, una persona; una persona, un cargo (índices parciales + `AsignarCargoAction`). Solo propietarios con correo. Cambiar al titular cierra su periodo y le quita solo ese cargo. El módulo Usuarios consulta Unidades solo por sus Actions públicas (`PropietariosVigentesAction`, `ResumenPersonasAction`). Pendiente: la regla «sin mora» (Decreto 462) cuando exista Finanzas.
+- Roles (`GET /roles`, solo lectura): los define la plataforma; el condominio los ve con permisos, personas y menú (`MenuService::paraPerfil`) y pide uno nuevo con `POST /roles/solicitudes` (tabla `solicitudes_rol`; aviso al correo `SAFIC_SOPORTE_EMAIL` si está configurado; 5 por hora). Las etiquetas y el grupo de cada permiso viven en `Permiso::etiqueta()` / `grupo()`: todo permiso nuevo las define o `match` falla.
 - Los cambios de membresía no pasan por `audits` (tabla de plataforma, sin `condominio_id`): pendiente decidir su bitácora.
 
 ## Menú de producción

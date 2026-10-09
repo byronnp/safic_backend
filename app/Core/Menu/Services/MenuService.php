@@ -5,6 +5,7 @@ namespace App\Core\Menu\Services;
 use App\Core\Menu\Models\MenuItem;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
 
 /**
  * Arma el menú de un usuario en el equipo activo de spatie (condominio del
@@ -33,6 +34,36 @@ final class MenuService
 
         $permisos = $user->getAllPermissions()->pluck('name')->flip();
         $asignados = DB::table('menu_item_rol')->whereIn('role_id', $rolIds)->pluck('menu_item_id')->flip();
+
+        $items = MenuItem::query()
+            ->where('ambito', $ambito)
+            ->where('activo', true)
+            ->orderBy('orden')
+            ->orderBy('id')
+            ->get();
+
+        $visible = fn (MenuItem $item): bool => $item->ruta !== null
+            && $asignados->has($item->id)
+            && ($item->permiso === null || $permisos->has($item->permiso));
+
+        /** @var array<int, list<MenuItem>> $porPadre */
+        $porPadre = [];
+        foreach ($items as $item) {
+            $porPadre[$item->padre_id ?? 0][] = $item;
+        }
+
+        return $this->ramas($porPadre, 0, $visible);
+    }
+
+    /**
+     * El menú que vería cualquier persona con solo este perfil (pantalla Roles del condominio).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function paraPerfil(Role $perfil, string $ambito): array
+    {
+        $permisos = $perfil->permissions()->pluck('name')->flip();
+        $asignados = DB::table('menu_item_rol')->where('role_id', $perfil->id)->pluck('menu_item_id')->flip();
 
         $items = MenuItem::query()
             ->where('ambito', $ambito)

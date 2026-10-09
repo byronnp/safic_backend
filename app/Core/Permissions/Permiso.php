@@ -33,6 +33,33 @@ enum Permiso: string
         };
     }
 
+    /** Qué permite, en palabras de quien administra (pantalla Roles). */
+    public function etiqueta(): string
+    {
+        return match ($this) {
+            self::UnidadesVer => 'Ver unidades y residentes',
+            self::UnidadesEditar => 'Crear y editar unidades',
+            self::ResidentesVerDatos => 'Ver datos personales completos',
+            self::UsuariosGestionar => 'Gestionar usuarios y directiva',
+            self::AmenidadesGestionar => 'Gestionar amenidades',
+            self::CondominioEditar => 'Editar datos y cobro del condominio',
+            self::GaritaDirectorio => 'Consultar el directorio de garita',
+            self::PlataformaCondominios => 'Gestionar condominios',
+            self::PlataformaRoles => 'Gestionar roles y permisos',
+            self::PlataformaCobranza => 'Gestionar la cobranza',
+        };
+    }
+
+    /** Módulo con el que se agrupa en la pantalla Roles. */
+    public function grupo(): string
+    {
+        return match (true) {
+            $this === self::GaritaDirectorio => 'Garita',
+            $this->esDePlataforma() => 'Plataforma',
+            default => 'Núcleo',
+        };
+    }
+
     /** Cuenta para el límite de usuarios administrativos del plan. */
     public function esAdministrativo(): bool
     {
