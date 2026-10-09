@@ -36,6 +36,8 @@ tags:
     description: Usuario actual y su contexto (roles y permisos) en un condominio.
   - name: Unidades
     description: Bloques, unidades y residentes del condominio.
+  - name: Usuarios
+    description: Equipo del condominio (administradores, contador, guardia, mantenimiento) y cupo del plan.
   - name: Finanzas
     description: Cobro de cuotas del condominio.
   - name: Catálogos
@@ -220,6 +222,170 @@ paths:
           $ref: '#/components/responses/NoAutenticado'
         '403':
           $ref: '#/components/responses/CondominioNoPermitido'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /usuarios:
+    get:
+      tags: [Usuarios]
+      operationId: listarUsuarios
+      summary: Equipo del condominio y cupo del plan
+      description: |
+        Permiso: `usuarios.gestionar`. Las personas con acceso al condominio, su perfil y si consumen cupo.
+        `meta.cupo` trae el plan y cuántos usuarios administrativos usa (administrador, contador y tesorero
+        cuentan; presidente, vicepresidente, secretario, guardia, mantenimiento y residentes no).
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Equipo ordenado por nombre.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/UsuarioCondominio' }
+                  meta:
+                    type: object
+                    required: [cupo]
+                    properties:
+                      cupo: { $ref: '#/components/schemas/CupoUsuarios' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    post:
+      tags: [Usuarios]
+      operationId: invitarUsuario
+      summary: Sumar a una persona al equipo
+      description: |
+        Permiso: `usuarios.gestionar`. Perfiles: administrador, contador (con `acceso_hasta` obligatorio), guardia o
+        mantenimiento; los cargos de la directiva se asignan aparte. Si el correo no tiene cuenta se crea inactiva y
+        recibe la invitación para crear su contraseña; si ya tiene cuenta se suma sin invitación
+        (`invitacion_enviada: false`). 409 `LIMITE_USUARIOS` si el perfil consume cupo y el plan no tiene lugar,
+        409 `USUARIO_YA_EXISTE` si ya está en el equipo, 422 `CEDULA_EN_USO` si la cédula es de otra persona.
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InvitarUsuario' }
+      responses:
+        '201':
+          description: Persona agregada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    allOf:
+                      - { $ref: '#/components/schemas/UsuarioCondominio' }
+                      - type: object
+                        required: [invitacion_enviada]
+                        properties:
+                          invitacion_enviada: { type: boolean }
+                  message: { type: string, examples: ['Invitación enviada.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          $ref: '#/components/responses/ConflictoUsuarios'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /usuarios/{usuario}:
+    patch:
+      tags: [Usuarios]
+      operationId: actualizarUsuario
+      summary: Cambiar el perfil, la vigencia o desactivar a una persona del equipo
+      description: |
+        Permiso: `usuarios.gestionar`. Solo viaja lo que cambia. Cambiar el perfil no quita los cargos de directiva.
+        409: `USUARIO_PROPIO` (nadie cambia su propio acceso), `ULTIMO_ADMINISTRADOR` (el condominio no se queda
+        sin administrador) y `LIMITE_USUARIOS` (pasar a un perfil que consume cupo o reactivar sin lugar en el plan).
+        Una persona de otro condominio responde 404.
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/UsuarioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActualizarUsuario' }
+      responses:
+        '200':
+          description: Cambios guardados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/UsuarioCondominio' }
+                  message: { type: string, examples: ['Cambios guardados.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoUsuarios'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /usuarios/{usuario}/invitacion:
+    post:
+      tags: [Usuarios]
+      operationId: reenviarInvitacionUsuario
+      summary: Reenviar la invitación a quien aún no creó su contraseña
+      description: 'Permiso: `usuarios.gestionar`. Anula el enlace anterior y envía uno nuevo. 409 `USUARIO_ACTIVO` si ya tiene contraseña.'
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/UsuarioId'
+      responses:
+        '200':
+          description: Invitación reenviada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/UsuarioCondominio' }
+                  message: { type: string, examples: ['Invitación reenviada.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoUsuarios'
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
@@ -1750,6 +1916,12 @@ components:
       in: path
       required: true
       schema: { type: integer }
+    UsuarioId:
+      name: usuario
+      in: path
+      required: true
+      description: Id de la persona (debe pertenecer al condominio del header).
+      schema: { type: integer }
     VarianteLogo:
       name: variante
       in: path
@@ -1772,6 +1944,13 @@ components:
   responses:
     SinPermiso:
       description: '`SIN_PERMISO`: no tiene el permiso de plataforma de la ruta.'
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    ConflictoUsuarios:
+      description: |
+        `LIMITE_USUARIOS` (con `error.details.limite` y `usados`), `USUARIO_YA_EXISTE`, `USUARIO_PROPIO`,
+        `ULTIMO_ADMINISTRADOR` o `USUARIO_ACTIVO`.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -2187,6 +2366,57 @@ components:
         alicuota: { type: [string, number, 'null'], pattern: '^\d+(\.\d{1,4})?$', examples: ['0.6200'], description: 'Porcentaje mayor que 0 y hasta 100, con hasta 4 decimales. Obligatoria con método `alicuota`.' }
         cuota_mensual: { type: [string, number], pattern: '^\d+(\.\d{1,2})?$', examples: ['90.00'], description: 'Monto mayor que 0 como texto decimal. Solo y obligatoria con método `unidad`.' }
         valor_personalizado: { type: [string, number, 'null'], pattern: '^\d+(\.\d{1,2})?$', examples: ['75.50'], description: 'Monto mayor que 0 como texto decimal. Solo con método `tipo` o `alicuota`.' }
+
+    UsuarioCondominio:
+      type: object
+      required: [id, nombre, email, celular, roles, perfil, cuenta_cupo, estado, acceso_hasta, es_yo]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        email: { type: string, format: email }
+        celular: { type: [string, 'null'] }
+        roles:
+          type: array
+          description: Todos sus perfiles en este condominio (incluye cargos de directiva y residente).
+          items: { type: string }
+        perfil:
+          type: [string, 'null']
+          enum: [administrador, contador, guardia, mantenimiento, null]
+          description: El perfil que asigna la administración; null si solo tiene cargos o es residente.
+        cuenta_cupo: { type: boolean, description: 'Consume un lugar de usuarios administrativos del plan.' }
+        estado:
+          type: string
+          enum: [activo, pendiente, desactivado, vencido]
+          description: 'pendiente: aún no creó su contraseña; vencido: pasó su fecha de acceso.'
+        acceso_hasta: { type: [string, 'null'], format: date }
+        es_yo: { type: boolean }
+
+    CupoUsuarios:
+      type: object
+      required: [plan, limite, usados]
+      properties:
+        plan: { type: [string, 'null'], examples: [Profesional] }
+        limite: { type: [integer, 'null'], description: 'null si el condominio no tiene plan (sin límite).' }
+        usados: { type: integer }
+
+    InvitarUsuario:
+      type: object
+      required: [nombre, cedula, email, rol]
+      properties:
+        nombre: { type: string, maxLength: 120 }
+        cedula: { type: string, examples: ['1712345675'] }
+        email: { type: string, format: email, maxLength: 160 }
+        celular: { type: [string, 'null'], pattern: '^09\d{8}$' }
+        rol: { type: string, enum: [administrador, contador, guardia, mantenimiento] }
+        acceso_hasta: { type: [string, 'null'], format: date, description: 'Obligatorio para el contador; hasta 2 años.' }
+
+    ActualizarUsuario:
+      type: object
+      description: Solo viaja lo que cambia.
+      properties:
+        rol: { type: string, enum: [administrador, contador, guardia, mantenimiento] }
+        acceso_hasta: { type: [string, 'null'], format: date }
+        activo: { type: boolean, description: 'false desactiva el acceso a este condominio; true lo reactiva.' }
 
     GuardarCobro:
       type: object

@@ -36,6 +36,58 @@ enum Rol: string
         return in_array($this, [self::SuperAdmin, self::Soporte, self::Cobranza, self::ContadorPlataforma], true);
     }
 
+    /**
+     * Perfiles que el administrador asigna directamente a un usuario. Los cargos de
+     * directiva van por su tabla y "residente" nace con la persona, no se asigna aquí.
+     *
+     * @return list<self>
+     */
+    public static function asignables(): array
+    {
+        return [self::Administrador, self::Contador, self::Guardia, self::Mantenimiento];
+    }
+
+    /**
+     * Cuenta para el límite de usuarios administrativos del plan. Presidente,
+     * vicepresidente, secretario, guardia, mantenimiento y residentes no cuentan.
+     */
+    public function cuentaParaCupo(): bool
+    {
+        return in_array($this, [self::Administrador, self::Contador, self::Tesorero], true);
+    }
+
+    /** Acceso con fecha de vencimiento obligatoria (el rol se desactiva solo al llegar). */
+    public function requiereVigencia(): bool
+    {
+        return $this === self::Contador;
+    }
+
+    /** @return list<string> */
+    public static function nombresQueCuentanParaCupo(): array
+    {
+        return array_values(array_map(fn (self $rol) => $rol->value, array_filter(self::cases(), fn (self $rol) => $rol->cuentaParaCupo())));
+    }
+
+    /** Nombre del perfil para mostrar (correos y mensajes). */
+    public function etiqueta(): string
+    {
+        return match ($this) {
+            self::SuperAdmin => 'Super administrador',
+            self::Soporte => 'Soporte',
+            self::Cobranza => 'Cobranza',
+            self::ContadorPlataforma => 'Contador de plataforma',
+            self::Administrador => 'Administrador',
+            self::Contador => 'Contador',
+            self::Guardia => 'Guardia',
+            self::Mantenimiento => 'Mantenimiento',
+            self::Residente => 'Residente',
+            self::Presidente => 'Presidente',
+            self::Vicepresidente => 'Vicepresidente',
+            self::Secretario => 'Secretario',
+            self::Tesorero => 'Tesorero',
+        };
+    }
+
     public function esCargo(): bool
     {
         return in_array($this, [self::Presidente, self::Vicepresidente, self::Secretario, self::Tesorero], true);

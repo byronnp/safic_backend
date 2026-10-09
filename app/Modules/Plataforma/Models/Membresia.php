@@ -5,6 +5,7 @@ namespace App\Modules\Plataforma\Models;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
+use Illuminate\Support\Carbon;
 
 /**
  * Pertenencia de un usuario a un condominio. Un usuario tiene como máximo un
@@ -14,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
  * @property int $condominio_id
  * @property bool $es_principal
  * @property bool $activo
+ * @property Carbon|null $acceso_hasta
+ * @property-read User $user
  */
 class Membresia extends Pivot
 {

@@ -95,6 +95,12 @@ Reglas:
 - Esa ruta de logo es **pública** (sale en el login, recibos y correos): solo sirve PNG validados al subirlos (máx. 1 MB, 64–2000 px). No aceptar SVG: puede traer scripts y se serviría desde nuestro dominio.
 - El administrador edita nombre, contacto, ubicación y colores en `PATCH /condominio`; RUC, razón social, tipo y plan los cambia la plataforma.
 
+## Usuarios y cupo del plan
+- `usuarios.gestionar` abre `/usuarios`: el administrador suma, cambia de perfil, vence y desactiva a su equipo. Perfiles asignables: `Rol::asignables()` (administrador, contador, guardia, mantenimiento); los cargos de directiva van por su tabla y `PerfilesUsuario` nunca los pierde al cambiar de perfil.
+- Cupo de usuarios administrativos (`planes.limite_administrativos`): `Rol::cuentaParaCupo()` (administrador, contador, tesorero). Siempre con `LimiteUsuarios::asegurarCupo()` dentro de la transacción (409 `LIMITE_USUARIOS`). Una invitación pendiente reserva su lugar.
+- Reglas fijas: nadie cambia su propio acceso (`USUARIO_PROPIO`), el condominio no se queda sin administrador (`ULTIMO_ADMINISTRADOR`) y el contador siempre tiene `acceso_hasta`. Las personas se resuelven por membresía del condominio activo: otro condominio responde 404.
+- Los cambios de membresía no pasan por `audits` (tabla de plataforma, sin `condominio_id`): pendiente decidir su bitácora.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.
