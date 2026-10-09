@@ -90,6 +90,11 @@ Reglas:
 - `openspout/openspout` lee y escribe .xlsx en streaming (sin cargar el libro entero ni ejecutar fórmulas). Solo se usa dentro del módulo que importa (Unidades: `Services/LectorExcelUnidades`, `PlantillaUnidades`).
 - Flujo de toda importación: vista previa sin guardar (errores por fila) → `confirmar=1` crea todo o nada en una transacción. Cada fila se valida con las mismas reglas del formulario y respeta los límites del plan. Máx. 2 MB y 500 filas.
 
+## Marca del condominio
+- Los colores (primario y acento) y los logos viven en `condominios.marca`. El cliente nunca ve la ruta interna: `App\Core\Marca\MarcaPublica` devuelve colores y enlaces `/api/v1/marca/{codigo}/logo/{claro|oscuro}`.
+- Esa ruta de logo es **pública** (sale en el login, recibos y correos): solo sirve PNG validados al subirlos (máx. 1 MB, 64–2000 px). No aceptar SVG: puede traer scripts y se serviría desde nuestro dominio.
+- El administrador edita nombre, contacto, ubicación y colores en `PATCH /condominio`; RUC, razón social, tipo y plan los cambia la plataforma.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.

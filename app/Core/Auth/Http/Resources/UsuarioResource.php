@@ -2,6 +2,7 @@
 
 namespace App\Core\Auth\Http\Resources;
 
+use App\Core\Marca\MarcaPublica;
 use App\Models\User;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Plataforma\Models\Membresia;
@@ -33,7 +34,7 @@ class UsuarioResource extends JsonResource
                     'nombre' => $c->nombre,
                     'es_principal' => (bool) $membresia->es_principal,
                     'estado' => $c->estado,
-                    'marca' => $c->marca,
+                    'marca' => MarcaPublica::de($c),
                 ];
             })->values()),
             // Perfil de plataforma (super admin, soporte, cobranza…) o null.
