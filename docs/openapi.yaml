@@ -2408,6 +2408,118 @@ paths:
         '404':
           $ref: '#/components/responses/NoEncontrado'
 
+  /plataforma/roles:
+    get:
+      tags: [Plataforma]
+      operationId: listarRolesPlataforma
+      summary: Matriz de roles de condominio por permiso
+      description: |
+        Permiso: `plataforma.roles`. Los roles de plataforma no se editan aquí. `bloqueos` son las reglas fijas del código
+        (permiso → motivo) que ese rol nunca recibe; `obligatorios`, los que no se le pueden quitar. `solicitudes` son los
+        pedidos de rol nuevo pendientes de todos los condominios.
+      x-permiso: plataforma.roles
+      responses:
+        '200':
+          description: Roles, permisos y solicitudes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/RolesAdmin' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+    post:
+      tags: [Plataforma]
+      operationId: crearRolAdicional
+      summary: Crear un rol adicional
+      description: |
+        Permiso: `plataforma.roles`. La clave se genera del nombre. 409 `ROL_EXISTENTE` si el nombre ya existe; 422 si algún
+        permiso no es de condominio (`PERMISO_INVALIDO`).
+      x-permiso: plataforma.roles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, permisos]
+              properties:
+                nombre: { type: string, minLength: 3, maxLength: 60 }
+                permisos: { type: array, items: { type: string } }
+      responses:
+        '201':
+          description: Rol creado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/RolAdmin' }
+                  message: { type: string, examples: ['Rol creado.'] }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '409':
+          description: '`ROL_EXISTENTE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: Datos inválidos o `PERMISO_INVALIDO`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /plataforma/roles/{rol}/permisos:
+    put:
+      tags: [Plataforma]
+      operationId: guardarPermisosRol
+      summary: Reemplazar los permisos de un rol
+      description: |
+        Permiso: `plataforma.roles`. Se envía el conjunto completo que queda. Rige en todos los condominios al instante.
+        422 `PERMISO_BLOQUEADO` (regla fija del código), `PERMISO_OBLIGATORIO` (el administrador necesita gestionar
+        usuarios) o `PERMISO_INVALIDO`. 404 `ROL_NO_ENCONTRADO` si no es un rol de condominio.
+      x-permiso: plataforma.roles
+      parameters:
+        - { name: rol, in: path, required: true, schema: { type: string }, description: Clave del rol. }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permisos]
+              properties:
+                permisos: { type: array, items: { type: string } }
+      responses:
+        '200':
+          description: Rol actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/RolAdmin' }
+                  message: { type: string }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          description: '`PERMISO_BLOQUEADO`, `PERMISO_OBLIGATORIO` o `PERMISO_INVALIDO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /plataforma/usuarios/buscar:
     get:
       tags: [Plataforma]
@@ -3124,6 +3236,45 @@ components:
         acta: { type: string, maxLength: 80, examples: ['Acta 2026-03'] }
         periodo_hasta: { type: string, format: date, description: 'Después de hoy y hasta 4 años.' }
 
+    RolAdmin:
+      type: object
+      required: [clave, nombre, tipo, condominios, permisos, bloqueos, obligatorios]
+      properties:
+        clave: { type: string, examples: ['guardia'] }
+        nombre: { type: string }
+        tipo: { type: string, enum: [sistema, cargo, adicional] }
+        condominios: { type: integer, description: En cuántos condominios tiene usuarios. }
+        permisos: { type: array, items: { type: string } }
+        bloqueos: { type: object, additionalProperties: { type: string }, description: 'Permiso → motivo.' }
+        obligatorios: { type: array, items: { type: string } }
+    RolesAdmin:
+      type: object
+      required: [roles, permisos, solicitudes]
+      properties:
+        roles: { type: array, items: { $ref: '#/components/schemas/RolAdmin' } }
+        permisos:
+          type: array
+          items:
+            type: object
+            required: [clave, etiqueta, grupo, administrativo, escritura]
+            properties:
+              clave: { type: string }
+              etiqueta: { type: string }
+              grupo: { type: string }
+              administrativo: { type: boolean, description: Cuenta para el límite de usuarios del plan. }
+              escritura: { type: boolean }
+        solicitudes:
+          type: array
+          items:
+            type: object
+            required: [id, condominio_id, condominio, nombre, descripcion, creada]
+            properties:
+              id: { type: integer }
+              condominio_id: { type: integer }
+              condominio: { type: string }
+              nombre: { type: string }
+              descripcion: { type: string }
+              creada: { type: [string, 'null'], format: date-time }
     MenuSistemaItem:
       type: object
       required: [id, clave, padre_id, etiqueta, icono, ruta, permiso, es_grupo, seccion, orden, activo, roles]

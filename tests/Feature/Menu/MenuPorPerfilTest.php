@@ -58,7 +58,7 @@ it('ninguna pantalla en vista previa llega al menú de producción', function ()
     // Solo rutas que ya tienen pantalla con API; una vista previa se suma cuando pasa a datos reales
     $rutas = MenuItem::query()->whereNotNull('ruta')->pluck('ruta')->sort()->values()->all();
 
-    expect($rutas)->toBe(['bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'unidades']);
+    expect($rutas)->toBe(['bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
 });
 
 it('un perfil sin permisos de configuración no ve esa sección', function () {

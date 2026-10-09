@@ -94,6 +94,27 @@ enum Rol: string
     }
 
     /**
+     * Reglas fijas del código: permisos que este rol nunca recibe, aunque el super admin
+     * lo intente. Devuelve el motivo, o null si se puede conceder.
+     */
+    public function motivoBloqueo(Permiso $permiso): ?string
+    {
+        return match (true) {
+            $this === self::Contador && $permiso->esEscritura() => 'El contador es solo lectura.',
+            $this === self::Residente && $permiso->esAdministrativo() => 'Un residente no recibe permisos administrativos.',
+            $this === self::Guardia && $permiso->esAdministrativo() => 'El guardia no recibe permisos administrativos.',
+            $this->esDePlataforma() !== $permiso->esDePlataforma() => 'El permiso no corresponde al ámbito de este rol.',
+            default => null,
+        };
+    }
+
+    /** Permiso sin el cual el rol deja de servir (el administrador se quedaría sin poder gestionar usuarios). */
+    public function exige(Permiso $permiso): bool
+    {
+        return $this === self::Administrador && $permiso === Permiso::UsuariosGestionar;
+    }
+
+    /**
      * Permisos por defecto (plantilla). El super admin los ajusta después desde el panel.
      *
      * @return list<Permiso>
