@@ -81,6 +81,10 @@ Reglas:
 - Variables (`.env`): `ARCHIVOS_DISK=s3`, `AWS_ENDPOINT=http://host.docker.internal:9100`, `AWS_USE_PATH_STYLE_ENDPOINT=true`, `AWS_TEMPORARY_URL_ENDPOINT=http://localhost:9100`, `AWS_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_DEFAULT_REGION=us-east-1`. El bucket se crea a mano en la consola (http://localhost:9101); este compose no levanta MinIO. En AWS real se dejan vacíos `AWS_ENDPOINT` y `AWS_TEMPORARY_URL_ENDPOINT`.
 - Pruebas: `config(['filesystems.disco_archivos' => 'local'])` + `Storage::fake('local')`.
 
+## Importación desde Excel
+- `openspout/openspout` lee y escribe .xlsx en streaming (sin cargar el libro entero ni ejecutar fórmulas). Solo se usa dentro del módulo que importa (Unidades: `Services/LectorExcelUnidades`, `PlantillaUnidades`).
+- Flujo de toda importación: vista previa sin guardar (errores por fila) → `confirmar=1` crea todo o nada en una transacción. Cada fila se valida con las mismas reglas del formulario y respeta los límites del plan. Máx. 2 MB y 500 filas.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.
