@@ -17,6 +17,9 @@ enum Permiso: string
     case AmenidadesGestionar = 'amenidades.gestionar';
     case CondominioEditar = 'condominio.editar';
 
+    // Garita · el guardia ve nombre, unidad, teléfono y placas (sin cédula ni correo)
+    case GaritaDirectorio = 'garita.directorio';
+
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
     case PlataformaRoles = 'plataforma.roles';

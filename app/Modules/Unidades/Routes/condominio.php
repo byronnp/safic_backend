@@ -2,6 +2,7 @@
 
 use App\Core\Permissions\Permiso;
 use App\Modules\Unidades\Http\Controllers\BloqueController;
+use App\Modules\Unidades\Http\Controllers\DirectorioGaritaController;
 use App\Modules\Unidades\Http\Controllers\MascotaController;
 use App\Modules\Unidades\Http\Controllers\OcupanteController;
 use App\Modules\Unidades\Http\Controllers\PersonaController;
@@ -91,3 +92,7 @@ Route::patch('mascotas/{mascota}', [MascotaController::class, 'update'])
 Route::delete('mascotas/{mascota}', [MascotaController::class, 'destroy'])
     ->whereNumber('mascota')
     ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
+// Directorio de garita: nombre, unidad, teléfono y placas (teléfono completo, sin cédula ni correo)
+Route::get('garita/directorio', [DirectorioGaritaController::class, 'index'])
+    ->middleware(['throttle:directorio', 'permission:'.Permiso::GaritaDirectorio->value]);
