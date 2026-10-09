@@ -41,6 +41,9 @@ class CoreServiceProvider extends ServiceProvider
 
         RateLimiter::for('marca', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
 
+        // Pedidos a la plataforma: pocos por hora y por persona
+        RateLimiter::for('solicitudes', fn (Request $request) => Limit::perHour(5)->by($request->user()?->getAuthIdentifier() ?? $request->ip()));
+
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->getAuthIdentifier() ?? $request->ip()));
     }
 }

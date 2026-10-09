@@ -99,6 +99,7 @@ class MenuSeeder extends Seeder
                     ['clave' => 'configuracion.condominio', 'etiqueta' => 'Datos del condominio', 'icono' => 'sym_r_domain', 'ruta' => 'configuracion-condominio', 'permiso' => Permiso::CondominioEditar],
                     ['clave' => 'configuracion.cobro', 'etiqueta' => 'Cobro de cuotas', 'icono' => 'sym_r_request_quote', 'ruta' => 'configuracion-cobro', 'permiso' => Permiso::CondominioEditar],
                     ['clave' => 'configuracion.usuarios', 'etiqueta' => 'Usuarios', 'icono' => 'sym_r_manage_accounts', 'ruta' => 'configuracion-usuarios', 'permiso' => Permiso::UsuariosGestionar],
+                    ['clave' => 'configuracion.roles', 'etiqueta' => 'Roles', 'icono' => 'sym_r_admin_panel_settings', 'ruta' => 'configuracion-roles', 'permiso' => Permiso::UsuariosGestionar],
                 ],
             ],
         ];

@@ -503,6 +503,82 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /roles:
+    get:
+      tags: [Usuarios]
+      operationId: listarRolesCondominio
+      summary: Roles que el condominio puede asignar, con sus permisos y menú
+      description: |
+        Permiso: `usuarios.gestionar`. Solo lectura: los roles los define la plataforma. Orden: roles de sistema,
+        cargos de directiva y adicionales creados por la plataforma. Por rol: qué permisos tiene, cuántas personas lo
+        tienen en este condominio, si consume cupo del plan y las pantallas del menú que vería. No incluye roles ni
+        permisos de plataforma.
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Roles, catálogo de permisos y cupo del plan.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/RolesCondominio' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /roles/solicitudes:
+    post:
+      tags: [Usuarios]
+      operationId: solicitarRol
+      summary: Pedir un rol nuevo a la plataforma
+      description: |
+        Permiso: `usuarios.gestionar`. Queda registrada (estado `pendiente`) y, si la plataforma configuró un correo de
+        soporte, se le avisa. Máximo 5 solicitudes por hora y por persona (429 después).
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SolicitarRol' }
+      responses:
+        '201':
+          description: Solicitud registrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id, nombre, estado]
+                    properties:
+                      id: { type: integer }
+                      nombre: { type: string }
+                      estado: { type: string, enum: [pendiente] }
+                  message: { type: string, examples: ['Solicitud enviada a la plataforma.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -2525,6 +2601,60 @@ components:
         persona_id: { type: integer }
         acta: { type: string, maxLength: 80, examples: ['Acta 2026-03'] }
         periodo_hasta: { type: string, format: date, description: 'Después de hoy y hasta 4 años.' }
+
+    RolesCondominio:
+      type: object
+      required: [roles, permisos, cupo]
+      properties:
+        roles:
+          type: array
+          items: { $ref: '#/components/schemas/RolCondominio' }
+        permisos:
+          type: array
+          description: Catálogo de permisos del condominio (sin los de plataforma), para dibujar la tabla de cada rol.
+          items: { $ref: '#/components/schemas/PermisoCatalogo' }
+        cupo: { $ref: '#/components/schemas/CupoUsuarios' }
+
+    RolCondominio:
+      type: object
+      required: [clave, nombre, tipo, cuenta_cupo, usuarios, permisos, menu]
+      properties:
+        clave: { type: string, examples: [administrador] }
+        nombre: { type: string, examples: [Administrador] }
+        tipo:
+          type: string
+          enum: [sistema, cargo, adicional]
+          description: 'sistema: perfiles de la plataforma; cargo: directiva (se asigna en Usuarios › Directiva); adicional: creado por la plataforma.'
+        cuenta_cupo: { type: boolean, description: 'Quien lo tenga consume un lugar de usuarios administrativos del plan.' }
+        usuarios: { type: integer, description: 'Personas con este rol en el condominio.' }
+        permisos:
+          type: array
+          items: { type: string, examples: ['unidades.ver'] }
+        menu:
+          type: array
+          description: Pantallas del menú que vería.
+          items:
+            type: object
+            required: [etiqueta, icono]
+            properties:
+              etiqueta: { type: string }
+              icono: { type: string, examples: [sym_r_apartment] }
+
+    PermisoCatalogo:
+      type: object
+      required: [clave, etiqueta, grupo, administrativo]
+      properties:
+        clave: { type: string, examples: ['unidades.editar'] }
+        etiqueta: { type: string, examples: ['Crear y editar unidades'] }
+        grupo: { type: string, examples: [Núcleo] }
+        administrativo: { type: boolean, description: 'Quien lo tenga cuenta como usuario administrativo del plan.' }
+
+    SolicitarRol:
+      type: object
+      required: [nombre, descripcion]
+      properties:
+        nombre: { type: string, minLength: 3, maxLength: 60, examples: [Jardinero] }
+        descripcion: { type: string, minLength: 10, maxLength: 500, examples: ['Ver la agenda de áreas y reportar incidencias de áreas verdes'] }
 
     UsuarioCondominio:
       type: object

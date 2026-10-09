@@ -2,6 +2,7 @@
 
 use App\Core\Permissions\Permiso;
 use App\Modules\Usuarios\Http\Controllers\DirectivaController;
+use App\Modules\Usuarios\Http\Controllers\RolController;
 use App\Modules\Usuarios\Http\Controllers\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,3 +34,10 @@ Route::get('directiva/{cargo}/candidatos', [DirectivaController::class, 'candida
 Route::post('directiva/{cargo}', [DirectivaController::class, 'asignar'])
     ->whereIn('cargo', ['presidente', 'vicepresidente', 'secretario', 'tesorero'])
     ->middleware('permission:'.Permiso::UsuariosGestionar->value);
+
+// Roles que el condominio puede asignar (los define la plataforma) y pedido de roles nuevos
+Route::get('roles', [RolController::class, 'index'])
+    ->middleware('permission:'.Permiso::UsuariosGestionar->value);
+
+Route::post('roles/solicitudes', [RolController::class, 'solicitar'])
+    ->middleware(['throttle:solicitudes', 'permission:'.Permiso::UsuariosGestionar->value]);
