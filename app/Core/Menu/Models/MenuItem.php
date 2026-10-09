@@ -2,6 +2,7 @@
 
 namespace App\Core\Menu\Models;
 
+use App\Core\Audit\RegistraBitacora;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -26,6 +27,18 @@ use Spatie\Permission\Models\Role;
  */
 class MenuItem extends Model
 {
+    use RegistraBitacora;
+
+    public function bitacoraEntidad(): string
+    {
+        return 'menu';
+    }
+
+    public function bitacoraEtiqueta(): string
+    {
+        return $this->ambito.': '.$this->etiqueta;
+    }
+
     public const AMBITO_CONDOMINIO = 'condominio';
 
     public const AMBITO_PLATAFORMA = 'plataforma';

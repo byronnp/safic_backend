@@ -2,6 +2,7 @@
 
 namespace App\Modules\Plataforma\Models;
 
+use App\Core\Audit\RegistraBitacora;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
@@ -20,6 +21,23 @@ use Illuminate\Support\Carbon;
  */
 class Membresia extends Pivot
 {
+    use RegistraBitacora;
+
+    public function bitacoraEntidad(): string
+    {
+        return 'membresia';
+    }
+
+    public function bitacoraCondominioId(): ?int
+    {
+        return $this->condominio_id;
+    }
+
+    public function bitacoraEtiqueta(): string
+    {
+        return 'Usuario '.$this->user_id;
+    }
+
     protected $table = 'condominio_user';
 
     public $incrementing = true;

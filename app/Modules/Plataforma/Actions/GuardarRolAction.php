@@ -2,11 +2,11 @@
 
 namespace App\Modules\Plataforma\Actions;
 
+use App\Core\Audit\BitacoraPlataforma;
 use App\Core\Http\Exceptions\ApiException;
 use App\Core\Permissions\Permiso;
 use App\Core\Permissions\Rol;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -85,10 +85,14 @@ final class GuardarRolAction
             $rol->syncPermissions($conjunto);
         });
 
-        Log::info('roles.permisos', [
-            'accion' => $accion, 'rol' => $rol->name, 'actor' => $actorId,
-            'antes' => $antes, 'despues' => collect($conjunto)->sort()->values()->all(),
-        ]);
+        BitacoraPlataforma::registrar(
+            $accion === 'creado' ? 'creado' : 'actualizado',
+            'rol',
+            $rol->name,
+            $enum?->etiqueta() ?? Str::headline($rol->name),
+            $accion === 'creado' ? null : ['permisos' => $antes],
+            ['permisos' => collect($conjunto)->sort()->values()->all()],
+        );
 
         return $rol->load('permissions');
     }

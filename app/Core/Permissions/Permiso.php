@@ -24,6 +24,7 @@ enum Permiso: string
     case PlataformaCondominios = 'plataforma.condominios';
     case PlataformaRoles = 'plataforma.roles';
     case PlataformaCobranza = 'plataforma.cobranza';
+    case PlataformaAuditoria = 'plataforma.auditoria';
 
     public function modulo(): string
     {
@@ -47,6 +48,7 @@ enum Permiso: string
             self::PlataformaCondominios => 'Gestionar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
             self::PlataformaCobranza => 'Gestionar la cobranza',
+            self::PlataformaAuditoria => 'Consultar la bitácora de plataforma',
         };
     }
 

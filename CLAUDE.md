@@ -75,6 +75,12 @@ Reglas:
 - Datos personales fuera de la auditoría: `protected array $auditExclude = [...]` (ver `Persona`). Un modelo nuevo con cédula, teléfono, correo o cuentas debe excluirlos.
 - El visor (`/plataforma/condominios/{id}/auditoria`) llega en S4.
 
+## Bitácora de plataforma
+- Las tablas de plataforma (sin `condominio_id` ni RLS) no pasan por `audits`: sus cambios van a `bitacora_plataforma` (modelo `App\Core\Audit\RegistroBitacora`), de solo inserción (`safic_app` sin UPDATE/DELETE/TRUNCATE; retención por el dueño).
+- Un modelo de plataforma usa el trait `RegistraBitacora` (`bitacoraEntidad`, `bitacoraEtiqueta`, opcional `bitacoraCondominioId` y `$bitacoraExcluir`). Hoy: `Condominio`, `Membresia`, `AmenidadCatalogo`, `MenuItem`. Lo que no es un modelo (permisos de un rol, perfiles de un ítem del menú) llama a `BitacoraPlataforma::registrar(...)` desde su Action.
+- Solo se registra cuando hay una persona autenticada (no los seeders ni el sistema) y dentro de la transacción del cambio: si se revierte, el registro también. En una edición solo guarda lo que cambió. Teléfono, correo y secretos nunca se guardan.
+- Visor: `GET /plataforma/bitacora` (permiso `plataforma.auditoria`, solo super admin), con filtros y paginación. Un permiso nuevo del enum se concede en `RolesYPermisosSeeder` a los roles que lo traen por defecto, sin tocar los permisos que el super admin ya ajustó.
+
 ## Archivos (S3)
 - Todo archivo de un condominio se guarda con `App\Core\Storage\ArchivosCondominio` (disco `archivos`: S3 en AWS, MinIO en Docker). Ruta `condominios/{id}/{carpeta}/{uuid}.ext`; el prefijo sale del condominio activo, nunca de la petición.
 - El bucket es privado: se entrega solo `urlTemporal()` (10 min). No guardar el nombre original del archivo ni usar `Storage::disk('s3')` directo.
@@ -101,7 +107,7 @@ Reglas:
 - Reglas fijas: nadie cambia su propio acceso (`USUARIO_PROPIO`), el condominio no se queda sin administrador (`ULTIMO_ADMINISTRADOR`) y el contador siempre tiene `acceso_hasta`. Las personas se resuelven por membresía del condominio activo: otro condominio responde 404.
 - Directiva (`cargos_directiva`, con RLS y auditoría): un cargo, una persona; una persona, un cargo (índices parciales + `AsignarCargoAction`). Solo propietarios con correo. Cambiar al titular cierra su periodo y le quita solo ese cargo. El módulo Usuarios consulta Unidades solo por sus Actions públicas (`PropietariosVigentesAction`, `ResumenPersonasAction`). Pendiente: la regla «sin mora» (Decreto 462) cuando exista Finanzas.
 - Roles (`GET /roles`, solo lectura): los define la plataforma; el condominio los ve con permisos, personas y menú (`MenuService::paraPerfil`) y pide uno nuevo con `POST /roles/solicitudes` (tabla `solicitudes_rol`; aviso al correo `SAFIC_SOPORTE_EMAIL` si está configurado; 5 por hora). Las etiquetas y el grupo de cada permiso viven en `Permiso::etiqueta()` / `grupo()`: todo permiso nuevo las define o `match` falla.
-- Los cambios de membresía no pasan por `audits` (tabla de plataforma, sin `condominio_id`): pendiente decidir su bitácora.
+- Los cambios de membresía van a la bitácora de plataforma (ver «Bitácora de plataforma»), no a `audits`.
 
 ## Menú de producción
 - El menú que ve cada perfil sale de `menu_items` (`MenuSeeder`). **Una pantalla entra al seeder cuando pasa de vista previa a datos reales** (en el mismo PR que la conecta), nunca antes: el frontend solo muestra las vistas previas en desarrollo. `MenuPorPerfilTest` fija la lista de rutas permitidas.

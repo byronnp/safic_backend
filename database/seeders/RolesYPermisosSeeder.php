@@ -24,8 +24,12 @@ class RolesYPermisosSeeder extends Seeder
         $anterior = getPermissionsTeamId();
         setPermissionsTeamId(null);
 
+        /** @var list<Permiso> $nuevos */
+        $nuevos = [];
         foreach (Permiso::cases() as $permiso) {
-            Permission::findOrCreate($permiso->value, 'api');
+            if (Permission::findOrCreate($permiso->value, 'api')->wasRecentlyCreated) {
+                $nuevos[] = $permiso;
+            }
         }
 
         foreach (Rol::cases() as $rol) {
@@ -34,6 +38,15 @@ class RolesYPermisosSeeder extends Seeder
             if ($existente === null) {
                 $nuevo = Role::create(['name' => $rol->value, 'guard_name' => 'api', 'condominio_id' => null]);
                 $nuevo->syncPermissions(array_map(fn (Permiso $p) => $p->value, $rol->permisosPorDefecto()));
+
+                continue;
+            }
+
+            // Un permiso que nace ahora se concede a los roles que lo traen por defecto,
+            // sin tocar lo que el super admin ya ajustó en el resto.
+            $concedibles = array_values(array_filter($nuevos, fn (Permiso $p) => in_array($p, $rol->permisosPorDefecto(), true)));
+            if ($concedibles !== []) {
+                $existente->givePermissionTo(array_map(fn (Permiso $p) => $p->value, $concedibles));
             }
         }
 
