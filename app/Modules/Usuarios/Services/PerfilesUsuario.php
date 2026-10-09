@@ -56,6 +56,41 @@ final class PerfilesUsuario
         return null;
     }
 
+    /** Suma un rol (ej. un cargo de directiva) sin tocar los demás. */
+    public function agregar(User $user, Rol $rol): void
+    {
+        $this->enEquipo($user, function () use ($user, $rol): void {
+            if (! $user->hasRole($rol->value)) {
+                $user->assignRole($rol->value);
+            }
+        });
+    }
+
+    /** Quita un rol (ej. un cargo que termina) sin tocar los demás. */
+    public function quitar(User $user, Rol $rol): void
+    {
+        $this->enEquipo($user, function () use ($user, $rol): void {
+            if ($user->hasRole($rol->value)) {
+                $user->removeRole($rol->value);
+            }
+        });
+    }
+
+    /** @param  callable(): void  $accion */
+    private function enEquipo(User $user, callable $accion): void
+    {
+        $anterior = getPermissionsTeamId();
+        setPermissionsTeamId($this->tenant->require());
+
+        try {
+            $user->unsetRelation('roles')->unsetRelation('permissions');
+            $accion();
+        } finally {
+            setPermissionsTeamId($anterior);
+            $user->unsetRelation('roles')->unsetRelation('permissions');
+        }
+    }
+
     /** Reemplaza el perfil asignable del usuario por $rol (conserva cargos y residente). */
     public function asignar(User $user, Rol $rol): void
     {

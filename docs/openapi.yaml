@@ -389,6 +389,120 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /directiva:
+    get:
+      tags: [Usuarios]
+      operationId: verDirectiva
+      summary: Los cuatro cargos de la directiva y quién los ocupa
+      description: |
+        Permiso: `usuarios.gestionar`. Presidente, vicepresidente, secretario y tesorero, en ese orden. `estado`:
+        `vigente`, `prorrogado` (venció el periodo y sigue hasta nombrar reemplazo) o `vacante`.
+        `titular.sigue_siendo_propietario: false` avisa que vendió su unidad y ya no cumple el requisito.
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Cargos de la directiva.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/CargoDirectiva' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /directiva/{cargo}/candidatos:
+    get:
+      tags: [Usuarios]
+      operationId: candidatosDirectiva
+      summary: Quién puede ocupar un cargo
+      description: |
+        Permiso: `usuarios.gestionar`. Los propietarios vigentes. Quien ya ocupa otro cargo (`ocupa_cargo`) o no tiene
+        correo (`sin_correo`) aparece como no disponible. El titular actual del cargo no aparece.
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/CargoDirectivaParametro'
+      responses:
+        '200':
+          description: Candidatos ordenados por nombre.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/CandidatoDirectiva' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /directiva/{cargo}:
+    post:
+      tags: [Usuarios]
+      operationId: asignarCargoDirectiva
+      summary: Nombrar a una persona en un cargo (o cambiar al titular)
+      description: |
+        Permiso: `usuarios.gestionar`. Un cargo lo ocupa una sola persona y una persona ocupa un solo cargo. Si el cargo
+        tenía titular, su periodo se cierra hoy y pierde ese cargo (conserva sus demás perfiles). La persona debe ser
+        propietaria y tener correo; si no tiene cuenta se crea y recibe la invitación. El tesorero consume cupo del plan.
+        422: `NO_ES_PROPIETARIO`, `PERSONA_SIN_CORREO`, `CEDULA_EN_USO`. 409: `PERSONA_CON_CARGO`, `YA_ES_TITULAR`,
+        `LIMITE_USUARIOS`.
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/CargoDirectivaParametro'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AsignarCargo' }
+      responses:
+        '200':
+          description: Cargo asignado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CargoDirectiva' }
+                  message: { type: string, examples: ['Cargo asignado.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          $ref: '#/components/responses/ConflictoUsuarios'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -1916,6 +2030,11 @@ components:
       in: path
       required: true
       schema: { type: integer }
+    CargoDirectivaParametro:
+      name: cargo
+      in: path
+      required: true
+      schema: { type: string, enum: [presidente, vicepresidente, secretario, tesorero] }
     UsuarioId:
       name: usuario
       in: path
@@ -1950,7 +2069,7 @@ components:
     ConflictoUsuarios:
       description: |
         `LIMITE_USUARIOS` (con `error.details.limite` y `usados`), `USUARIO_YA_EXISTE`, `USUARIO_PROPIO`,
-        `ULTIMO_ADMINISTRADOR` o `USUARIO_ACTIVO`.
+        `ULTIMO_ADMINISTRADOR`, `USUARIO_ACTIVO`, `PERSONA_CON_CARGO` o `YA_ES_TITULAR`.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -2366,6 +2485,46 @@ components:
         alicuota: { type: [string, number, 'null'], pattern: '^\d+(\.\d{1,4})?$', examples: ['0.6200'], description: 'Porcentaje mayor que 0 y hasta 100, con hasta 4 decimales. Obligatoria con método `alicuota`.' }
         cuota_mensual: { type: [string, number], pattern: '^\d+(\.\d{1,2})?$', examples: ['90.00'], description: 'Monto mayor que 0 como texto decimal. Solo y obligatoria con método `unidad`.' }
         valor_personalizado: { type: [string, number, 'null'], pattern: '^\d+(\.\d{1,2})?$', examples: ['75.50'], description: 'Monto mayor que 0 como texto decimal. Solo con método `tipo` o `alicuota`.' }
+
+    CargoDirectiva:
+      type: object
+      required: [cargo, etiqueta, estado, titular, periodo_inicio, periodo_fin, acta]
+      properties:
+        cargo: { type: string, enum: [presidente, vicepresidente, secretario, tesorero] }
+        etiqueta: { type: string, examples: [Presidente] }
+        estado: { type: string, enum: [vigente, prorrogado, vacante] }
+        titular:
+          oneOf:
+            - type: object
+              required: [persona_id, nombre, unidad, sigue_siendo_propietario]
+              properties:
+                persona_id: { type: integer }
+                nombre: { type: string }
+                unidad: { type: [string, 'null'], examples: [C-12] }
+                sigue_siendo_propietario: { type: boolean }
+            - { type: 'null' }
+        periodo_inicio: { type: [string, 'null'], format: date }
+        periodo_fin: { type: [string, 'null'], format: date }
+        acta: { type: [string, 'null'], examples: ['Acta 2026-01'] }
+
+    CandidatoDirectiva:
+      type: object
+      required: [persona_id, nombre, unidad, disponible, motivo, cargo_actual]
+      properties:
+        persona_id: { type: integer }
+        nombre: { type: string }
+        unidad: { type: string }
+        disponible: { type: boolean }
+        motivo: { type: [string, 'null'], enum: [ocupa_cargo, sin_correo, null] }
+        cargo_actual: { type: [string, 'null'], enum: [presidente, vicepresidente, secretario, tesorero, null] }
+
+    AsignarCargo:
+      type: object
+      required: [persona_id, acta, periodo_hasta]
+      properties:
+        persona_id: { type: integer }
+        acta: { type: string, maxLength: 80, examples: ['Acta 2026-03'] }
+        periodo_hasta: { type: string, format: date, description: 'Después de hoy y hasta 4 años.' }
 
     UsuarioCondominio:
       type: object

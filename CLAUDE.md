@@ -99,6 +99,7 @@ Reglas:
 - `usuarios.gestionar` abre `/usuarios`: el administrador suma, cambia de perfil, vence y desactiva a su equipo. Perfiles asignables: `Rol::asignables()` (administrador, contador, guardia, mantenimiento); los cargos de directiva van por su tabla y `PerfilesUsuario` nunca los pierde al cambiar de perfil.
 - Cupo de usuarios administrativos (`planes.limite_administrativos`): `Rol::cuentaParaCupo()` (administrador, contador, tesorero). Siempre con `LimiteUsuarios::asegurarCupo()` dentro de la transacción (409 `LIMITE_USUARIOS`). Una invitación pendiente reserva su lugar.
 - Reglas fijas: nadie cambia su propio acceso (`USUARIO_PROPIO`), el condominio no se queda sin administrador (`ULTIMO_ADMINISTRADOR`) y el contador siempre tiene `acceso_hasta`. Las personas se resuelven por membresía del condominio activo: otro condominio responde 404.
+- Directiva (`cargos_directiva`, con RLS y auditoría): un cargo, una persona; una persona, un cargo (índices parciales + `AsignarCargoAction`). Solo propietarios con correo. Cambiar al titular cierra su periodo y le quita solo ese cargo. El módulo Usuarios consulta Unidades solo por sus Actions públicas (`PropietariosVigentesAction`, `ResumenPersonasAction`). Pendiente: la regla «sin mora» (Decreto 462) cuando exista Finanzas.
 - Los cambios de membresía no pasan por `audits` (tabla de plataforma, sin `condominio_id`): pendiente decidir su bitácora.
 
 ## Contrato OpenAPI
