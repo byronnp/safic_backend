@@ -38,6 +38,8 @@ tags:
     description: Bloques, unidades y residentes del condominio.
   - name: Usuarios
     description: Equipo del condominio (administradores, contador, guardia, mantenimiento) y cupo del plan.
+  - name: Amenidades
+    description: Amenidades del condominio (del catálogo o propias).
   - name: Finanzas
     description: Cobro de cuotas del condominio.
   - name: Catálogos
@@ -498,6 +500,154 @@ paths:
           $ref: '#/components/responses/NoEncontrado'
         '409':
           $ref: '#/components/responses/ConflictoUsuarios'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /amenidades:
+    get:
+      tags: [Amenidades]
+      operationId: listarAmenidadesCondominio
+      summary: Amenidades del condominio
+      description: |
+        Permiso: `amenidades.gestionar`. Todas, ordenadas por nombre, con su estado: `disponible`,
+        `mantenimiento` (hasta `mantenimiento_hasta`; al pasar la fecha termina solo) o `inactiva`.
+        `tipo` es el tipo del catálogo ("Área BBQ") o null si es propia del condominio.
+      x-permiso: amenidades.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Amenidades del condominio.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AmenidadCondominio' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    post:
+      tags: [Amenidades]
+      operationId: agregarAmenidades
+      summary: Agregar amenidades del catálogo o propias
+      description: |
+        Permiso: `amenidades.gestionar`. Una amenidad reservable con varias unidades se crea como registros
+        separados ("Área BBQ 1", "Área BBQ 2", y la numeración sigue donde iba); una que no se reserva es un solo
+        registro con su cantidad ("Ascensor (3)"). Una propia no puede llamarse como una del catálogo (422 en
+        `nombre`). 422 `AMENIDAD_EXISTE` si algún nombre ya existe en el condominio. Responde las creadas.
+      x-permiso: amenidades.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AgregarAmenidad' }
+      responses:
+        '201':
+          description: Amenidades creadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AmenidadCondominio' }
+                  message: { type: string, examples: ['Amenidad agregada.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /amenidades/catalogo:
+    get:
+      tags: [Amenidades]
+      operationId: catalogoParaAmenidades
+      summary: Tipos del catálogo para elegir
+      description: 'Permiso: `amenidades.gestionar`. Los tipos activos del catálogo global (el mismo que usa el asistente de alta).'
+      x-permiso: amenidades.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Catálogo ordenado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AmenidadCatalogo' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /amenidades/{amenidad}:
+    patch:
+      tags: [Amenidades]
+      operationId: actualizarAmenidad
+      summary: Cambiar ubicación, mantenimiento o estado
+      description: |
+        Permiso: `amenidades.gestionar`. Solo viaja lo que cambia. `mantenimiento_hasta` pone la amenidad en
+        mantenimiento hasta esa fecha (no puede ser pasada); null la saca. `activa: false` la desactiva.
+        Una amenidad de otro condominio responde 404.
+      x-permiso: amenidades.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - name: amenidad
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ActualizarAmenidad' }
+      responses:
+        '200':
+          description: Cambios guardados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AmenidadCondominio' }
+                  message: { type: string, examples: ['Cambios guardados.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
         '422':
           $ref: '#/components/responses/Validacion'
         '429':
@@ -2601,6 +2751,45 @@ components:
         persona_id: { type: integer }
         acta: { type: string, maxLength: 80, examples: ['Acta 2026-03'] }
         periodo_hasta: { type: string, format: date, description: 'Después de hoy y hasta 4 años.' }
+
+    AmenidadCondominio:
+      type: object
+      required: [id, nombre, origen, tipo, categoria, cantidad, ubicacion, reservable, esencial, requiere_aprobacion, capacidad, duracion_maxima_min, estado, mantenimiento_hasta]
+      properties:
+        id: { type: integer }
+        nombre: { type: string, examples: ['Área BBQ 2'] }
+        origen: { type: string, enum: [catalogo, propia] }
+        tipo: { type: [string, 'null'], description: 'Tipo del catálogo; null si es propia.', examples: ['Área BBQ'] }
+        categoria: { type: [string, 'null'], enum: [recreacion, deporte, social, servicios, seguridad, null] }
+        cantidad: { type: integer }
+        ubicacion: { type: [string, 'null'], examples: ['Área social'] }
+        reservable: { type: boolean }
+        esencial: { type: boolean, description: 'Nunca se restringe por mora (Decreto 462).' }
+        requiere_aprobacion: { type: boolean }
+        capacidad: { type: [integer, 'null'], description: 'Del catálogo; null en las propias.' }
+        duracion_maxima_min: { type: [integer, 'null'] }
+        estado: { type: string, enum: [disponible, mantenimiento, inactiva] }
+        mantenimiento_hasta: { type: [string, 'null'], format: date }
+
+    AgregarAmenidad:
+      type: object
+      required: [origen, cantidad]
+      properties:
+        origen: { type: string, enum: [catalogo, propia] }
+        amenidad_catalogo_id: { type: [integer, 'null'], description: 'Obligatorio con origen catalogo.' }
+        nombre: { type: [string, 'null'], minLength: 2, maxLength: 70, description: 'Obligatorio con origen propia.' }
+        categoria: { type: [string, 'null'], enum: [recreacion, deporte, social, servicios, seguridad, null], description: 'Obligatoria con origen propia.' }
+        reservable: { type: boolean, description: 'Solo propias; las del catálogo traen su valor.' }
+        cantidad: { type: integer, minimum: 1, maximum: 50 }
+        ubicacion: { type: [string, 'null'], maxLength: 80 }
+
+    ActualizarAmenidad:
+      type: object
+      description: Solo viaja lo que cambia.
+      properties:
+        ubicacion: { type: [string, 'null'], maxLength: 80 }
+        activa: { type: boolean }
+        mantenimiento_hasta: { type: [string, 'null'], format: date, description: 'null saca la amenidad de mantenimiento.' }
 
     RolesCondominio:
       type: object

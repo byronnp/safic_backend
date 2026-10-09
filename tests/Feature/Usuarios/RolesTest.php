@@ -68,7 +68,7 @@ it('el menú de cada rol sale de sus permisos y de las hojas asignadas', functio
     $roles = ($this->roles)();
     $etiquetas = fn (string $clave) => collect($roles[$clave]['menu'])->pluck('etiqueta')->all();
 
-    expect($etiquetas('administrador'))->toBe(['Inicio', 'Unidades', 'Bloques', 'Datos del condominio', 'Cobro de cuotas', 'Usuarios', 'Roles'])
+    expect($etiquetas('administrador'))->toBe(['Inicio', 'Unidades', 'Bloques', 'Datos del condominio', 'Cobro de cuotas', 'Amenidades', 'Usuarios', 'Roles'])
         ->and($etiquetas('guardia'))->toBe(['Inicio', 'Unidades', 'Bloques'])
         ->and($etiquetas('residente'))->toBe(['Inicio'])
         ->and($roles['administrador']['menu'][1])->toBe(['etiqueta' => 'Unidades', 'icono' => 'sym_r_apartment']);

@@ -16,7 +16,7 @@ final class AsignarAmenidadesAction
     public function __construct(private readonly TenantContext $tenant) {}
 
     /**
-     * @param  list<array{amenidad_catalogo_id: int|null, nombre: string, cantidad: int, reservable: bool, esencial: bool, requiere_aprobacion: bool}>  $amenidades
+     * @param  list<array{amenidad_catalogo_id: int|null, nombre: string, categoria?: string|null, cantidad: int, reservable: bool, esencial: bool, requiere_aprobacion: bool}>  $amenidades
      */
     public function execute(array $amenidades): int
     {
