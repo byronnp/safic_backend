@@ -117,6 +117,7 @@ class MenuSeeder extends Seeder
     {
         return [
             ['clave' => 'plataforma.condominios', 'etiqueta' => 'Condominios', 'icono' => 'sym_r_location_city', 'ruta' => 'plataforma-condominios', 'permiso' => Permiso::PlataformaCondominios],
+            ['clave' => 'plataforma.amenidades', 'etiqueta' => 'Catálogo de amenidades', 'icono' => 'sym_r_category', 'ruta' => 'plataforma-amenidades', 'permiso' => Permiso::PlataformaCondominios],
         ];
     }
 }

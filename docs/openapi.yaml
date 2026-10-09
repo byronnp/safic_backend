@@ -2036,6 +2036,188 @@ paths:
         '403':
           $ref: '#/components/responses/SinPermisoPlataforma'
 
+  /plataforma/catalogo-amenidades:
+    get:
+      tags: [Plataforma]
+      operationId: listarCatalogoAmenidadesAdmin
+      summary: Catálogo global de amenidades (todos los tipos, activos o no)
+      description: |
+        Permiso: `plataforma.condominios`. Ordenado por `orden`. `uso` es en cuántos condominios se usa cada tipo
+        (un condominio con varios registros del mismo tipo cuenta una vez).
+      x-permiso: plataforma.condominios
+      responses:
+        '200':
+          description: Tipos del catálogo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/CatalogoAmenidadAdmin' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+    post:
+      tags: [Plataforma]
+      operationId: crearTipoAmenidad
+      summary: Agregar un tipo al catálogo global
+      description: |
+        Permiso: `plataforma.condominios`. El nombre no se repite (sin distinguir mayúsculas). Una amenidad esencial no
+        se reserva y solo una reservable puede requerir aprobación.
+      x-permiso: plataforma.condominios
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarCatalogoAmenidad' }
+      responses:
+        '201':
+          description: Tipo creado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CatalogoAmenidadAdmin' }
+                  message: { type: string, examples: ['Amenidad agregada al catálogo.'] }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /plataforma/catalogo-amenidades/propias:
+    get:
+      tags: [Plataforma]
+      operationId: listarAmenidadesPropias
+      summary: Amenidades propias que crearon los condominios
+      description: |
+        Permiso: `plataforma.condominios`. Las amenidades sin tipo del catálogo, de todos los condominios. Cada
+        condominio se consulta en su propio contexto (no se debilita el aislamiento).
+      x-permiso: plataforma.condominios
+      responses:
+        '200':
+          description: Amenidades propias.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AmenidadPropia' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+
+  /plataforma/catalogo-amenidades/{amenidad}:
+    patch:
+      tags: [Plataforma]
+      operationId: editarTipoAmenidad
+      summary: Editar un tipo del catálogo
+      description: |
+        Permiso: `plataforma.condominios`. Solo viaja lo que cambia. Los valores sugeridos no alteran a los
+        condominios que ya la configuraron (reciben una copia). `activa: false` la oculta del catálogo.
+      x-permiso: plataforma.condominios
+      parameters:
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarCatalogoAmenidad' }
+      responses:
+        '200':
+          description: Cambios guardados.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CatalogoAmenidadAdmin' }
+                  message: { type: string, examples: ['Cambios guardados.'] }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+    delete:
+      tags: [Plataforma]
+      operationId: eliminarTipoAmenidad
+      summary: Eliminar un tipo que ningún condominio usa
+      description: 'Permiso: `plataforma.condominios`. 409 `AMENIDAD_EN_USO` (con `error.details.condominios`) si alguno lo usa: solo se puede desactivar.'
+      x-permiso: plataforma.condominios
+      parameters:
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Eliminado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, examples: ['Amenidad eliminada del catálogo.'] }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`AMENIDAD_EN_USO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /plataforma/catalogo-amenidades/propias/{condominio}/{amenidad}/promover:
+    post:
+      tags: [Plataforma]
+      operationId: promoverAmenidadPropia
+      summary: Pasar una amenidad propia de un condominio al catálogo global
+      description: |
+        Permiso: `plataforma.condominios`. Crea el tipo con los valores de la amenidad y la vincula; el condominio la
+        conserva sin cambios. 404 si la amenidad no es propia de ese condominio; 409 `AMENIDAD_EN_CATALOGO` si ya hay
+        un tipo con ese nombre.
+      x-permiso: plataforma.condominios
+      parameters:
+        - { name: condominio, in: path, required: true, schema: { type: integer } }
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+      responses:
+        '201':
+          description: Tipo creado en el catálogo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CatalogoAmenidadAdmin' }
+                  message: { type: string, examples: ['Amenidad promovida al catálogo global.'] }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`AMENIDAD_EN_CATALOGO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /plataforma/usuarios/buscar:
     get:
       tags: [Plataforma]
@@ -2751,6 +2933,52 @@ components:
         persona_id: { type: integer }
         acta: { type: string, maxLength: 80, examples: ['Acta 2026-03'] }
         periodo_hasta: { type: string, format: date, description: 'Después de hoy y hasta 4 años.' }
+
+    CatalogoAmenidadAdmin:
+      type: object
+      required: [id, nombre, descripcion, categoria, reservable, esencial, requiere_aprobacion, capacidad, duracion_maxima_min, orden, activa, uso]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        descripcion: { type: [string, 'null'] }
+        categoria: { type: string, enum: [recreacion, deporte, social, servicios, seguridad] }
+        reservable: { type: boolean }
+        esencial: { type: boolean, description: 'Nunca se restringe a morosos (Decreto 462).' }
+        requiere_aprobacion: { type: boolean }
+        capacidad: { type: [integer, 'null'], description: Capacidad sugerida. }
+        duracion_maxima_min: { type: [integer, 'null'], description: 'Duración máxima sugerida en minutos.' }
+        orden: { type: integer }
+        activa: { type: boolean }
+        uso: { type: [integer, 'null'], description: 'En cuántos condominios se usa (null cuando no se calcula).' }
+
+    GuardarCatalogoAmenidad:
+      type: object
+      description: Al editar solo viaja lo que cambia.
+      properties:
+        nombre: { type: string, minLength: 2, maxLength: 80 }
+        descripcion: { type: [string, 'null'], maxLength: 200 }
+        categoria: { type: string, enum: [recreacion, deporte, social, servicios, seguridad] }
+        reservable: { type: boolean }
+        esencial: { type: boolean }
+        requiere_aprobacion: { type: boolean }
+        capacidad: { type: [integer, 'null'], minimum: 1, maximum: 9999 }
+        duracion_maxima_min: { type: [integer, 'null'], minimum: 15, maximum: 1440 }
+        orden: { type: integer, minimum: 0, maximum: 999 }
+        activa: { type: boolean }
+
+    AmenidadPropia:
+      type: object
+      required: [id, condominio_id, condominio, nombre, categoria, reservable, esencial, requiere_aprobacion, activa]
+      properties:
+        id: { type: integer }
+        condominio_id: { type: integer }
+        condominio: { type: string }
+        nombre: { type: string }
+        categoria: { type: [string, 'null'] }
+        reservable: { type: boolean }
+        esencial: { type: boolean }
+        requiere_aprobacion: { type: boolean }
+        activa: { type: boolean }
 
     AmenidadCondominio:
       type: object
