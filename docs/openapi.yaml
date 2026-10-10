@@ -2522,6 +2522,69 @@ paths:
         '422':
           $ref: '#/components/responses/Validacion'
 
+  /finanzas/configuracion:
+    get:
+      tags: [Finanzas]
+      operationId: verConfiguracionFinanzas
+      summary: Reglas de dinero del condominio
+      description: 'Permiso: `condominio.editar`. Umbral de la segunda aprobación de facturas, si quien aprobó una factura puede pagarla y tolerancia bancaria. Sin configuración devuelve los valores por defecto ($ 500,00, no, $ 0,50).'
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Reglas vigentes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ConfiguracionFinanzas' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    put:
+      tags: [Finanzas]
+      operationId: guardarConfiguracionFinanzas
+      summary: Cambiar las reglas de dinero
+      description: 'Permiso: `condominio.editar`. Solo viaja lo que cambia. Queda auditado. El umbral nuevo aplica a las facturas que aún no tienen su primera aprobación; la tolerancia, a los pagos que se aprueben desde ese momento.'
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                umbral_segunda_aprobacion: { type: string, examples: ['500.00'] }
+                aprobador_puede_pagar: { type: boolean }
+                tolerancia_bancaria: { type: string, examples: ['0.50'], description: 'De 0.00 a 5.00.' }
+      responses:
+        '200':
+          description: Reglas guardadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ConfiguracionFinanzas' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -5897,6 +5960,14 @@ components:
               gasto_id: { type: integer }
               numero: { type: string }
               monto: { type: string }
+
+    ConfiguracionFinanzas:
+      type: object
+      required: [umbral_segunda_aprobacion, aprobador_puede_pagar, tolerancia_bancaria]
+      properties:
+        umbral_segunda_aprobacion: { type: string, examples: ['500.00'] }
+        aprobador_puede_pagar: { type: boolean }
+        tolerancia_bancaria: { type: string, examples: ['0.50'] }
 
     CuentaBancaria:
       type: object
