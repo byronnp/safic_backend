@@ -97,6 +97,7 @@ class MenuSeeder extends Seeder
                 'clave' => 'finanzas', 'etiqueta' => 'Finanzas', 'icono' => 'sym_r_account_balance_wallet',
                 'hijos' => [
                     ['clave' => 'finanzas.resumen', 'etiqueta' => 'Resumen', 'icono' => 'sym_r_dashboard', 'ruta' => 'finanzas-resumen', 'permiso' => Permiso::FinanzasVer],
+                    ['clave' => 'finanzas.pagos', 'etiqueta' => 'Pagos por aprobar', 'icono' => 'sym_r_fact_check', 'ruta' => 'finanzas-pagos-por-aprobar', 'permiso' => Permiso::PagosAprobar],
                 ],
             ],
             [

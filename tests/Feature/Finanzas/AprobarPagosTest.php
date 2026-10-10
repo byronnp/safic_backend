@@ -160,7 +160,9 @@ it('lista los pagos por estado con sus conteos y la tolerancia', function () {
     $pendientes = ($this->admin)()->getJson('/api/v1/pagos')->assertOk();
     $aprobados = ($this->admin)()->getJson('/api/v1/pagos?estado=aprobado')->assertOk();
 
-    expect($pendientes->json('data'))->toHaveCount(1)
+    expect($pendientes->json('data.0.validacion'))->toBe(['nivel' => 'ok', 'texto' => 'Todo coincide'])
+        ->and($aprobados->json('data.0.validacion'))->toBeNull()
+        ->and($pendientes->json('data'))->toHaveCount(1)
         ->and($pendientes->json('data.0'))->toMatchArray(['unidad' => 'A-102', 'estado' => 'pendiente', 'monto' => '80.00', 'numero_comprobante' => '4002', 'banco' => 'Banco Pichincha'])
         ->and($pendientes->json('meta.conteos'))->toBe(['pendiente' => 1, 'aprobado' => 1, 'rechazado' => 0])
         ->and($pendientes->json('meta.tolerancia'))->toBe('0.50')

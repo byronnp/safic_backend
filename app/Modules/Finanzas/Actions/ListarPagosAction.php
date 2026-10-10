@@ -6,6 +6,7 @@ use App\Core\Support\Dinero;
 use App\Models\User;
 use App\Modules\Finanzas\Models\CuentaBancaria;
 use App\Modules\Finanzas\Models\Pago;
+use App\Modules\Finanzas\Services\AplicacionPagoService;
 use App\Modules\Finanzas\Services\ToleranciaBancaria;
 use App\Modules\Unidades\Actions\CodigosDeUnidadesAction;
 
@@ -18,6 +19,8 @@ final class ListarPagosAction
     public function __construct(
         private readonly CodigosDeUnidadesAction $codigos,
         private readonly ToleranciaBancaria $tolerancia,
+        private readonly VerPagoAction $ver,
+        private readonly AplicacionPagoService $aplicacion,
     ) {}
 
     /**
@@ -55,10 +58,29 @@ final class ListarPagosAction
                 'estado' => $p->estado,
                 'motivo_rechazo' => $p->motivo_rechazo,
                 'recibo' => $p->recibo_numero === null ? null : self::numeroRecibo($p->recibo_numero),
+                'validacion' => $p->estado === Pago::PENDIENTE ? $this->validacion($p) : null,
             ])->all(),
             'conteos' => $conteos,
             'tolerancia' => Dinero::texto($this->tolerancia->centavos()),
         ];
+    }
+
+    /**
+     * Resumen de las validaciones de un pago pendiente para la columna de la lista.
+     *
+     * @return array{nivel: string, texto: string}
+     */
+    private function validacion(Pago $pago): array
+    {
+        $simulacion = $this->aplicacion->simular($pago, Dinero::centavos($pago->monto), $this->tolerancia->centavos());
+        $fallida = collect($this->ver->validaciones($pago, $simulacion))->first(fn (array $v) => ! $v['ok']);
+
+        return match ($fallida['clave'] ?? null) {
+            null => ['nivel' => 'ok', 'texto' => 'Todo coincide'],
+            'monto_cubre' => ['nivel' => 'error', 'texto' => 'Monto no cubre'],
+            'cuotas_vigentes' => ['nivel' => 'error', 'texto' => 'Cuotas cambiaron'],
+            default => ['nivel' => 'error', 'texto' => 'Revisar'],
+        };
     }
 
     public static function numeroRecibo(int $numero): string

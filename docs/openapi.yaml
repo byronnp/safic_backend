@@ -4818,6 +4818,12 @@ components:
         estado: { type: string, enum: [pendiente, aprobado, rechazado, anulado] }
         motivo_rechazo: { type: [string, 'null'] }
         recibo: { type: [string, 'null'], examples: ['000358'] }
+        validacion:
+          type: [object, 'null']
+          description: Resumen de las validaciones de un pago pendiente (null en los demás).
+          properties:
+            nivel: { type: string, enum: [ok, error] }
+            texto: { type: string, examples: ['Todo coincide', 'Monto no cubre', 'Cuotas cambiaron'] }
     PagoDetalle:
       type: object
       required: [id, unidad, monto, estado, validaciones, aplicacion, cuotas, tolerancia]
