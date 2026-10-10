@@ -130,7 +130,8 @@ enum Rol: string
             self::Secretario => [Permiso::UnidadesVer],
             self::Guardia => [Permiso::UnidadesVer, Permiso::GaritaDirectorio],
             self::Contador => [Permiso::FinanzasVer],
-            self::Mantenimiento, self::Residente => [],
+            self::Residente => [Permiso::CuentaPropia],
+            self::Mantenimiento => [],
         };
     }
 }

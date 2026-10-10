@@ -48,7 +48,7 @@ it('cada rol dice qué permite y el catálogo de permisos trae etiqueta, grupo y
 
     expect($roles['administrador']['permisos'])->toContain('unidades.editar', 'usuarios.gestionar', 'condominio.editar', 'garita.directorio')
         ->and($roles['guardia']['permisos'])->toBe(['garita.directorio', 'unidades.ver'])
-        ->and($roles['residente']['permisos'])->toBe([])
+        ->and($roles['residente']['permisos'])->toBe(['cuenta.propia'])
         ->and($catalogo['garita.directorio'])->toBe(['clave' => 'garita.directorio', 'etiqueta' => 'Consultar el directorio de garita', 'grupo' => 'Garita', 'administrativo' => false])
         ->and($catalogo['unidades.editar'])->toMatchArray(['grupo' => 'Núcleo', 'administrativo' => true]);
 });

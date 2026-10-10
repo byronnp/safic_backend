@@ -1213,6 +1213,193 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /cuentas-bancarias:
+    get:
+      tags: [Finanzas]
+      operationId: listarCuentasBancarias
+      summary: Cuentas bancarias del condominio
+      description: 'Permiso: `condominio.editar`. Adonde los residentes transfieren; la principal activa es la que ellos ven. La activas primero.'
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Cuentas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/CuentaBancaria' } }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    post:
+      tags: [Finanzas]
+      operationId: crearCuentaBancaria
+      summary: Agregar una cuenta bancaria
+      description: 'Permiso: `condominio.editar`. La primera cuenta activa nace principal; marcar otra la reemplaza. El número va cifrado.'
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarCuentaBancaria' }
+      responses:
+        '201':
+          description: Cuenta agregada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CuentaBancaria' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /cuentas-bancarias/{cuenta}:
+    patch:
+      tags: [Finanzas]
+      operationId: editarCuentaBancaria
+      summary: Editar, activar o desactivar una cuenta bancaria
+      description: |
+        Permiso: `condominio.editar`. Solo viaja lo que cambia. No se borran: se desactivan (`activa: false`). Si se desactiva
+        la principal, pasa a otra activa. Para quitar la principal hay que marcar otra (422 `CUENTA_PRINCIPAL`).
+      x-permiso: condominio.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: cuenta, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarCuentaBancaria' }
+      responses:
+        '200':
+          description: Cuenta actualizada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CuentaBancaria' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /mi-cuenta:
+    get:
+      tags: [Finanzas]
+      operationId: miCuenta
+      summary: Mi cuenta (residente)
+      description: |
+        Permiso: `cuenta.propia`. Por cada unidad que ocupa la persona de la cuenta: cuotas con saldo (`pendiente`,
+        `vencida` o `en_revision` si ya van en un pago que espera aprobación), total pendiente, saldo a favor, sus últimos
+        pagos y la cuenta bancaria principal. `concepto_transferencia` es lo que escribe en la transferencia.
+        `puede_pagar` es verdadero si su relación es la que la unidad marca como responsable de pago.
+      x-permiso: cuenta.propia
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Cuenta del residente.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MiCuenta' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /mi-cuenta/pagos:
+    post:
+      tags: [Finanzas]
+      operationId: enviarPago
+      summary: Informar una transferencia con su comprobante
+      description: |
+        Permiso: `cuenta.propia`. Multipart. Se eligen cuotas **desde la más antigua y completas**; el monto es lo que suman
+        menos el saldo a favor (lo calcula el servidor). Queda `pendiente` hasta que la administración lo apruebe: no cambia
+        ninguna cuota todavía. Comprobante: JPG, PNG o PDF de hasta 5 MB. Hasta 6 envíos por minuto.
+        403 `UNIDAD_NO_ES_TUYA`, `NO_PUEDES_PAGAR_ESTA_UNIDAD`; 409 `SIN_CUENTA_BANCARIA`, `CUOTAS_EN_REVISION`,
+        `COMPROBANTE_DUPLICADO`, `NADA_QUE_TRANSFERIR`; 422 `CUOTAS_NO_VALIDAS`.
+      x-permiso: cuenta.propia
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [unidad_id, cuotas, numero_comprobante, comprobante]
+              properties:
+                unidad_id: { type: integer }
+                cuotas: { type: array, minItems: 1, maxItems: 24, items: { type: integer } }
+                numero_comprobante: { type: string, minLength: 3, maxLength: 40 }
+                comprobante: { type: string, format: binary }
+      responses:
+        '201':
+          description: Pago en revisión.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [pago_id, monto, estado, cuenta]
+                    properties:
+                      pago_id: { type: integer }
+                      monto: { type: string, examples: ['160.00'] }
+                      estado: { type: string, enum: [pendiente] }
+                      cuenta: { $ref: '#/components/schemas/MiCuenta' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: Código de error en `error.code` (ver la descripción).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -4254,6 +4441,83 @@ components:
           properties:
             metodo: { type: string, enum: [general, tipo, alicuota, unidad] }
             dia_vencimiento: { type: integer }
+    CuentaBancaria:
+      type: object
+      required: [id, banco, tipo, numero, titular, es_principal, activa]
+      properties:
+        id: { type: integer }
+        banco: { type: string, examples: ['Banco Pichincha'] }
+        tipo: { type: string, enum: [corriente, ahorros] }
+        numero: { type: string }
+        titular: { type: string }
+        es_principal: { type: boolean }
+        activa: { type: boolean }
+    GuardarCuentaBancaria:
+      type: object
+      description: En `POST` todo es obligatorio salvo los booleanos; en `PATCH` todo es opcional.
+      properties:
+        banco: { type: string, minLength: 2, maxLength: 60 }
+        tipo: { type: string, enum: [corriente, ahorros] }
+        numero: { type: string, pattern: '^[0-9A-Za-z-]{5,30}$' }
+        titular: { type: string, minLength: 3, maxLength: 120 }
+        es_principal: { type: boolean }
+        activa: { type: boolean }
+    MiCuenta:
+      type: object
+      required: [condominio, unidades, cuenta_bancaria]
+      properties:
+        condominio: { type: string }
+        cuenta_bancaria:
+          type: [object, 'null']
+          description: La cuenta principal activa; null si la administración aún no la configuró.
+          properties:
+            banco: { type: string }
+            tipo: { type: string }
+            numero: { type: string }
+            titular: { type: string }
+        unidades:
+          type: array
+          items:
+            type: object
+            required: [unidad_id, codigo, relacion, puede_pagar, encabezado, concepto_transferencia, total_pendiente, vencidas, saldo_favor, cuotas, pagos]
+            properties:
+              unidad_id: { type: integer }
+              codigo: { type: string }
+              relacion: { type: string, enum: [propietario, inquilino, residente] }
+              puede_pagar: { type: boolean }
+              encabezado: { type: string, examples: ['Jardines del Valle · A-102'] }
+              concepto_transferencia: { type: string, examples: ['JV-A102'] }
+              total_pendiente: { type: string }
+              vencidas: { type: integer }
+              saldo_favor: { type: string }
+              cuotas:
+                type: array
+                description: Solo con saldo, de la más antigua a la más reciente.
+                items:
+                  type: object
+                  required: [id, periodo, concepto, monto, saldo, vence_el, estado]
+                  properties:
+                    id: { type: integer }
+                    periodo: { type: string, examples: ['2026-09'] }
+                    concepto: { type: string }
+                    monto: { type: string }
+                    saldo: { type: string }
+                    vence_el: { type: string, format: date }
+                    estado: { type: string, enum: [pendiente, vencida, en_revision] }
+              pagos:
+                type: array
+                description: Los 10 últimos, del más reciente al más antiguo.
+                items:
+                  type: object
+                  required: [id, monto, estado, fecha, numero_comprobante, motivo_rechazo, cuotas]
+                  properties:
+                    id: { type: integer }
+                    monto: { type: string }
+                    estado: { type: string, enum: [pendiente, aprobado, rechazado, anulado] }
+                    fecha: { type: string, format: date }
+                    numero_comprobante: { type: [string, 'null'] }
+                    motivo_rechazo: { type: [string, 'null'] }
+                    cuotas: { type: array, items: { type: string, examples: ['2026-09'] } }
     CobroCuotas:
       type: object
       required: [configurado, metodo, cuota_general, presupuesto_mensual, valores_tipo, dia_vencimiento, aplica_desde, unidades, historial]
