@@ -37,6 +37,9 @@ class CondominioPlataformaResource extends JsonResource
             'mensualidad' => $mensualidad,
             'plan' => $this->plan === null ? null : ['codigo' => $this->plan->codigo, 'nombre' => $this->plan->nombre],
             'ubicacion' => [
+                'provincia_codigo' => $this->provincia_codigo,
+                'canton_codigo' => $this->canton_codigo,
+                'parroquia_codigo' => $this->parroquia_codigo,
                 'provincia' => $this->provincia?->nombre,
                 'canton' => $this->canton?->nombre,
                 'parroquia' => $this->parroquia?->nombre,

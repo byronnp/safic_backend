@@ -30,6 +30,12 @@ it('el super admin edita los datos de un condominio y queda en la bitácora', fu
     expect(RegistroBitacora::query()->where('entidad', 'condominio')->where('entidad_id', (string) $this->condominio->id)->exists())->toBeTrue();
 });
 
+it('el detalle trae los códigos de ubicación para precargar la edición', function () {
+    $r = ($this->como)(Rol::SuperAdmin)->getJson($this->ruta)->assertOk();
+
+    expect($r->json('data.ubicacion'))->toHaveKeys(['provincia_codigo', 'canton_codigo', 'parroquia_codigo']);
+});
+
 it('solo el super admin edita o inactiva: soporte y cobranza no', function () {
     foreach ([Rol::Soporte, Rol::Cobranza] as $rol) {
         ($this->como)($rol)->patchJson($this->ruta, ['nombre' => 'Otro nombre'])->assertForbidden();

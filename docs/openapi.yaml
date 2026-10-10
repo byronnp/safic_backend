@@ -6373,6 +6373,9 @@ components:
         ubicacion:
           type: object
           properties:
+            provincia_codigo: { type: [string, 'null'] }
+            canton_codigo: { type: [string, 'null'] }
+            parroquia_codigo: { type: [string, 'null'] }
             provincia: { type: [string, 'null'] }
             canton: { type: [string, 'null'] }
             parroquia: { type: [string, 'null'] }
