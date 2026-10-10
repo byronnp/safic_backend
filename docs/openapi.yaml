@@ -5637,6 +5637,7 @@ components:
         - type: object
           properties:
             registrada_por: { type: [string, 'null'] }
+            registrada_por_mi: { type: boolean, description: La registró quien consulta (no puede aprobarla ni rechazarla). }
             registrada_en: { type: [string, 'null'], format: date-time }
             aprobaciones:
               type: array

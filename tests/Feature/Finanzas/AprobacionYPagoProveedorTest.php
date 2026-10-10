@@ -61,7 +61,9 @@ it('una factura chica se aprueba en un solo nivel por la administración', funct
 
     expect($r->json('data.estado'))->toBe('aprobada')
         ->and($r->json('data.aprobaciones.0'))->toMatchArray(['nivel' => 1, 'decision' => 'aprobada', 'comentario' => 'Cotización más baja', 'en_subrogacion' => false])
-        ->and($r->json('data.registrada_por'))->toBe($this->usuarios['tesorero']->name);
+        ->and($r->json('data.registrada_por'))->toBe($this->usuarios['tesorero']->name)
+        ->and($r->json('data.registrada_por_mi'))->toBeFalse()
+        ->and(($this->como)('tesorero')->getJson("/api/v1/gastos/{$g->id}")->json('data.registrada_por_mi'))->toBeTrue();
 });
 
 it('quien registró la factura no la aprueba ni la rechaza', function () {

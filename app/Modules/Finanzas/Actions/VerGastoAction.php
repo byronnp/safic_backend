@@ -29,6 +29,7 @@ final class VerGastoAction
 
         return $this->listar->fila($gasto, $this->calendario->hoy()) + [
             'registrada_por' => $gasto->registrado_por !== null ? ($nombres[$gasto->registrado_por] ?? null) : null,
+            'registrada_por_mi' => $gasto->registrado_por !== null && $gasto->registrado_por === auth()->id(),
             'registrada_en' => $gasto->created_at?->toIso8601String(),
             'aprobaciones' => $decisiones->map(fn (GastoAprobacion $a): array => [
                 'nivel' => $a->nivel,
