@@ -1400,6 +1400,288 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /pagos:
+    get:
+      tags: [Finanzas]
+      operationId: listarPagos
+      summary: Pagos de los residentes por estado
+      description: |
+        Permiso: `pagos.aprobar`. Por defecto los pendientes (los más antiguos primero); `aprobado` y `rechazado` salen
+        del más reciente al más antiguo (hasta 200). `meta.conteos` trae cuántos hay en cada estado y `meta.tolerancia`
+        la tolerancia bancaria vigente.
+      x-permiso: pagos.aprobar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: estado, in: query, schema: { type: string, enum: [pendiente, aprobado, rechazado], default: pendiente } }
+      responses:
+        '200':
+          description: Pagos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/PagoResumen' } }
+                  meta:
+                    type: object
+                    properties:
+                      conteos: { type: object, properties: { pendiente: { type: integer }, aprobado: { type: integer }, rechazado: { type: integer } } }
+                      tolerancia: { type: string, examples: ['0.50'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /pagos/aprobar-lote:
+    post:
+      tags: [Finanzas]
+      operationId: aprobarPagosEnLote
+      summary: Aprobar varios pagos con lo declarado
+      description: |
+        Permiso: `pagos.aprobar`. Cada pago es su propia transacción. Solo pasan los que superan todas las validaciones;
+        el resto responde `VALIDACION_FALLIDA` y queda pendiente. `meta` cuenta aprobados y omitidos.
+      x-permiso: pagos.aprobar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids: { type: array, minItems: 1, maxItems: 100, items: { type: integer } }
+      responses:
+        '200':
+          description: Resultado por pago.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, ok, codigo, mensaje]
+                      properties:
+                        id: { type: integer }
+                        ok: { type: boolean }
+                        codigo: { type: [string, 'null'] }
+                        mensaje: { type: [string, 'null'] }
+                  meta:
+                    type: object
+                    properties:
+                      aprobados: { type: integer }
+                      omitidos: { type: integer }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /pagos/{pago}:
+    get:
+      tags: [Finanzas]
+      operationId: verPago
+      summary: Un pago con su comprobante, validaciones y vista previa de la aplicación
+      description: |
+        Permiso: `pagos.aprobar`. `comprobante_url` es un enlace temporal (10 minutos) del bucket privado. En un pago
+        pendiente, `validaciones` y `aplicacion` dicen qué pasaría al aprobarlo: cuántas cuotas completas se pagan,
+        los centavos que absorbe la tolerancia y cuánto queda como saldo a favor.
+      x-permiso: pagos.aprobar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: pago, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Pago.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PagoDetalle' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /pagos/{pago}/aprobar:
+    post:
+      tags: [Finanzas]
+      operationId: aprobarPago
+      summary: Aprobar un pago
+      description: |
+        Permiso: `pagos.aprobar`. Lo recibido (por defecto lo declarado, o `monto_recibido` si se confirma otro contra el
+        banco) más el saldo a favor se aplica a las cuotas **completas, de la más antigua a la más reciente**; si falta
+        menos que la tolerancia bancaria para completar una, se da por pagada y esos centavos quedan como ajuste; lo que
+        sobra queda a favor. Se numera el recibo (consecutivo por condominio) y se avisa al residente por correo.
+        409 `PAGO_NO_PENDIENTE`; 422 `MONTO_INVALIDO`.
+      x-permiso: pagos.aprobar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: pago, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                monto_recibido: { type: [string, number, 'null'], description: 'Hasta dos decimales.', examples: ['79.60'] }
+      responses:
+        '200':
+          description: Pago aprobado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PagoDetalle' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`PAGO_NO_PENDIENTE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /pagos/{pago}/rechazar:
+    post:
+      tags: [Finanzas]
+      operationId: rechazarPago
+      summary: Rechazar un comprobante
+      description: |
+        Permiso: `pagos.aprobar`. El motivo es obligatorio y se le envía al residente. Las cuotas quedan libres y el número
+        de comprobante se puede volver a usar. 409 `PAGO_NO_PENDIENTE`.
+      x-permiso: pagos.aprobar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: pago, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200':
+          description: Pago rechazado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PagoDetalle' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`PAGO_NO_PENDIENTE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /pagos/{pago}/recibo:
+    get:
+      tags: [Finanzas]
+      operationId: reciboDePago
+      summary: Recibo en PDF de un pago aprobado
+      description: |
+        Permiso: `finanzas.ver`. Número consecutivo del condominio, unidad, pagador, cuotas pagadas y
+        total. La cédula sale completa solo con `residentes.ver_datos`. No es una factura electrónica. 409 `PAGO_SIN_RECIBO`.
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: pago, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: PDF.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`PAGO_SIN_RECIBO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /mi-cuenta/pagos/{pago}/recibo:
+    get:
+      tags: [Finanzas]
+      operationId: miReciboDePago
+      summary: Mi recibo en PDF
+      description: 'Permiso: `cuenta.propia`. Solo de pagos aprobados de las unidades de la cuenta; el de otra unidad responde 404.'
+      x-permiso: cuenta.propia
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: pago, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: PDF.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`PAGO_SIN_RECIBO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -4509,7 +4791,7 @@ components:
                 description: Los 10 últimos, del más reciente al más antiguo.
                 items:
                   type: object
-                  required: [id, monto, estado, fecha, numero_comprobante, motivo_rechazo, cuotas]
+                  required: [id, monto, estado, fecha, numero_comprobante, motivo_rechazo, recibo, cuotas]
                   properties:
                     id: { type: integer }
                     monto: { type: string }
@@ -4517,7 +4799,78 @@ components:
                     fecha: { type: string, format: date }
                     numero_comprobante: { type: [string, 'null'] }
                     motivo_rechazo: { type: [string, 'null'] }
+                    recibo: { type: [string, 'null'], examples: ['000358'], description: Número del recibo; con él se descarga el PDF. }
                     cuotas: { type: array, items: { type: string, examples: ['2026-09'] } }
+    PagoResumen:
+      type: object
+      required: [id, unidad_id, unidad, pagador, banco, metodo, monto, fecha, numero_comprobante, cuotas, estado, motivo_rechazo, recibo]
+      properties:
+        id: { type: integer }
+        unidad_id: { type: integer }
+        unidad: { type: string, examples: ['A-102'] }
+        pagador: { type: [string, 'null'] }
+        banco: { type: [string, 'null'] }
+        metodo: { type: string, enum: [transferencia, efectivo] }
+        monto: { type: string }
+        fecha: { type: string, format: date }
+        numero_comprobante: { type: [string, 'null'] }
+        cuotas: { type: array, items: { type: string, examples: ['2026-09'] } }
+        estado: { type: string, enum: [pendiente, aprobado, rechazado, anulado] }
+        motivo_rechazo: { type: [string, 'null'] }
+        recibo: { type: [string, 'null'], examples: ['000358'] }
+        validacion:
+          type: [object, 'null']
+          description: Resumen de las validaciones de un pago pendiente (null en los demás).
+          properties:
+            nivel: { type: string, enum: [ok, error] }
+            texto: { type: string, examples: ['Todo coincide', 'Monto no cubre', 'Cuotas cambiaron'] }
+    PagoDetalle:
+      type: object
+      required: [id, unidad, monto, estado, validaciones, aplicacion, cuotas, tolerancia]
+      properties:
+        id: { type: integer }
+        unidad_id: { type: integer }
+        unidad: { type: string }
+        pagador: { type: [string, 'null'] }
+        metodo: { type: string }
+        monto: { type: string, description: Lo declarado; al aprobar queda lo recibido. }
+        diferencia: { type: string, description: Recibido menos declarado. }
+        fecha: { type: string, format: date }
+        numero_comprobante: { type: [string, 'null'] }
+        banco_origen: { type: [string, 'null'] }
+        cuenta_destino: { type: [string, 'null'] }
+        estado: { type: string, enum: [pendiente, aprobado, rechazado, anulado] }
+        motivo_rechazo: { type: [string, 'null'] }
+        recibo: { type: [string, 'null'] }
+        comprobante_url: { type: [string, 'null'], description: Enlace temporal de 10 minutos. }
+        comprobante_tipo: { type: [string, 'null'], examples: [jpg, png, pdf] }
+        tolerancia: { type: string }
+        cuotas:
+          type: array
+          items:
+            type: object
+            properties:
+              cuota_id: { type: integer }
+              periodo: { type: string }
+              monto: { type: string }
+        validaciones:
+          type: array
+          description: Vacío si el pago ya no está pendiente.
+          items:
+            type: object
+            required: [clave, ok, texto]
+            properties:
+              clave: { type: string, enum: [cuotas_vigentes, monto_cubre, comprobante_unico, fecha_valida] }
+              ok: { type: boolean }
+              texto: { type: string }
+        aplicacion:
+          type: [object, 'null']
+          description: Qué pasaría al aprobarlo con lo declarado (solo pendientes).
+          properties:
+            cuotas_completas: { type: integer }
+            ajuste: { type: string }
+            a_saldo_favor: { type: string }
+            credito_previo: { type: string }
     CobroCuotas:
       type: object
       required: [configurado, metodo, cuota_general, presupuesto_mensual, valores_tipo, dia_vencimiento, aplica_desde, unidades, historial]

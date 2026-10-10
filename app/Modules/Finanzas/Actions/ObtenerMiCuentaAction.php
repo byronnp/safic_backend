@@ -99,6 +99,7 @@ final class ObtenerMiCuentaAction
                 'fecha' => $p->fecha_pago->toDateString(),
                 'numero_comprobante' => $p->numero_comprobante,
                 'motivo_rechazo' => $p->estado === Pago::RECHAZADO ? $p->motivo_rechazo : null,
+                'recibo' => $p->recibo_numero === null ? null : ListarPagosAction::numeroRecibo($p->recibo_numero),
                 'cuotas' => array_column($p->cuotas_declaradas ?? [], 'periodo'),
             ])->all(),
         ];
