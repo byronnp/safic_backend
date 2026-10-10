@@ -2,6 +2,7 @@
 
 use App\Core\Permissions\Permiso;
 use App\Modules\Usuarios\Http\Controllers\DirectivaController;
+use App\Modules\Usuarios\Http\Controllers\ResidenteController;
 use App\Modules\Usuarios\Http\Controllers\RolController;
 use App\Modules\Usuarios\Http\Controllers\UsuarioController;
 use Illuminate\Support\Facades\Route;
@@ -41,3 +42,8 @@ Route::get('roles', [RolController::class, 'index'])
 
 Route::post('roles/solicitudes', [RolController::class, 'solicitar'])
     ->middleware(['throttle:solicitudes', 'permission:'.Permiso::UsuariosGestionar->value]);
+
+// Acceso de un residente a la app (a partir de su ficha de persona)
+Route::post('personas/{persona}/acceso', [ResidenteController::class, 'acceso'])
+    ->whereNumber('persona')
+    ->middleware('permission:'.Permiso::UsuariosGestionar->value);

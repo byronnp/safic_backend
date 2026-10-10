@@ -2,7 +2,6 @@
 
 namespace App\Modules\Usuarios\Actions;
 
-use App\Core\Auth\Services\InvitacionService;
 use App\Core\Http\Exceptions\ApiException;
 use App\Core\Permissions\Rol;
 use App\Core\Subscriptions\LimiteUsuarios;
@@ -11,13 +10,11 @@ use App\Core\Tenancy\TenantContext;
 use App\Models\User;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Unidades\Actions\PropietariosVigentesAction;
-use App\Modules\Usuarios\Mail\InvitacionUsuarioMail;
 use App\Modules\Usuarios\Models\CargoDirectiva;
+use App\Modules\Usuarios\Services\CuentasDePersonas;
 use App\Modules\Usuarios\Services\PerfilesUsuario;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
 
 /**
  * Caso de uso: nombrar a una persona en un cargo de la directiva. Si el cargo tenía
@@ -33,7 +30,7 @@ final class AsignarCargoAction
         private readonly PropietariosVigentesAction $propietarios,
         private readonly PerfilesUsuario $perfiles,
         private readonly LimiteUsuarios $limite,
-        private readonly InvitacionService $invitaciones,
+        private readonly CuentasDePersonas $cuentas,
     ) {}
 
     public function execute(Rol $cargo, int $personaId, string $acta, string $periodoHasta, User $actor): CargoDirectiva
@@ -71,7 +68,7 @@ final class AsignarCargoAction
                 }
             }
 
-            $user = $this->cuenta($persona, $condominio);
+            $user = $this->cuentas->cuenta($persona, $condominio);
 
             if ($cargo->cuentaParaCupo() && ! $this->limite->consume($user->id)) {
                 $this->limite->asegurarCupo();
@@ -79,16 +76,7 @@ final class AsignarCargoAction
 
             $this->perfiles->agregar($user, $cargo);
 
-            if (! $user->activo) {
-                $token = $this->invitaciones->crear($user, $condominio, $actor);
-                Mail::to($user->email)->queue(new InvitacionUsuarioMail(
-                    nombre: $user->name,
-                    condominio: $condominio->nombre,
-                    perfil: $cargo->etiqueta(),
-                    enlace: config('safic.frontend_url').'/invitacion/'.$token,
-                    diasVigencia: InvitacionService::DIAS_VIGENCIA,
-                ));
-            }
+            $this->cuentas->invitarSiHaceFalta($user, $condominio, $cargo->etiqueta(), $actor);
 
             return CargoDirectiva::create([
                 'cargo' => $cargo->value,
@@ -99,44 +87,5 @@ final class AsignarCargoAction
                 'acta' => $acta,
             ]);
         });
-    }
-
-    /**
-     * La cuenta de la persona: por correo. Si no existe se crea inactiva; si ya está en
-     * el condominio se reutiliza (y se reactiva si estaba desactivada).
-     *
-     * @param  array{persona_id: int, nombre: string, email: string|null, cedula: string|null, unidad: string}  $persona
-     */
-    private function cuenta(array $persona, Condominio $condominio): User
-    {
-        $email = mb_strtolower((string) $persona['email']);
-        $user = User::query()->where('email', $email)->first();
-
-        if ($user === null) {
-            if ($persona['cedula'] !== null && User::query()->where('cedula', $persona['cedula'])->exists()) {
-                throw new ApiException('CEDULA_EN_USO', 'La cédula de esta persona ya pertenece a otro usuario con un correo distinto. Corrige el correo en su ficha.', 422);
-            }
-
-            $user = User::create([
-                'name' => $persona['nombre'],
-                'cedula' => $persona['cedula'],
-                'email' => $email,
-                'password' => Str::random(48),
-                'activo' => false,
-            ]);
-        }
-
-        $membresia = $user->membresias()->where('condominio_id', $condominio->id)->first();
-        if ($membresia === null) {
-            $user->membresias()->create([
-                'condominio_id' => $condominio->id,
-                'es_principal' => ! $user->membresias()->where('es_principal', true)->exists(),
-                'activo' => true,
-            ]);
-        } elseif (! $membresia->activo) {
-            $membresia->update(['activo' => true]);
-        }
-
-        return $user;
     }
 }
