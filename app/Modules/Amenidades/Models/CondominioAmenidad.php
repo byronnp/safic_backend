@@ -4,6 +4,7 @@ namespace App\Modules\Amenidades\Models;
 
 use App\Core\Tenancy\BelongsToCondominio;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use OwenIt\Auditing\Auditable;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
@@ -47,5 +48,13 @@ class CondominioAmenidad extends Model implements AuditableContract
             'activa' => 'boolean',
             'mantenimiento_hasta' => 'date',
         ];
+    }
+
+    /**
+     * @return HasMany<AmenidadFoto, $this>
+     */
+    public function fotos(): HasMany
+    {
+        return $this->hasMany(AmenidadFoto::class, 'amenidad_id')->orderBy('orden')->orderBy('id');
     }
 }

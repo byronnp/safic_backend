@@ -19,3 +19,16 @@ Route::post('amenidades', [AmenidadController::class, 'store'])
 Route::patch('amenidades/{amenidad}', [AmenidadController::class, 'update'])
     ->whereNumber('amenidad')
     ->middleware('permission:'.Permiso::AmenidadesGestionar->value);
+
+// Fotos de una amenidad (hasta 5; la primera es la portada)
+Route::post('amenidades/{amenidad}/fotos', [AmenidadController::class, 'subirFoto'])
+    ->whereNumber('amenidad')
+    ->middleware('permission:'.Permiso::AmenidadesGestionar->value);
+
+Route::put('amenidades/{amenidad}/fotos/orden', [AmenidadController::class, 'ordenarFotos'])
+    ->whereNumber('amenidad')
+    ->middleware('permission:'.Permiso::AmenidadesGestionar->value);
+
+Route::delete('amenidades/{amenidad}/fotos/{foto}', [AmenidadController::class, 'quitarFoto'])
+    ->whereNumber(['amenidad', 'foto'])
+    ->middleware('permission:'.Permiso::AmenidadesGestionar->value);
