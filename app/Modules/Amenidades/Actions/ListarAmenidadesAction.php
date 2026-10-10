@@ -2,6 +2,7 @@
 
 namespace App\Modules\Amenidades\Actions;
 
+use App\Core\Storage\ArchivosCondominio;
 use App\Core\Tenancy\Calendario;
 use App\Core\Tenancy\TenantContext;
 use App\Modules\Amenidades\Models\CondominioAmenidad;
@@ -16,6 +17,7 @@ final class ListarAmenidadesAction
     public function __construct(
         private readonly TenantContext $tenant,
         private readonly Calendario $calendario,
+        private readonly ArchivosCondominio $archivos,
     ) {}
 
     /**
@@ -25,7 +27,7 @@ final class ListarAmenidadesAction
     {
         $this->tenant->require();
 
-        $amenidades = CondominioAmenidad::query()->orderBy('nombre')->get();
+        $amenidades = CondominioAmenidad::query()->with('fotos')->orderBy('nombre')->get();
         $catalogo = AmenidadCatalogo::query()
             ->whereIn('id', $amenidades->pluck('amenidad_catalogo_id')->filter()->all())
             ->get()
@@ -67,6 +69,12 @@ final class ListarAmenidadesAction
                 default => 'disponible',
             },
             'mantenimiento_hasta' => $enMantenimiento ? $a->mantenimiento_hasta->toDateString() : null,
+            // Enlaces temporales (el bucket es privado); la primera es la portada
+            'fotos' => $a->fotos->map(fn ($f): array => [
+                'id' => $f->id,
+                'orden' => $f->orden,
+                'url' => $this->archivos->urlTemporal($f->ruta),
+            ])->values()->all(),
         ];
     }
 }

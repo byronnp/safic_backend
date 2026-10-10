@@ -608,6 +608,132 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /amenidades/{amenidad}/fotos:
+    post:
+      tags: [Amenidades]
+      operationId: subirFotoAmenidad
+      summary: Agregar una foto a una amenidad
+      description: |
+        Permiso: `amenidades.gestionar`. JPG o PNG de hasta 5 MB y entre 200 y 8000 píxeles por lado (sin SVG). Va al final:
+        la primera es la portada. Hasta 5 por amenidad (422 `LIMITE_FOTOS`). El archivo queda en el bucket privado del
+        condominio; la respuesta es la amenidad con sus fotos y enlaces temporales de lectura (10 minutos).
+      x-permiso: amenidades.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [foto]
+              properties:
+                foto: { type: string, format: binary }
+      responses:
+        '201':
+          description: Foto agregada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AmenidadCondominio' }
+                  message: { type: string, examples: ['Foto agregada.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          description: Archivo no válido o `LIMITE_FOTOS`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /amenidades/{amenidad}/fotos/orden:
+    put:
+      tags: [Amenidades]
+      operationId: ordenarFotosAmenidad
+      summary: Cambiar el orden de las fotos
+      description: |
+        Permiso: `amenidades.gestionar`. Se manda la lista completa de ids en el orden nuevo (la primera es la portada).
+        Si falta o sobra alguna, 409 `FOTOS_DESACTUALIZADAS`: nunca se pierde una foto por una lista vieja.
+      x-permiso: amenidades.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids: { type: array, minItems: 1, maxItems: 5, items: { type: integer } }
+      responses:
+        '200':
+          description: Orden actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AmenidadCondominio' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`FOTOS_DESACTUALIZADAS`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /amenidades/{amenidad}/fotos/{foto}:
+    delete:
+      tags: [Amenidades]
+      operationId: quitarFotoAmenidad
+      summary: Quitar una foto
+      description: 'Permiso: `amenidades.gestionar`. Borra el archivo del bucket y vuelve a numerar las demás (si era la portada, la siguiente lo es). Una foto de otra amenidad o de otro condominio responde 404.'
+      x-permiso: amenidades.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+        - { name: foto, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Foto eliminada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AmenidadCondominio' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
   /amenidades/{amenidad}:
     patch:
       tags: [Amenidades]
@@ -3579,7 +3705,7 @@ components:
 
     AmenidadCondominio:
       type: object
-      required: [id, nombre, origen, tipo, categoria, cantidad, ubicacion, reservable, esencial, requiere_aprobacion, capacidad, duracion_maxima_min, estado, mantenimiento_hasta]
+      required: [id, nombre, origen, tipo, categoria, cantidad, ubicacion, reservable, esencial, requiere_aprobacion, capacidad, duracion_maxima_min, estado, mantenimiento_hasta, fotos]
       properties:
         id: { type: integer }
         nombre: { type: string, examples: ['Área BBQ 2'] }
@@ -3595,6 +3721,16 @@ components:
         duracion_maxima_min: { type: [integer, 'null'] }
         estado: { type: string, enum: [disponible, mantenimiento, inactiva] }
         mantenimiento_hasta: { type: [string, 'null'], format: date }
+        fotos:
+          type: array
+          description: Hasta 5, la primera es la portada. Las URLs son enlaces temporales (10 minutos) del bucket privado.
+          items:
+            type: object
+            required: [id, orden, url]
+            properties:
+              id: { type: integer }
+              orden: { type: integer }
+              url: { type: string, format: uri }
 
     AgregarAmenidad:
       type: object
