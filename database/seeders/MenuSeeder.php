@@ -94,6 +94,12 @@ class MenuSeeder extends Seeder
                 ],
             ],
             [
+                'clave' => 'finanzas', 'etiqueta' => 'Finanzas', 'icono' => 'sym_r_account_balance_wallet',
+                'hijos' => [
+                    ['clave' => 'finanzas.resumen', 'etiqueta' => 'Resumen', 'icono' => 'sym_r_dashboard', 'ruta' => 'finanzas-resumen', 'permiso' => Permiso::FinanzasVer],
+                ],
+            ],
+            [
                 'clave' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true,
                 'hijos' => [
                     ['clave' => 'configuracion.condominio', 'etiqueta' => 'Datos del condominio', 'icono' => 'sym_r_domain', 'ruta' => 'configuracion-condominio', 'permiso' => Permiso::CondominioEditar],

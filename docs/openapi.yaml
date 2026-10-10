@@ -729,6 +729,115 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /finanzas/periodos:
+    get:
+      tags: [Finanzas]
+      operationId: listarPeriodos
+      summary: Meses emitidos del condominio
+      description: 'Permiso: `finanzas.ver`. Del más reciente al más antiguo, con lo esperado y lo recaudado de cada mes.'
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Meses emitidos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/PeriodoFinanciero' } }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    post:
+      tags: [Finanzas]
+      operationId: emitirPeriodo
+      summary: Emitir las cuotas ordinarias de un mes
+      description: |
+        Permiso: `cuotas.emitir`. Cada unidad con cuota mensual recibe una cuota por ese valor, con el vencimiento del
+        cobro (día 1–28, o el último día si es 0). Emitir otra vez el mismo mes solo agrega las unidades que faltaban:
+        no duplica ni cambia lo emitido. 409: `COBRO_SIN_CONFIGURAR`, `PERIODO_ANTERIOR_AL_COBRO` (antes de `aplica_desde`),
+        `PERIODO_FUTURO` (solo el mes en curso o anteriores), `PERIODO_CERRADO`, `SIN_UNIDADES_A_COBRAR`.
+      x-permiso: cuotas.emitir
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [periodo]
+              properties:
+                periodo: { type: string, pattern: '^[0-9]{4}-[0-9]{2}$', examples: ['2026-09'] }
+      responses:
+        '201':
+          description: Cuotas emitidas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/EmisionPeriodo' }
+                  message: { type: string, examples: ['Cuotas emitidas.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: Código de error en `error.code` (ver la descripción).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: El mes no es válido.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /finanzas/resumen:
+    get:
+      tags: [Finanzas]
+      operationId: resumenFinanciero
+      summary: Resumen financiero de un mes
+      description: |
+        Permiso: `finanzas.ver`. Lo esperado y lo recaudado son del mes pedido (sin `periodo`, el mes en curso). La cartera
+        vencida y su antigüedad son de todas las cuotas con saldo, contadas a hoy en la hora del condominio. Los gastos,
+        la conciliación y los pagos recientes llegan con sus propios módulos.
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: periodo, in: query, schema: { type: string, pattern: '^[0-9]{4}-[0-9]{2}$' } }
+      responses:
+        '200':
+          description: Resumen del mes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ResumenFinanciero' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          description: El mes no es válido.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -3591,6 +3700,55 @@ components:
         dia_vencimiento: { type: integer, minimum: 0, maximum: 28, description: 0 = último día del mes. }
         aplica_desde: { type: string, pattern: '^\d{4}-\d{2}$', description: 'Primer mes con el cambio (AAAA-MM): del mes siguiente a 12 meses adelante.' }
 
+    PeriodoFinanciero:
+      type: object
+      required: [periodo, estado, esperado, recaudado]
+      properties:
+        periodo: { type: string, examples: ['2026-09'] }
+        estado: { type: string, enum: [abierto, cerrado] }
+        esperado: { type: string, description: Suma de las cuotas emitidas., examples: ['12320.00'] }
+        recaudado: { type: string, examples: ['9856.00'] }
+    EmisionPeriodo:
+      type: object
+      required: [periodo, creadas, existentes, sin_cuota, total, vence_el]
+      properties:
+        periodo: { type: string }
+        creadas: { type: integer, description: Cuotas nuevas de esta emisión. }
+        existentes: { type: integer, description: Unidades que ya tenían su cuota del mes. }
+        sin_cuota: { type: integer, description: Unidades sin cuota mensual (no se cobran). }
+        total: { type: string, description: Suma de todas las cuotas del mes., examples: ['12320.00'] }
+        vence_el: { type: string, format: date }
+    ResumenFinanciero:
+      type: object
+      required: [periodo, emitido, estado, esperado, recaudado, cuotas, cartera_vencida, antiguedad, cobro]
+      properties:
+        periodo: { type: string }
+        emitido: { type: boolean, description: Si el mes ya se emitió. }
+        estado: { type: [string, 'null'], enum: [abierto, cerrado, null] }
+        esperado: { type: string }
+        recaudado: { type: string }
+        cuotas: { type: integer }
+        cartera_vencida:
+          type: object
+          required: [saldo, unidades]
+          properties:
+            saldo: { type: string }
+            unidades: { type: integer, description: Unidades con cuotas vencidas. }
+        antiguedad:
+          type: array
+          items:
+            type: object
+            required: [tramo, etiqueta, saldo, unidades]
+            properties:
+              tramo: { type: string, enum: [al_dia, d1_30, d31_60, d61_90, d90_mas] }
+              etiqueta: { type: string }
+              saldo: { type: string }
+              unidades: { type: integer }
+        cobro:
+          type: [object, 'null']
+          properties:
+            metodo: { type: string, enum: [general, tipo, alicuota, unidad] }
+            dia_vencimiento: { type: integer }
     CobroCuotas:
       type: object
       required: [configurado, metodo, cuota_general, presupuesto_mensual, valores_tipo, dia_vencimiento, aplica_desde, unidades, historial]

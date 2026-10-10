@@ -126,9 +126,11 @@ enum Rol: string
             self::Soporte => [Permiso::PlataformaCondominios],
             self::Cobranza, self::ContadorPlataforma => [Permiso::PlataformaCobranza],
             self::Administrador => array_values(array_filter(Permiso::cases(), fn (Permiso $p) => ! $p->esDePlataforma())),
-            self::Presidente, self::Vicepresidente, self::Secretario, self::Tesorero => [Permiso::UnidadesVer],
+            self::Presidente, self::Vicepresidente, self::Tesorero => [Permiso::UnidadesVer, Permiso::FinanzasVer],
+            self::Secretario => [Permiso::UnidadesVer],
             self::Guardia => [Permiso::UnidadesVer, Permiso::GaritaDirectorio],
-            self::Contador, self::Mantenimiento, self::Residente => [],
+            self::Contador => [Permiso::FinanzasVer],
+            self::Mantenimiento, self::Residente => [],
         };
     }
 }
