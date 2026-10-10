@@ -8,6 +8,7 @@ use App\Modules\Finanzas\Http\Controllers\EstadoCuentaController;
 use App\Modules\Finanzas\Http\Controllers\GastoController;
 use App\Modules\Finanzas\Http\Controllers\MiCuentaController;
 use App\Modules\Finanzas\Http\Controllers\PagoController;
+use App\Modules\Finanzas\Http\Controllers\PagoProveedorController;
 use App\Modules\Finanzas\Http\Controllers\PeriodoController;
 use App\Modules\Finanzas\Http\Controllers\ProveedorController;
 use Illuminate\Support\Facades\Route;
@@ -32,8 +33,9 @@ Route::get('finanzas/resumen', [PeriodoController::class, 'resumen'])
     ->middleware('permission:'.Permiso::FinanzasVer->value);
 
 // Cuentas bancarias del condominio (adonde los residentes transfieren)
+// Quien paga a proveedores elige de qué cuenta del condominio sale la transferencia
 Route::get('cuentas-bancarias', [CuentaBancariaController::class, 'index'])
-    ->middleware('permission:'.Permiso::CondominioEditar->value);
+    ->middleware('permission:'.Permiso::CondominioEditar->value.'|'.Permiso::GastosPagar->value);
 
 Route::post('cuentas-bancarias', [CuentaBancariaController::class, 'store'])
     ->middleware('permission:'.Permiso::CondominioEditar->value);
@@ -124,3 +126,27 @@ Route::post('gastos', [GastoController::class, 'store'])
 
 Route::post('gastos/importar-xml', [GastoController::class, 'importarXml'])
     ->middleware(['permission:'.Permiso::GastosRegistrar->value, 'throttle:pagos']);
+
+// Detalle de una factura y su aprobación en dos niveles
+Route::get('gastos/{gasto}', [GastoController::class, 'show'])
+    ->whereNumber('gasto')
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('gastos/{gasto}/aprobar', [GastoController::class, 'aprobar'])
+    ->whereNumber('gasto')
+    ->middleware('permission:'.Permiso::GastosAprobarN1->value.'|'.Permiso::GastosAprobarN2->value);
+
+Route::post('gastos/{gasto}/rechazar', [GastoController::class, 'rechazar'])
+    ->whereNumber('gasto')
+    ->middleware('permission:'.Permiso::GastosAprobarN1->value.'|'.Permiso::GastosAprobarN2->value);
+
+// Pagos a proveedores
+Route::get('pagos-proveedor', [PagoProveedorController::class, 'index'])
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('pagos-proveedor', [PagoProveedorController::class, 'store'])
+    ->middleware(['permission:'.Permiso::GastosPagar->value, 'throttle:pagos']);
+
+Route::post('pagos-proveedor/{pago}/anular', [PagoProveedorController::class, 'anular'])
+    ->whereNumber('pago')
+    ->middleware('permission:'.Permiso::GastosPagar->value);

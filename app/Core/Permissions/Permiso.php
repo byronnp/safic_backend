@@ -27,6 +27,9 @@ enum Permiso: string
     case PagosAprobar = 'pagos.aprobar';
     case GastosRegistrar = 'gastos.registrar';
     case ProveedoresEditar = 'proveedores.editar';
+    case GastosAprobarN1 = 'gastos.aprobar-n1';
+    case GastosAprobarN2 = 'gastos.aprobar-n2';
+    case GastosPagar = 'gastos.pagar';
 
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
@@ -60,6 +63,9 @@ enum Permiso: string
             self::PagosAprobar => 'Aprobar pagos de residentes',
             self::GastosRegistrar => 'Registrar facturas de proveedores',
             self::ProveedoresEditar => 'Gestionar proveedores y sus cuentas',
+            self::GastosAprobarN1 => 'Aprobar facturas (1.er nivel)',
+            self::GastosAprobarN2 => 'Aprobar facturas grandes (2.º nivel)',
+            self::GastosPagar => 'Pagar facturas a proveedores',
             self::PlataformaCondominios => 'Gestionar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
             self::PlataformaCobranza => 'Gestionar la cobranza',
@@ -84,14 +90,14 @@ enum Permiso: string
         return in_array($this, [
             self::UnidadesEditar, self::ResidentesVerDatos, self::UsuariosGestionar,
             self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar,
-            self::GastosRegistrar, self::ProveedoresEditar,
+            self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosPagar,
         ], true);
     }
 
     /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
     public function esEscritura(): bool
     {
-        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar], true);
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar], true);
     }
 
     public function esDePlataforma(): bool

@@ -4,8 +4,10 @@ namespace App\Modules\Finanzas\Http\Controllers;
 
 use App\Core\Http\Responses\ApiResponse;
 use App\Core\Tenancy\Calendario;
+use App\Modules\Finanzas\Actions\AprobarGastoAction;
 use App\Modules\Finanzas\Actions\ListarGastosAction;
 use App\Modules\Finanzas\Actions\RegistrarGastoAction;
+use App\Modules\Finanzas\Actions\VerGastoAction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -82,5 +84,31 @@ class GastoController
         $gasto->load('proveedor:id,razon_social,ruc');
 
         return ApiResponse::created($listar->fila($gasto, $calendario->hoy()), message: 'Factura registrada. Queda por aprobar.');
+    }
+
+    public function show(VerGastoAction $ver, int $gasto): JsonResponse
+    {
+        return ApiResponse::ok($ver->execute($gasto));
+    }
+
+    public function aprobar(Request $request, AprobarGastoAction $aprobar, VerGastoAction $ver, int $gasto): JsonResponse
+    {
+        $d = $request->validate(['comentario' => ['sometimes', 'nullable', 'string', 'max:300']]);
+
+        $aprobar->aprobar($request->user(), $gasto, $d['comentario'] ?? null);
+
+        return ApiResponse::ok($ver->execute($gasto), message: 'Aprobación registrada.');
+    }
+
+    public function rechazar(Request $request, AprobarGastoAction $aprobar, VerGastoAction $ver, int $gasto): JsonResponse
+    {
+        $d = $request->validate(['motivo' => ['required', 'string', 'min:3', 'max:300']], [
+            'motivo.required' => 'Escribe el motivo del rechazo.',
+            'motivo.min' => 'El motivo es muy corto.',
+        ]);
+
+        $aprobar->rechazar($request->user(), $gasto, $d['motivo']);
+
+        return ApiResponse::ok($ver->execute($gasto), message: 'Factura rechazada.');
     }
 }
