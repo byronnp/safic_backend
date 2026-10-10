@@ -7,6 +7,7 @@ use App\Core\Support\Dinero;
 use App\Models\User;
 use App\Modules\Finanzas\Models\Gasto;
 use App\Modules\Finanzas\Models\PagoProveedor;
+use App\Modules\Finanzas\Services\PeriodoAbierto;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -15,10 +16,15 @@ use Illuminate\Support\Facades\DB;
  */
 final class AnularPagoProveedorAction
 {
+    public function __construct(private readonly PeriodoAbierto $periodoAbierto) {}
+
     public function execute(User $user, int $pagoId, string $motivo): PagoProveedor
     {
         return DB::transaction(function () use ($user, $pagoId, $motivo): PagoProveedor {
             $pago = PagoProveedor::query()->lockForUpdate()->findOrFail($pagoId);
+
+            // Anular un pago de un mes cerrado cambiaría un mes que ya se revisó
+            $this->periodoAbierto->exigir($pago->fecha_pago->toDateString());
 
             if ($pago->estado !== 'registrado') {
                 throw new ApiException('PAGO_YA_ANULADO', 'Este pago ya está anulado.', 409);

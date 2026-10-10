@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Modules\Finanzas\Mail\PagoAprobadoMail;
 use App\Modules\Finanzas\Models\Pago;
 use App\Modules\Finanzas\Services\AplicacionPagoService;
+use App\Modules\Finanzas\Services\PeriodoAbierto;
 use App\Modules\Finanzas\Services\ToleranciaBancaria;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Unidades\Actions\CodigosDeUnidadesAction;
@@ -28,6 +29,7 @@ final class AprobarPagoAction
         private readonly ToleranciaBancaria $tolerancia,
         private readonly SequenceService $secuencias,
         private readonly CodigosDeUnidadesAction $codigos,
+        private readonly PeriodoAbierto $periodoAbierto,
     ) {}
 
     public function execute(int $id, ?string $montoRecibido, User $actor): Pago
@@ -38,6 +40,9 @@ final class AprobarPagoAction
             if ($pago->estado !== Pago::PENDIENTE) {
                 throw new ApiException('PAGO_NO_PENDIENTE', 'Este pago ya fue revisado.', 409);
             }
+
+            // Un pago con fecha en un mes cerrado no se aprueba: cambiaría cuotas de un mes que ya se revisó
+            $this->periodoAbierto->exigir($pago->fecha_pago->toDateString());
 
             $declarado = Dinero::centavos($pago->monto);
             $recibido = $montoRecibido === null ? $declarado : Dinero::centavos($montoRecibido);

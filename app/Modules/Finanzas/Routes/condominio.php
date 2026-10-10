@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Permissions\Permiso;
+use App\Modules\Finanzas\Http\Controllers\CierreMesController;
 use App\Modules\Finanzas\Http\Controllers\CobroController;
 use App\Modules\Finanzas\Http\Controllers\CuentaBancariaController;
 use App\Modules\Finanzas\Http\Controllers\CuotaController;
@@ -150,3 +151,16 @@ Route::post('pagos-proveedor', [PagoProveedorController::class, 'store'])
 Route::post('pagos-proveedor/{pago}/anular', [PagoProveedorController::class, 'anular'])
     ->whereNumber('pago')
     ->middleware('permission:'.Permiso::GastosPagar->value);
+
+// Cierre de mes: lista de verificación, cerrar (solo lectura desde ahí) y reabrir con motivo
+Route::get('finanzas/periodos/{periodo}/cierre', [CierreMesController::class, 'show'])
+    ->where('periodo', '\d{4}-\d{2}')
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('finanzas/periodos/{periodo}/cerrar', [CierreMesController::class, 'cerrar'])
+    ->where('periodo', '\d{4}-\d{2}')
+    ->middleware('permission:'.Permiso::PeriodosCerrar->value);
+
+Route::post('finanzas/periodos/{periodo}/reabrir', [CierreMesController::class, 'reabrir'])
+    ->where('periodo', '\d{4}-\d{2}')
+    ->middleware('permission:'.Permiso::PeriodosReabrir->value);
