@@ -34,6 +34,7 @@ class PersonaResource extends JsonResource
                 : ($completo ? $this->telefono : DatosPersonales::enmascararTelefono($this->telefono)),
             'email' => $this->email === null ? null
                 : ($completo ? $this->email : DatosPersonales::enmascararEmail($this->email)),
+            'tiene_acceso' => $this->user_id !== null,
             'datos_enmascarados' => ! $completo,
         ];
     }

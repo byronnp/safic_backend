@@ -19,6 +19,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  *
  * @property int $id
  * @property int $condominio_id
+ * @property int|null $user_id Cuenta con la que entra al sistema
  * @property string $tipo_documento
  * @property string $documento
  * @property string $documento_hash

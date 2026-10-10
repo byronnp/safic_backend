@@ -1903,6 +1903,53 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /personas/{persona}/acceso:
+    post:
+      tags: [Usuarios]
+      operationId: darAccesoResidente
+      summary: Dar acceso a la app a una persona que ocupa una unidad
+      description: |
+        Permiso: `usuarios.gestionar`. Crea (o reutiliza, por correo) la cuenta de la persona, la liga a su ficha, le asigna el
+        perfil `residente` y le envía el enlace para crear su contraseña si aún no está activa. No cuenta para el límite de
+        usuarios del plan. 409 `PERSONA_YA_TIENE_ACCESO`; 422 `PERSONA_SIN_UNIDAD` (no ocupa hoy una unidad como propietario,
+        inquilino o residente, o es de otro condominio), `PERSONA_SIN_CORREO`, `CEDULA_EN_USO`.
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/PersonaId'
+      responses:
+        '201':
+          description: Acceso creado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [persona_id, invitacion_enviada]
+                    properties:
+                      persona_id: { type: integer }
+                      invitacion_enviada: { type: boolean, description: 'false si la cuenta ya estaba activa.' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`PERSONA_YA_TIENE_ACCESO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          description: Código en `error.code` (ver la descripción).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /personas/{persona}:
     get:
       tags: [Unidades]
@@ -3314,7 +3361,7 @@ components:
 
     Persona:
       type: object
-      required: [id, tipo_documento, documento, nombres, apellidos, nombre_completo, telefono, email, datos_enmascarados]
+      required: [id, tipo_documento, documento, nombres, apellidos, nombre_completo, telefono, email, tiene_acceso, datos_enmascarados]
       properties:
         id: { type: integer }
         tipo_documento: { type: string, enum: [cedula, ruc, pasaporte] }
@@ -3324,6 +3371,7 @@ components:
         nombre_completo: { type: string }
         telefono: { type: [string, 'null'], examples: ['0991234534', '09••••••34'] }
         email: { type: [string, 'null'] }
+        tiene_acceso: { type: boolean, description: Si ya tiene cuenta para entrar a la app del residente. }
         datos_enmascarados:
           type: boolean
           description: 'true si documento, teléfono y correo vienen enmascarados (sin `residentes.ver_datos`).'
