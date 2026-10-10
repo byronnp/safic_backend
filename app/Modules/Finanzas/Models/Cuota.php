@@ -16,6 +16,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property int $unidad_id
  * @property Carbon $periodo
  * @property string $concepto ordinaria|extraordinaria
+ * @property string|null $detalle En qué consiste (cuotas extraordinarias)
  * @property string $monto
  * @property string $pagado
  * @property Carbon $vence_el
@@ -28,7 +29,7 @@ class Cuota extends Model implements AuditableContract
 
     protected $table = 'cuotas';
 
-    protected $fillable = ['unidad_id', 'periodo', 'concepto', 'monto', 'pagado', 'vence_el'];
+    protected $fillable = ['unidad_id', 'periodo', 'concepto', 'detalle', 'monto', 'pagado', 'vence_el'];
 
     protected function casts(): array
     {

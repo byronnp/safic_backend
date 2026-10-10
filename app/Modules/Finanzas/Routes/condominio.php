@@ -3,6 +3,8 @@
 use App\Core\Permissions\Permiso;
 use App\Modules\Finanzas\Http\Controllers\CobroController;
 use App\Modules\Finanzas\Http\Controllers\CuentaBancariaController;
+use App\Modules\Finanzas\Http\Controllers\CuotaController;
+use App\Modules\Finanzas\Http\Controllers\EstadoCuentaController;
 use App\Modules\Finanzas\Http\Controllers\MiCuentaController;
 use App\Modules\Finanzas\Http\Controllers\PagoController;
 use App\Modules\Finanzas\Http\Controllers\PeriodoController;
@@ -71,3 +73,23 @@ Route::post('pagos/{pago}/rechazar', [PagoController::class, 'rechazar'])
 Route::get('pagos/{pago}/recibo', [PagoController::class, 'recibo'])
     ->whereNumber('pago')
     ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+// Cuotas del mes de las unidades y cuotas extraordinarias
+Route::get('finanzas/cuotas', [CuotaController::class, 'index'])
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('finanzas/cuotas-extraordinarias', [CuotaController::class, 'extraordinaria'])
+    ->middleware('permission:'.Permiso::CuotasEmitir->value);
+
+// Estado de cuenta de una unidad y pago en efectivo
+Route::get('unidades/{unidad}/estado-cuenta', [EstadoCuentaController::class, 'show'])
+    ->whereNumber('unidad')
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::get('unidades/{unidad}/estado-cuenta/pdf', [EstadoCuentaController::class, 'pdf'])
+    ->whereNumber('unidad')
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('unidades/{unidad}/pagos-efectivo', [EstadoCuentaController::class, 'efectivo'])
+    ->whereNumber('unidad')
+    ->middleware(['permission:'.Permiso::PagosAprobar->value, 'throttle:pagos']);

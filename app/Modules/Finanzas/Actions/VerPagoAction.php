@@ -49,7 +49,7 @@ final class VerPagoAction
             'id' => $pago->id,
             'unidad_id' => $pago->unidad_id,
             'unidad' => $this->codigos->execute([$pago->unidad_id])[$pago->unidad_id] ?? '—',
-            'pagador' => $pagador?->name,
+            'pagador' => $pagador === null ? $pago->pagador_nombre : $pagador->name,
             'metodo' => $pago->metodo,
             'monto' => (string) $pago->monto,
             'diferencia' => (string) $pago->diferencia,

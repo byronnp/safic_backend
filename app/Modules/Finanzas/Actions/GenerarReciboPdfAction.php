@@ -67,7 +67,7 @@ final class GenerarReciboPdfAction
             'fecha' => ($pago->revisado_en ?? $pago->updated_at)->timezone('America/Guayaquil')->format('d/m/Y'),
             'unidad' => $this->codigos->execute([$pago->unidad_id])[$pago->unidad_id] ?? '—',
             'pagador' => [
-                'nombre' => $pagador === null ? '—' : $pagador->name,
+                'nombre' => $pagador === null ? ($pago->pagador_nombre ?? '—') : $pagador->name,
                 'cedula' => $cedula === null ? null : ($datosCompletos ? $cedula : DatosPersonales::enmascararDocumento($cedula)),
             ],
             'aplicaciones' => $detalle,

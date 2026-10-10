@@ -69,6 +69,7 @@ final class ObtenerMiCuentaAction
                     'id' => $c->id,
                     'periodo' => $c->periodo->format('Y-m'),
                     'concepto' => $c->concepto,
+                    'detalle' => $c->detalle,
                     'monto' => (string) $c->monto,
                     'saldo' => Dinero::texto($saldo),
                     'vence_el' => $vence,
