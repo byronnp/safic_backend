@@ -2827,6 +2827,76 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /bloques/{bloque}:
+    patch:
+      tags: [Unidades]
+      operationId: editarBloque
+      summary: Cambiar el nombre o el orden de un bloque
+      description: 'Permiso: `unidades.editar`. Solo viaja lo que cambia. El nombre sigue siendo único dentro del condominio (422).'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: bloque, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre: { type: string, maxLength: 60, examples: ['Torre A'] }
+                orden: { type: integer, minimum: 0, maximum: 999 }
+      responses:
+        '200':
+          description: Bloque actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Bloque' }
+                  message: { type: string, examples: ['Bloque actualizado.'] }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+    delete:
+      tags: [Unidades]
+      operationId: eliminarBloque
+      summary: Eliminar un bloque
+      description: 'Permiso: `unidades.editar`. Un bloque con unidades no se elimina (409 `BLOQUE_CON_UNIDADES`, con `details.unidades`): hay que pasarlas a otro bloque primero.'
+      x-permiso: unidades.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: bloque, in: path, required: true, schema: { type: integer } }
+      responses:
+        '204':
+          description: Bloque eliminado.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`BLOQUE_CON_UNIDADES`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /unidades:
     get:
       tags: [Unidades]
