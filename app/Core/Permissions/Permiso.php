@@ -20,6 +20,10 @@ enum Permiso: string
     // Garita · el guardia ve nombre, unidad, teléfono y placas (sin cédula ni correo)
     case GaritaDirectorio = 'garita.directorio';
 
+    // Finanzas
+    case FinanzasVer = 'finanzas.ver';
+    case CuotasEmitir = 'cuotas.emitir';
+
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
     case PlataformaRoles = 'plataforma.roles';
@@ -30,6 +34,7 @@ enum Permiso: string
     {
         return match (true) {
             str_starts_with($this->value, 'plataforma.') => 'plataforma',
+            str_starts_with($this->value, 'finanzas.'), str_starts_with($this->value, 'cuotas.') => 'finanzas',
             default => 'nucleo',
         };
     }
@@ -45,6 +50,8 @@ enum Permiso: string
             self::AmenidadesGestionar => 'Gestionar amenidades',
             self::CondominioEditar => 'Editar datos y cobro del condominio',
             self::GaritaDirectorio => 'Consultar el directorio de garita',
+            self::FinanzasVer => 'Ver finanzas y reportes',
+            self::CuotasEmitir => 'Emitir las cuotas del mes',
             self::PlataformaCondominios => 'Gestionar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
             self::PlataformaCobranza => 'Gestionar la cobranza',
@@ -57,6 +64,7 @@ enum Permiso: string
     {
         return match (true) {
             $this === self::GaritaDirectorio => 'Garita',
+            $this->modulo() === 'finanzas' => 'Finanzas',
             $this->esDePlataforma() => 'Plataforma',
             default => 'Núcleo',
         };
@@ -67,14 +75,14 @@ enum Permiso: string
     {
         return in_array($this, [
             self::UnidadesEditar, self::ResidentesVerDatos, self::UsuariosGestionar,
-            self::AmenidadesGestionar, self::CondominioEditar,
+            self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir,
         ], true);
     }
 
     /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
     public function esEscritura(): bool
     {
-        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar], true);
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir], true);
     }
 
     public function esDePlataforma(): bool

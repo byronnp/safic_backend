@@ -44,6 +44,9 @@ it('el administrador ve inicio, unidades con bloques y su configuración', funct
             ['id' => 'unidades.lista', 'etiqueta' => 'Unidades', 'icono' => 'sym_r_apartment', 'ruta' => 'unidades', 'permiso' => 'unidades.ver'],
             ['id' => 'unidades.bloques', 'etiqueta' => 'Bloques', 'icono' => 'sym_r_domain', 'ruta' => 'bloques', 'permiso' => 'unidades.ver'],
         ]],
+        ['id' => 'finanzas', 'etiqueta' => 'Finanzas', 'icono' => 'sym_r_account_balance_wallet', 'hijos' => [
+            ['id' => 'finanzas.resumen', 'etiqueta' => 'Resumen', 'icono' => 'sym_r_dashboard', 'ruta' => 'finanzas-resumen', 'permiso' => 'finanzas.ver'],
+        ]],
         ['id' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true, 'hijos' => [
             ['id' => 'configuracion.condominio', 'etiqueta' => 'Datos del condominio', 'icono' => 'sym_r_domain', 'ruta' => 'configuracion-condominio', 'permiso' => 'condominio.editar'],
             ['id' => 'configuracion.cobro', 'etiqueta' => 'Cobro de cuotas', 'icono' => 'sym_r_request_quote', 'ruta' => 'configuracion-cobro', 'permiso' => 'condominio.editar'],
@@ -58,7 +61,7 @@ it('ninguna pantalla en vista previa llega al menú de producción', function ()
     // Solo rutas que ya tienen pantalla con API; una vista previa se suma cuando pasa a datos reales
     $rutas = MenuItem::query()->whereNotNull('ruta')->pluck('ruta')->sort()->values()->all();
 
-    expect($rutas)->toBe(['bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
+    expect($rutas)->toBe(['bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-resumen', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
 });
 
 it('un perfil sin permisos de configuración no ve esa sección', function () {
@@ -78,7 +81,7 @@ it('oculta una hoja asignada si al usuario le falta el permiso', function () {
     app(PermissionRegistrar::class)->forgetCachedPermissions();
     [, $token] = usuarioConToken($this->condominio, Rol::Administrador);
 
-    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'configuracion']);
+    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'finanzas', 'configuracion']);
 });
 
 it('oculta una hoja no asignada al perfil aunque tenga el permiso', function () {
@@ -93,7 +96,7 @@ it('oculta un módulo inactivo con sus hojas', function () {
     MenuItem::query()->where('clave', 'unidades')->update(['activo' => false]);
     [, $token] = usuarioConToken($this->condominio, Rol::Administrador);
 
-    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'configuracion']);
+    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'finanzas', 'configuracion']);
 });
 
 it('arma el menú con el perfil que el usuario tiene en el condominio del header', function () {
@@ -104,7 +107,7 @@ it('arma el menú con el perfil que el usuario tiene en el condominio del header
     $user->unsetRelation('roles')->assignRole(Rol::Residente->value);
     setPermissionsTeamId(null);
 
-    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'unidades', 'configuracion'])
+    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'unidades', 'finanzas', 'configuracion'])
         ->and(array_column(menuDe($token, $otro), 'id'))->toBe(['inicio']);
 });
 

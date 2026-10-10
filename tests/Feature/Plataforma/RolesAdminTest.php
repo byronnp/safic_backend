@@ -71,7 +71,7 @@ it('no concede lo que las reglas fijas prohíben', function () {
     ($this->api)()->putJson('/api/v1/plataforma/roles/residente/permisos', ['permisos' => ['usuarios.gestionar']])
         ->assertStatus(422)->assertJsonPath('error.code', 'PERMISO_BLOQUEADO');
 
-    expect(permisosDe('contador'))->toBe([]);
+    expect(permisosDe('contador'))->toBe(['finanzas.ver']);
 });
 
 it('el administrador no puede perder la gestión de usuarios', function () {
