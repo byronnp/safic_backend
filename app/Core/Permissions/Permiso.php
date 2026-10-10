@@ -25,6 +25,8 @@ enum Permiso: string
     case CuotasEmitir = 'cuotas.emitir';
     case CuentaPropia = 'cuenta.propia';
     case PagosAprobar = 'pagos.aprobar';
+    case GastosRegistrar = 'gastos.registrar';
+    case ProveedoresEditar = 'proveedores.editar';
 
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
@@ -36,7 +38,7 @@ enum Permiso: string
     {
         return match (true) {
             str_starts_with($this->value, 'plataforma.') => 'plataforma',
-            str_starts_with($this->value, 'finanzas.'), str_starts_with($this->value, 'cuotas.'), str_starts_with($this->value, 'cuenta.'), str_starts_with($this->value, 'pagos.') => 'finanzas',
+            str_starts_with($this->value, 'finanzas.'), str_starts_with($this->value, 'cuotas.'), str_starts_with($this->value, 'cuenta.'), str_starts_with($this->value, 'pagos.'), str_starts_with($this->value, 'gastos.'), str_starts_with($this->value, 'proveedores.') => 'finanzas',
             default => 'nucleo',
         };
     }
@@ -56,6 +58,8 @@ enum Permiso: string
             self::CuotasEmitir => 'Emitir las cuotas del mes',
             self::CuentaPropia => 'Ver y pagar la cuenta de su unidad',
             self::PagosAprobar => 'Aprobar pagos de residentes',
+            self::GastosRegistrar => 'Registrar facturas de proveedores',
+            self::ProveedoresEditar => 'Gestionar proveedores y sus cuentas',
             self::PlataformaCondominios => 'Gestionar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
             self::PlataformaCobranza => 'Gestionar la cobranza',
@@ -80,13 +84,14 @@ enum Permiso: string
         return in_array($this, [
             self::UnidadesEditar, self::ResidentesVerDatos, self::UsuariosGestionar,
             self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar,
+            self::GastosRegistrar, self::ProveedoresEditar,
         ], true);
     }
 
     /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
     public function esEscritura(): bool
     {
-        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar], true);
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar], true);
     }
 
     public function esDePlataforma(): bool

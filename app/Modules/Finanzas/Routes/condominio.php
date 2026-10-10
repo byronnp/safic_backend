@@ -5,9 +5,11 @@ use App\Modules\Finanzas\Http\Controllers\CobroController;
 use App\Modules\Finanzas\Http\Controllers\CuentaBancariaController;
 use App\Modules\Finanzas\Http\Controllers\CuotaController;
 use App\Modules\Finanzas\Http\Controllers\EstadoCuentaController;
+use App\Modules\Finanzas\Http\Controllers\GastoController;
 use App\Modules\Finanzas\Http\Controllers\MiCuentaController;
 use App\Modules\Finanzas\Http\Controllers\PagoController;
 use App\Modules\Finanzas\Http\Controllers\PeriodoController;
+use App\Modules\Finanzas\Http\Controllers\ProveedorController;
 use Illuminate\Support\Facades\Route;
 
 // Rutas del módulo Finanzas en el condominio. routes/api.php las carga dentro del
@@ -93,3 +95,32 @@ Route::get('unidades/{unidad}/estado-cuenta/pdf', [EstadoCuentaController::class
 Route::post('unidades/{unidad}/pagos-efectivo', [EstadoCuentaController::class, 'efectivo'])
     ->whereNumber('unidad')
     ->middleware(['permission:'.Permiso::PagosAprobar->value, 'throttle:pagos']);
+
+// Proveedores y la cuenta donde se les paga (cambiarla pide contraseña y espera 24 h)
+Route::get('proveedores', [ProveedorController::class, 'index'])
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('proveedores', [ProveedorController::class, 'store'])
+    ->middleware('permission:'.Permiso::ProveedoresEditar->value);
+
+Route::patch('proveedores/{proveedor}', [ProveedorController::class, 'update'])
+    ->whereNumber('proveedor')
+    ->middleware('permission:'.Permiso::ProveedoresEditar->value);
+
+Route::post('proveedores/{proveedor}/cuenta-bancaria', [ProveedorController::class, 'cambiarCuenta'])
+    ->whereNumber('proveedor')
+    ->middleware(['permission:'.Permiso::ProveedoresEditar->value, 'throttle:pagos']);
+
+Route::delete('proveedores/{proveedor}/cuenta-bancaria/pendiente', [ProveedorController::class, 'detenerCambio'])
+    ->whereNumber('proveedor')
+    ->middleware('permission:'.Permiso::ProveedoresEditar->value);
+
+// Cuentas por pagar: facturas de proveedores
+Route::get('gastos', [GastoController::class, 'index'])
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('gastos', [GastoController::class, 'store'])
+    ->middleware(['permission:'.Permiso::GastosRegistrar->value, 'throttle:pagos']);
+
+Route::post('gastos/importar-xml', [GastoController::class, 'importarXml'])
+    ->middleware(['permission:'.Permiso::GastosRegistrar->value, 'throttle:pagos']);
