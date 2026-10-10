@@ -21,7 +21,7 @@ use Spatie\Permission\Traits\HasRoles;
  * (uno principal y otros secundarios) con roles distintos en cada uno.
  */
 #[Fillable(['name', 'cedula', 'email', 'celular', 'password', 'activo'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes'])]
 class User extends Authenticatable implements JWTSubject
 {
     /** @use HasFactory<UserFactory> */
@@ -39,6 +39,9 @@ class User extends Authenticatable implements JWTSubject
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'activo' => 'boolean',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
         ];
     }
 
@@ -65,6 +68,21 @@ class User extends Authenticatable implements JWTSubject
             ->where('condominios.estado', '!=', Condominio::ESTADO_SUSPENDIDO)
             ->orderByDesc('condominio_user.es_principal')
             ->orderBy('condominios.nombre');
+    }
+
+    /** Tiene la verificación en dos pasos activada (secreto confirmado). */
+    public function tieneDobleFactor(): bool
+    {
+        return $this->two_factor_confirmed_at !== null;
+    }
+
+    /**
+     * En el condominio activo es contador y aún no activó la verificación en dos pasos: no puede
+     * trabajar hasta hacerlo. Se mira con el equipo de permisos ya fijado.
+     */
+    public function debeActivarDobleFactor(): bool
+    {
+        return ! $this->tieneDobleFactor() && $this->hasRole(Rol::Contador->value);
     }
 
     public function tieneMembresiaActivaEn(int $condominioId): bool

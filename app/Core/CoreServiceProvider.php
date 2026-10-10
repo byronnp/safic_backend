@@ -32,6 +32,9 @@ class CoreServiceProvider extends ServiceProvider
             Limit::perMinute(20)->by($request->ip()),
         ]);
 
+        // Verificar el código del segundo paso: por IP; el desafío además muere a los 5 intentos
+        RateLimiter::for('doble-factor', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
+
         RateLimiter::for('invitacion', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
 
         RateLimiter::for('refresh', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));

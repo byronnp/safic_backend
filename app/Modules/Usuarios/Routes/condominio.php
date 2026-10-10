@@ -24,6 +24,11 @@ Route::post('usuarios/{usuario}/invitacion', [UsuarioController::class, 'reenvia
     ->whereNumber('usuario')
     ->middleware('permission:'.Permiso::UsuariosGestionar->value);
 
+// Restablecer la verificación en dos pasos de alguien del equipo que perdió su teléfono
+Route::post('usuarios/{usuario}/doble-factor/restablecer', [UsuarioController::class, 'restablecerDobleFactor'])
+    ->whereNumber('usuario')
+    ->middleware('permission:'.Permiso::UsuariosGestionar->value);
+
 // Directiva: cuatro cargos, una persona por cargo
 Route::get('directiva', [DirectivaController::class, 'index'])
     ->middleware('permission:'.Permiso::UsuariosGestionar->value);

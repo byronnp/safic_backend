@@ -4,6 +4,7 @@ namespace App\Modules\Plataforma\Http\Controllers;
 
 use App\Core\Http\Responses\ApiResponse;
 use App\Models\User;
+use App\Modules\Plataforma\Actions\RestablecerDobleFactorPlataformaAction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,6 +14,20 @@ use Illuminate\Http\Request;
  */
 class UsuarioPlataformaController
 {
+    public function restablecerDobleFactor(Request $request, RestablecerDobleFactorPlataformaAction $restablecer, int $usuario): JsonResponse
+    {
+        $datos = $request->validate(['motivo' => ['required', 'string', 'min:3', 'max:200']], [
+            'motivo.required' => 'Escribe el motivo (queda registrado).',
+            'motivo.min' => 'El motivo es muy corto.',
+            'motivo.max' => 'El motivo tiene máximo 200 caracteres.',
+        ]);
+        /** @var User $actor */
+        $actor = $request->user();
+        $restablecer->execute($usuario, $datos['motivo'], $actor);
+
+        return ApiResponse::ok(message: 'Verificación en dos pasos restablecida. Deberá configurarla de nuevo.');
+    }
+
     public function buscar(Request $request): JsonResponse
     {
         $email = mb_strtolower(trim((string) $request->query('email', '')));

@@ -4,6 +4,8 @@ namespace App\Core\Auth\Http\Controllers;
 
 use App\Core\Auth\Http\Requests\LoginRequest;
 use App\Core\Auth\Http\Resources\UsuarioResource;
+use App\Core\Auth\Services\DesafioDobleFactor;
+use App\Core\Auth\Services\DobleFactorService;
 use App\Core\Auth\Services\RefreshTokenService;
 use App\Core\Http\Exceptions\ApiException;
 use App\Core\Http\Responses\ApiResponse;
@@ -23,24 +25,68 @@ use Symfony\Component\HttpFoundation\Cookie;
  */
 class AuthController
 {
-    public function __construct(private readonly RefreshTokenService $refreshTokens) {}
+    public function __construct(
+        private readonly RefreshTokenService $refreshTokens,
+        private readonly DesafioDobleFactor $desafios,
+        private readonly DobleFactorService $dobleFactor,
+    ) {}
 
     public function login(LoginRequest $request): JsonResponse
     {
-        $token = $this->guard()->attempt([
-            'email' => mb_strtolower($request->string('email')->toString()),
+        $email = mb_strtolower($request->string('email')->toString());
+
+        // Solo valida: la sesión se emite después, cuando también pasó el segundo paso (si lo tiene)
+        $correcta = $this->guard()->attempt([
+            'email' => $email,
             'password' => $request->string('password')->toString(),
             'activo' => true,
-        ]);
+        ], false);
 
-        if ($token === false) {
+        if (! $correcta) {
             throw new ApiException('CREDENCIALES_INVALIDAS', 'Correo o contraseña incorrectos.', 401);
         }
 
-        /** @var User $user */
-        $user = $this->guard()->user();
+        $user = User::query()->where('email', $email)->firstOrFail();
 
-        return $this->tokenResponse($request, $user, $token, $this->refreshTokens->issue($user, $request));
+        if ($user->tieneDobleFactor()) {
+            return ApiResponse::ok([
+                'requiere_2fa' => true,
+                'desafio' => $this->desafios->crear($user),
+                'expira_en' => DesafioDobleFactor::MINUTOS * 60,
+            ]);
+        }
+
+        return $this->iniciarSesion($request, $user);
+    }
+
+    /** Segundo paso del login: el código de la app autenticadora o uno de respaldo. */
+    public function verificarDobleFactor(Request $request): JsonResponse
+    {
+        $datos = $request->validate([
+            'desafio' => ['required', 'string', 'size:64'],
+            'codigo' => ['required', 'string', 'max:20'],
+        ], [
+            'desafio.required' => 'Inicia sesión de nuevo.',
+            'codigo.required' => 'Escribe el código de tu app.',
+        ]);
+
+        $user = $this->desafios->usuario($datos['desafio'])
+            ?? throw new ApiException('DESAFIO_INVALIDO', 'Tu verificación expiró. Inicia sesión de nuevo.', 401);
+
+        if (! $this->dobleFactor->verificar($user, $datos['codigo'])) {
+            $this->desafios->fallo($datos['desafio']);
+
+            throw new ApiException('CODIGO_INVALIDO', 'El código no es correcto.', 401);
+        }
+
+        $this->desafios->olvidar($datos['desafio']);
+
+        return $this->iniciarSesion($request, $user);
+    }
+
+    private function iniciarSesion(Request $request, User $user): JsonResponse
+    {
+        return $this->tokenResponse($request, $user, $this->guard()->login($user), $this->refreshTokens->issue($user, $request));
     }
 
     public function refresh(Request $request): JsonResponse
@@ -91,6 +137,8 @@ class AuthController
             'condominio_id' => $tenant->require(),
             'roles' => $user->getRoleNames()->values(),
             'permisos' => $user->getAllPermissions()->pluck('name')->sort()->values(),
+            // Es contador aquí y aún no activó la verificación en dos pasos: solo puede configurarla
+            'doble_factor_pendiente' => $user->debeActivarDobleFactor(),
         ]);
     }
 

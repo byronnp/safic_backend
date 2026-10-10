@@ -21,6 +21,7 @@ $auditoria = 'permission:'.Permiso::PlataformaAuditoria->value;
 Route::get('planes', [CatalogoController::class, 'planes'])->middleware($condominios);
 Route::get('amenidades', [CatalogoController::class, 'amenidades'])->middleware($condominios);
 Route::get('usuarios/buscar', [UsuarioPlataformaController::class, 'buscar'])->middleware($condominios);
+Route::post('usuarios/{usuario}/doble-factor/restablecer', [UsuarioPlataformaController::class, 'restablecerDobleFactor'])->whereNumber('usuario')->middleware($condominios);
 
 Route::get('condominios', [CondominioController::class, 'index'])->middleware($condominios);
 Route::post('condominios', [CondominioController::class, 'store'])->middleware($condominios);

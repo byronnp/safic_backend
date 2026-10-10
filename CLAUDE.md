@@ -81,6 +81,13 @@ Reglas:
 - Solo se registra cuando hay una persona autenticada (no los seeders ni el sistema) y dentro de la transacción del cambio: si se revierte, el registro también. En una edición solo guarda lo que cambió. Teléfono, correo y secretos nunca se guardan.
 - Visor: `GET /plataforma/bitacora` (permiso `plataforma.auditoria`, solo super admin), con filtros y paginación. Un permiso nuevo del enum se concede en `RolesYPermisosSeeder` a los roles que lo traen por defecto, sin tocar los permisos que el super admin ya ajustó.
 
+## Verificación en dos pasos (2FA)
+- TOTP (RFC 6238, SHA-1, 6 dígitos, 30 s) implementado en `Core/Auth/Services/Totp` sin paquetes nuevos, con los vectores del RFC en `tests/Unit/TotpTest`. Secreto y códigos de respaldo cifrados en `users` (`two_factor_*`); los códigos de respaldo se guardan como huellas SHA-256 y se gastan una vez; `two_factor_last_step` evita reusar un código.
+- Login: con 2FA activa `POST /auth/login` no emite sesión: devuelve `requiere_2fa` + `desafio` (token de 5 min en caché, muere a los 5 fallos) que se canjea en `POST /auth/2fa/verificar`. El refresh no vuelve a pedir el código.
+- Activar: `preparar` (contraseña → secreto + URI para el QR) → `confirmar` (código → 8 códigos de respaldo, visibles una sola vez). `codigos` y `desactivar` piden contraseña y código vigente.
+- Obligatoria para el **contador**: `ResolveCondominio` responde 403 `DOBLE_FACTOR_REQUERIDO` a todo salvo `me/contexto` (que trae `doble_factor_pendiente`) hasta que la active; quien es contador en algún condominio no puede desactivarla (`DOBLE_FACTOR_OBLIGATORIO`). Opcional para los demás perfiles.
+- Recuperación: el administrador restablece la de su equipo (`POST /usuarios/{id}/doble-factor/restablecer`; no la propia ni la de otro administrador); la plataforma restablece cualquiera (`POST /plataforma/usuarios/{id}/doble-factor/restablecer`, queda en la bitácora de plataforma). Ambos exigen `motivo` y dejan un registro `seguridad.doble_factor_restablecido`.
+
 ## Archivos (S3)
 - Todo archivo de un condominio se guarda con `App\Core\Storage\ArchivosCondominio` (disco `archivos`: S3 en AWS, MinIO en Docker). Ruta `condominios/{id}/{carpeta}/{uuid}.ext`; el prefijo sale del condominio activo, nunca de la petición.
 - El bucket es privado: se entrega solo `urlTemporal()` (10 min). No guardar el nombre original del archivo ni usar `Storage::disk('s3')` directo.
