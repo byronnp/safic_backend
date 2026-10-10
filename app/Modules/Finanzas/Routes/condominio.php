@@ -2,6 +2,8 @@
 
 use App\Core\Permissions\Permiso;
 use App\Modules\Finanzas\Http\Controllers\CobroController;
+use App\Modules\Finanzas\Http\Controllers\CuentaBancariaController;
+use App\Modules\Finanzas\Http\Controllers\MiCuentaController;
 use App\Modules\Finanzas\Http\Controllers\PeriodoController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,3 +25,21 @@ Route::post('finanzas/periodos', [PeriodoController::class, 'store'])
 
 Route::get('finanzas/resumen', [PeriodoController::class, 'resumen'])
     ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+// Cuentas bancarias del condominio (adonde los residentes transfieren)
+Route::get('cuentas-bancarias', [CuentaBancariaController::class, 'index'])
+    ->middleware('permission:'.Permiso::CondominioEditar->value);
+
+Route::post('cuentas-bancarias', [CuentaBancariaController::class, 'store'])
+    ->middleware('permission:'.Permiso::CondominioEditar->value);
+
+Route::patch('cuentas-bancarias/{cuenta}', [CuentaBancariaController::class, 'update'])
+    ->whereNumber('cuenta')
+    ->middleware('permission:'.Permiso::CondominioEditar->value);
+
+// Cuenta del residente: lo que debe y pago por transferencia con comprobante
+Route::get('mi-cuenta', [MiCuentaController::class, 'show'])
+    ->middleware('permission:'.Permiso::CuentaPropia->value);
+
+Route::post('mi-cuenta/pagos', [MiCuentaController::class, 'pagar'])
+    ->middleware(['permission:'.Permiso::CuentaPropia->value, 'throttle:pagos']);
