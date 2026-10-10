@@ -98,7 +98,7 @@ it('valida lo que se agrega', function () {
 
 it('pone una amenidad en mantenimiento hasta una fecha y la saca', function () {
     $id = ($this->agregar)(['origen' => 'catalogo', 'amenidad_catalogo_id' => $this->piscina->id, 'cantidad' => 1])->json('data.0.id');
-    $hasta = now()->addDays(10)->toDateString();
+    $hasta = hoyLocal()->addDays(10)->toDateString();
 
     ($this->api)()->patchJson("/api/v1/amenidades/$id", ['mantenimiento_hasta' => $hasta])->assertOk()
         ->assertJsonPath('data.estado', 'mantenimiento')->assertJsonPath('data.mantenimiento_hasta', $hasta);
@@ -106,11 +106,11 @@ it('pone una amenidad en mantenimiento hasta una fecha y la saca', function () {
     ($this->api)()->patchJson("/api/v1/amenidades/$id", ['mantenimiento_hasta' => null])->assertOk()
         ->assertJsonPath('data.estado', 'disponible')->assertJsonPath('data.mantenimiento_hasta', null);
 
-    ($this->api)()->patchJson("/api/v1/amenidades/$id", ['mantenimiento_hasta' => now()->subDay()->toDateString()])->assertStatus(422)
+    ($this->api)()->patchJson("/api/v1/amenidades/$id", ['mantenimiento_hasta' => hoyLocal()->subDay()->toDateString()])->assertStatus(422)
         ->assertJsonPath('error.fields.mantenimiento_hasta.0', 'La fecha de fin del mantenimiento no puede ser pasada.');
 
     // Un mantenimiento cuya fecha ya pasó termina solo
-    enCondominio($this->condominio, fn () => CondominioAmenidad::whereKey($id)->update(['mantenimiento_hasta' => now()->subDay()->toDateString()]));
+    enCondominio($this->condominio, fn () => CondominioAmenidad::whereKey($id)->update(['mantenimiento_hasta' => hoyLocal()->subDay()->toDateString()]));
     expect(($this->lista)()['Piscina']['estado'])->toBe('disponible');
 });
 

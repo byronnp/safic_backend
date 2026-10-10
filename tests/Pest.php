@@ -4,6 +4,7 @@ use App\Core\Permissions\Rol;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
 use App\Modules\Plataforma\Models\Condominio;
+use Carbon\CarbonImmutable;
 use Database\Seeders\CatalogosSeeder;
 use Tests\TestCase;
 
@@ -48,4 +49,14 @@ function cambiarDeUsuario(): void
 {
     app('auth')->forgetGuards();
     app('tymon.jwt')->unsetToken();
+}
+
+/**
+ * "Hoy" en la hora de Ecuador, que es la del condominio (Calendario). `now()` está en UTC y
+ * entre las 19:00 y la medianoche ya es el día siguiente: las pruebas que comparan fechas
+ * con lo que calcula la API deben usar esta.
+ */
+function hoyLocal(): CarbonImmutable
+{
+    return CarbonImmutable::now('America/Guayaquil')->startOfDay();
 }
