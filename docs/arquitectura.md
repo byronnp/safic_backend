@@ -1,6 +1,10 @@
 # SAFIC · Documentos de arquitectura
 
-Los documentos vivos están en Claude (privados; compártelos con el equipo desde el menú Compartir):
+Los documentos vivos están en Claude (privados; compártelos con el equipo desde el menú Compartir).
+Copias en Markdown dentro del repo, para que Claude Code las lea sin conexión:
+
+- [`docs/arquitectura/backend.md`](arquitectura/backend.md) — Arquitectura backend (Laravel), exportada el 9-oct-2026.
+
 
 | Documento | Enlace |
 | --- | --- |

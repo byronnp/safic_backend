@@ -2,7 +2,7 @@
 
 SAFIC = Sistema de Administración Financiera de Condominios. SaaS multi-condominio para Ecuador.
 Este repositorio es **solo la API** (`/api/v1`). El frontend (Quasar) vive en otro repositorio.
-La arquitectura completa está en `docs/arquitectura.md` (enlaces a los documentos por fase).
+La arquitectura completa está en `docs/arquitectura/backend.md` (copia del documento vivo) y `docs/arquitectura.md` (decisiones recientes y enlaces a los documentos por fase). Si algo no coincide, manda el código y luego este archivo.
 
 ## Stack
 - PHP 8.5 · Laravel 13 · PostgreSQL 16 · Redis · Docker Compose (local) · AWS (ECS, RDS, S3, SES).
