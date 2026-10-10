@@ -188,6 +188,11 @@ it('guarda el comprobante y anula el pago devolviendo el saldo', function () {
     expect(($this->como)('contador')->getJson('/api/v1/pagos-proveedor')->json('data.0'))->toMatchArray(['estado' => 'anulado', 'motivo_anulacion' => 'Transferencia rechazada']);
 });
 
+it('el tesorero ve las cuentas del condominio para elegir de dónde paga; el contador no', function () {
+    expect(($this->como)('tesorero')->getJson('/api/v1/cuentas-bancarias')->assertOk()->json('data.0.banco'))->toBe('Banco Pichincha');
+    ($this->como)('contador')->getJson('/api/v1/cuentas-bancarias')->assertForbidden();
+});
+
 it('aísla aprobaciones y pagos entre condominios', function () {
     $g = ($this->factura)('350.00');
     $otro = Condominio::factory()->create();

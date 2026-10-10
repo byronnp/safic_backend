@@ -1218,8 +1218,8 @@ paths:
       tags: [Finanzas]
       operationId: listarCuentasBancarias
       summary: Cuentas bancarias del condominio
-      description: 'Permiso: `condominio.editar`. Adonde los residentes transfieren; la principal activa es la que ellos ven. La activas primero.'
-      x-permiso: condominio.editar
+      description: 'Permiso: `condominio.editar` o `gastos.pagar` (quien paga a proveedores elige de qué cuenta sale la transferencia). Adonde los residentes transfieren; la principal activa es la que ellos ven. Las activas primero.'
+      x-permiso: condominio.editar|gastos.pagar
       parameters:
         - $ref: '#/components/parameters/CondominioId'
       responses:

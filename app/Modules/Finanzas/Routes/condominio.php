@@ -33,8 +33,9 @@ Route::get('finanzas/resumen', [PeriodoController::class, 'resumen'])
     ->middleware('permission:'.Permiso::FinanzasVer->value);
 
 // Cuentas bancarias del condominio (adonde los residentes transfieren)
+// Quien paga a proveedores elige de qué cuenta del condominio sale la transferencia
 Route::get('cuentas-bancarias', [CuentaBancariaController::class, 'index'])
-    ->middleware('permission:'.Permiso::CondominioEditar->value);
+    ->middleware('permission:'.Permiso::CondominioEditar->value.'|'.Permiso::GastosPagar->value);
 
 Route::post('cuentas-bancarias', [CuentaBancariaController::class, 'store'])
     ->middleware('permission:'.Permiso::CondominioEditar->value);
