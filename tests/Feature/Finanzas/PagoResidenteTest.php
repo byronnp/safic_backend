@@ -6,38 +6,10 @@ use App\Modules\Finanzas\Models\CuentaBancaria;
 use App\Modules\Finanzas\Models\Cuota;
 use App\Modules\Finanzas\Models\Pago;
 use App\Modules\Plataforma\Models\Condominio;
-use App\Modules\Unidades\Models\Ocupante;
-use App\Modules\Unidades\Models\Persona;
 use App\Modules\Unidades\Models\Unidad;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-
-/** Un residente con cuenta, dueño de una unidad. Devuelve [user, token, unidad]. */
-function residenteDe(Condominio $condominio, string $codigo, string $relacion = 'propietario', array $unidad = []): array
-{
-    return enCondominio($condominio, function () use ($condominio, $codigo, $relacion, $unidad) {
-        $u = Unidad::factory()->create(['codigo' => $codigo, 'cuota_mensual' => '80.00'] + $unidad);
-        $user = User::factory()->miembroDe($condominio, Rol::Residente)->create();
-        $p = Persona::factory()->create();
-        $p->forceFill(['user_id' => $user->id])->save();
-        Ocupante::create(['unidad_id' => $u->id, 'persona_id' => $p->id, 'relacion' => $relacion, 'es_principal' => true, 'fecha_inicio' => hoyLocal()->subYear()->toDateString()]);
-
-        return [$user, auth('api')->tokenById($user->id), $u];
-    });
-}
-
-function cuotaDe(Condominio $condominio, Unidad $unidad, int $mesesAtras, string $monto = '80.00', string $pagado = '0.00'): Cuota
-{
-    return enCondominio($condominio, function () use ($unidad, $mesesAtras, $monto, $pagado) {
-        $periodo = hoyLocal()->startOfMonth()->subMonths($mesesAtras);
-
-        return Cuota::create([
-            'unidad_id' => $unidad->id, 'periodo' => $periodo->toDateString(), 'concepto' => 'ordinaria', 'monto' => $monto,
-            'pagado' => $pagado, 'vence_el' => $periodo->day(10)->toDateString(),
-        ]);
-    });
-}
 
 beforeEach(function () {
     config(['filesystems.disco_archivos' => 'local']);

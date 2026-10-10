@@ -4,6 +4,7 @@ use App\Core\Permissions\Permiso;
 use App\Modules\Finanzas\Http\Controllers\CobroController;
 use App\Modules\Finanzas\Http\Controllers\CuentaBancariaController;
 use App\Modules\Finanzas\Http\Controllers\MiCuentaController;
+use App\Modules\Finanzas\Http\Controllers\PagoController;
 use App\Modules\Finanzas\Http\Controllers\PeriodoController;
 use Illuminate\Support\Facades\Route;
 
@@ -43,3 +44,30 @@ Route::get('mi-cuenta', [MiCuentaController::class, 'show'])
 
 Route::post('mi-cuenta/pagos', [MiCuentaController::class, 'pagar'])
     ->middleware(['permission:'.Permiso::CuentaPropia->value, 'throttle:pagos']);
+
+Route::get('mi-cuenta/pagos/{pago}/recibo', [MiCuentaController::class, 'recibo'])
+    ->whereNumber('pago')
+    ->middleware('permission:'.Permiso::CuentaPropia->value);
+
+// Pagos de los residentes: la administración los aprueba (con recibo) o los rechaza
+Route::get('pagos', [PagoController::class, 'index'])
+    ->middleware('permission:'.Permiso::PagosAprobar->value);
+
+Route::post('pagos/aprobar-lote', [PagoController::class, 'lote'])
+    ->middleware('permission:'.Permiso::PagosAprobar->value);
+
+Route::get('pagos/{pago}', [PagoController::class, 'show'])
+    ->whereNumber('pago')
+    ->middleware('permission:'.Permiso::PagosAprobar->value);
+
+Route::post('pagos/{pago}/aprobar', [PagoController::class, 'aprobar'])
+    ->whereNumber('pago')
+    ->middleware('permission:'.Permiso::PagosAprobar->value);
+
+Route::post('pagos/{pago}/rechazar', [PagoController::class, 'rechazar'])
+    ->whereNumber('pago')
+    ->middleware('permission:'.Permiso::PagosAprobar->value);
+
+Route::get('pagos/{pago}/recibo', [PagoController::class, 'recibo'])
+    ->whereNumber('pago')
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
