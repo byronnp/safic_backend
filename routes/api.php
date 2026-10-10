@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Auth\Http\Controllers\AuthController;
+use App\Core\Auth\Http\Controllers\DobleFactorController;
 use App\Core\Auth\Http\Controllers\InvitacionController;
 use App\Core\Marca\Http\Controllers\LogoPublicoController;
 use App\Core\Menu\Http\Controllers\MenuController;
@@ -33,6 +34,8 @@ $rutasDeModulos = function (string $ambito): void {
 Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('refresh', [AuthController::class, 'refresh'])->middleware('throttle:refresh');
+    // Segundo paso del login (sin sesión: el desafío identifica a la persona)
+    Route::post('2fa/verificar', [AuthController::class, 'verificarDobleFactor'])->middleware('throttle:doble-factor');
 
     // Primer ingreso por invitación (sin sesión: el token del correo identifica a la persona)
     Route::get('invitaciones/{token}', [InvitacionController::class, 'show'])->middleware('throttle:invitacion');
@@ -41,6 +44,12 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:api')->group(function () {
         Route::post('logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
+
+        // Verificación en dos pasos de la propia cuenta
+        Route::post('2fa/preparar', [DobleFactorController::class, 'preparar'])->middleware('throttle:doble-factor');
+        Route::post('2fa/confirmar', [DobleFactorController::class, 'confirmar'])->middleware('throttle:doble-factor');
+        Route::post('2fa/codigos', [DobleFactorController::class, 'regenerarCodigos'])->middleware('throttle:doble-factor');
+        Route::post('2fa/desactivar', [DobleFactorController::class, 'desactivar'])->middleware('throttle:doble-factor');
     });
 });
 

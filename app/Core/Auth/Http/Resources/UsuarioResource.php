@@ -2,6 +2,7 @@
 
 namespace App\Core\Auth\Http\Resources;
 
+use App\Core\Auth\Services\DobleFactorService;
 use App\Core\Marca\MarcaPublica;
 use App\Models\User;
 use App\Modules\Plataforma\Models\Condominio;
@@ -37,6 +38,11 @@ class UsuarioResource extends JsonResource
                     'marca' => MarcaPublica::de($c),
                 ];
             })->values()),
+            // Verificación en dos pasos: si está activa y si no se puede apagar (es contador en algún condominio)
+            'doble_factor' => [
+                'activo' => $this->tieneDobleFactor(),
+                'obligatorio' => app(DobleFactorService::class)->esObligatoria($this->resource),
+            ],
             // Perfil de plataforma (super admin, soporte, cobranza…) o null.
             // Con él, el frontend abre el panel de plataforma aunque no haya condominios.
             'plataforma' => $this->resource->contextoPlataforma(),

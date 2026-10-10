@@ -61,6 +61,7 @@ final class ListarUsuariosAction
                 },
                 'acceso_hasta' => $m->acceso_hasta?->toDateString(),
                 'es_yo' => $user->id === $actorId,
+                'doble_factor' => $user->tieneDobleFactor(),
             ];
         })->all();
 

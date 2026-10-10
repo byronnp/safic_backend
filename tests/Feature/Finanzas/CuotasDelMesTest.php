@@ -162,7 +162,9 @@ it('tesorero y contador ven las finanzas pero no emiten; el guardia no entra', f
     ($this->unidad)();
 
     foreach ([Rol::Tesorero, Rol::Contador] as $rol) {
-        [, $token] = usuarioConToken($this->condominio, $rol);
+        [$persona, $token] = usuarioConToken($this->condominio, $rol);
+        // El contador solo trabaja con la verificación en dos pasos activa
+        $persona->forceFill(['two_factor_confirmed_at' => now()])->save();
         cambiarDeUsuario();
         $con = fn () => $this->withToken($token)->withHeader('X-Condominio-Id', (string) $this->condominio->id);
         $con()->getJson('/api/v1/finanzas/resumen')->assertOk();

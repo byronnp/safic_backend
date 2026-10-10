@@ -71,9 +71,26 @@ paths:
               properties:
                 email: { type: string, format: email, maxLength: 255 }
                 password: { type: string, maxLength: 255 }
+      description: |
+        Si la cuenta tiene la verificación en dos pasos activa, **no** entrega sesión: responde `requiere_2fa: true` con un
+        `desafio` (válido 5 minutos) que se canjea con el código en `POST /auth/2fa/verificar`.
       responses:
         '200':
-          $ref: '#/components/responses/Token'
+          description: Par de tokens, o el desafío del segundo paso si la cuenta tiene verificación en dos pasos.
+          headers:
+            Set-Cookie:
+              description: Solo en web y solo cuando entrega sesión.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    oneOf:
+                      - { $ref: '#/components/schemas/RespuestaToken' }
+                      - { $ref: '#/components/schemas/DesafioDobleFactor' }
         '401':
           description: '`CREDENCIALES_INVALIDAS` (también si el usuario está inactivo).'
           content:
@@ -83,6 +100,188 @@ paths:
           $ref: '#/components/responses/Validacion'
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
+
+  /auth/2fa/verificar:
+    post:
+      tags: [Autenticación]
+      operationId: verificarDobleFactor
+      summary: Segundo paso del login
+      description: |
+        Canjea el `desafio` de `POST /auth/login` con el código de 6 dígitos de la app autenticadora o con un código de
+        respaldo (de un solo uso). Un código TOTP no sirve dos veces. A los 5 intentos fallidos el desafío muere y hay que
+        iniciar sesión otra vez. 401: `CODIGO_INVALIDO`, `DESAFIO_INVALIDO` (vencido, agotado o inexistente).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/TipoCliente'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [desafio, codigo]
+              properties:
+                desafio: { type: string, minLength: 64, maxLength: 64 }
+                codigo: { type: string, maxLength: 20, examples: ['123456', 'ABCDE-FGHJK'] }
+      responses:
+        '200':
+          $ref: '#/components/responses/Token'
+        '401':
+          description: '`CODIGO_INVALIDO` o `DESAFIO_INVALIDO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /auth/2fa/preparar:
+    post:
+      tags: [Autenticación]
+      operationId: prepararDobleFactor
+      summary: Empezar a activar la verificación en dos pasos
+      description: |
+        Pide la contraseña. Genera un secreto nuevo (sin activar todavía; pedirlo otra vez reemplaza el anterior) y la
+        dirección `otpauth://` que se muestra como QR. 409 `DOBLE_FACTOR_YA_ACTIVO`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, maxLength: 255 }
+      responses:
+        '200':
+          description: Secreto y dirección para el QR.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [secreto, uri]
+                    properties:
+                      secreto: { type: string, description: 'Base32, para escribirlo a mano si no se puede escanear.' }
+                      uri: { type: string, description: 'otpauth://totp/... para el QR.' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '409':
+          description: '`DOBLE_FACTOR_YA_ACTIVO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /auth/2fa/confirmar:
+    post:
+      tags: [Autenticación]
+      operationId: confirmarDobleFactor
+      summary: Activar la verificación con un código de la app
+      description: |
+        Con un código válido del secreto preparado queda activa y devuelve **8 códigos de respaldo, que solo se ven esta
+        vez** (no se pueden recuperar). 409 `DOBLE_FACTOR_SIN_PREPARAR` o `DOBLE_FACTOR_YA_ACTIVO`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [codigo]
+              properties:
+                codigo: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: Activada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CodigosRespaldo' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '409':
+          description: '`DOBLE_FACTOR_SIN_PREPARAR` o `DOBLE_FACTOR_YA_ACTIVO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /auth/2fa/codigos:
+    post:
+      tags: [Autenticación]
+      operationId: regenerarCodigosRespaldo
+      summary: Generar códigos de respaldo nuevos
+      description: Pide la contraseña y un código vigente. Los códigos anteriores dejan de servir.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password, codigo]
+              properties:
+                password: { type: string, maxLength: 255 }
+                codigo: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: Códigos nuevos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CodigosRespaldo' }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /auth/2fa/desactivar:
+    post:
+      tags: [Autenticación]
+      operationId: desactivarDobleFactor
+      summary: Desactivar la verificación en dos pasos
+      description: |
+        Pide la contraseña y un código vigente. Quien es **contador** en algún condominio no puede desactivarla
+        (403 `DOBLE_FACTOR_OBLIGATORIO`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password, codigo]
+              properties:
+                password: { type: string, maxLength: 255 }
+                codigo: { type: string, maxLength: 20 }
+      responses:
+        '200':
+          description: Desactivada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          description: '`DOBLE_FACTOR_OBLIGATORIO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
 
   /auth/refresh:
     post:
@@ -356,6 +555,56 @@ paths:
           $ref: '#/components/responses/Validacion'
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
+
+  /usuarios/{usuario}/doble-factor/restablecer:
+    post:
+      tags: [Usuarios]
+      operationId: restablecerDobleFactorUsuario
+      summary: Restablecer la verificación en dos pasos de alguien del equipo
+      description: |
+        Permiso: `usuarios.gestionar`. Para quien perdió su teléfono y sus códigos de respaldo. Queda sin verificación; si es
+        contador, deberá configurarla de nuevo para volver a trabajar. Exige el motivo (queda en el registro de seguridad).
+        No sirve para la propia cuenta (422 `RESTABLECIMIENTO_PROPIO`) ni para otro administrador (403 `SOLO_PLATAFORMA`: lo
+        hace la plataforma). 409 `DOBLE_FACTOR_NO_ACTIVO`. Alguien de otro condominio responde 404.
+      x-permiso: usuarios.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - $ref: '#/components/parameters/UsuarioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 200 }
+      responses:
+        '200':
+          description: Restablecida; devuelve al usuario del equipo actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/UsuarioCondominio' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`DOBLE_FACTOR_NO_ACTIVO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
 
   /usuarios/{usuario}/invitacion:
     post:
@@ -2852,6 +3101,50 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /plataforma/usuarios/{usuario}/doble-factor/restablecer:
+    post:
+      tags: [Plataforma]
+      operationId: restablecerDobleFactorPlataforma
+      summary: Restablecer la verificación en dos pasos de cualquier cuenta
+      description: |
+        Permiso: `plataforma.condominios`. Para un administrador que perdió su teléfono y sus códigos (no tiene a quién
+        pedírselo en su condominio). Exige el motivo y queda en la bitácora de plataforma. No sirve para la propia cuenta
+        (422 `RESTABLECIMIENTO_PROPIO`). 409 `DOBLE_FACTOR_NO_ACTIVO`.
+      x-permiso: plataforma.condominios
+      parameters:
+        - $ref: '#/components/parameters/UsuarioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 200 }
+      responses:
+        '200':
+          description: Restablecida.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`DOBLE_FACTOR_NO_ACTIVO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /plataforma/usuarios/buscar:
     get:
       tags: [Plataforma]
@@ -3242,9 +3535,27 @@ components:
           description: 'Solo con `X-Client-Type: mobile`.'
         usuario: { $ref: '#/components/schemas/Usuario' }
 
+    DesafioDobleFactor:
+      type: object
+      description: La contraseña fue correcta pero la cuenta tiene verificación en dos pasos; falta el código.
+      required: [requiere_2fa, desafio, expira_en]
+      properties:
+        requiere_2fa: { type: boolean, const: true }
+        desafio: { type: string, description: 'Token de un solo propósito (64 caracteres), no es una sesión.' }
+        expira_en: { type: integer, description: Segundos (300). }
+
+    CodigosRespaldo:
+      type: object
+      required: [codigos_respaldo]
+      properties:
+        codigos_respaldo:
+          type: array
+          description: 8 códigos de un solo uso. Solo se muestran esta vez.
+          items: { type: string, examples: ['ABCDE-FGHJK'] }
+
     Usuario:
       type: object
-      required: [id, nombre, email, plataforma]
+      required: [id, nombre, email, doble_factor, plataforma]
       properties:
         id: { type: integer }
         nombre: { type: string }
@@ -3253,6 +3564,12 @@ components:
           type: array
           description: Solo condominios con membresía activa (los del selector).
           items: { $ref: '#/components/schemas/CondominioResumen' }
+        doble_factor:
+          type: object
+          required: [activo, obligatorio]
+          properties:
+            activo: { type: boolean }
+            obligatorio: { type: boolean, description: 'true si es contador en algún condominio: no puede desactivarla.' }
         plataforma:
           description: Perfil de plataforma (super admin, soporte, cobranza…) o null si no tiene.
           oneOf:
@@ -3343,9 +3660,12 @@ components:
 
     ContextoCondominio:
       type: object
-      required: [condominio_id, roles, permisos]
+      required: [condominio_id, roles, permisos, doble_factor_pendiente]
       properties:
         condominio_id: { type: integer }
+        doble_factor_pendiente:
+          type: boolean
+          description: 'Es contador aquí y aún no activó la verificación en dos pasos: el resto de rutas del condominio responde 403 `DOBLE_FACTOR_REQUERIDO` hasta que lo haga.'
         roles:
           type: array
           items: { type: string }
@@ -3808,7 +4128,7 @@ components:
 
     UsuarioCondominio:
       type: object
-      required: [id, nombre, email, celular, roles, perfil, cuenta_cupo, estado, acceso_hasta, es_yo]
+      required: [id, nombre, email, celular, roles, perfil, cuenta_cupo, estado, acceso_hasta, es_yo, doble_factor]
       properties:
         id: { type: integer }
         nombre: { type: string }
@@ -3829,6 +4149,7 @@ components:
           description: 'pendiente: aún no creó su contraseña; vencido: pasó su fecha de acceso.'
         acceso_hasta: { type: [string, 'null'], format: date }
         es_yo: { type: boolean }
+        doble_factor: { type: boolean, description: Tiene la verificación en dos pasos activa. }
 
     CupoUsuarios:
       type: object

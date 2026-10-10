@@ -8,6 +8,7 @@ use App\Modules\Usuarios\Actions\ActualizarUsuarioAction;
 use App\Modules\Usuarios\Actions\InvitarUsuarioAction;
 use App\Modules\Usuarios\Actions\ListarUsuariosAction;
 use App\Modules\Usuarios\Actions\ReenviarInvitacionUsuarioAction;
+use App\Modules\Usuarios\Actions\RestablecerDobleFactorAction;
 use App\Modules\Usuarios\Http\Requests\ActualizarUsuarioRequest;
 use App\Modules\Usuarios\Http\Requests\InvitarUsuarioRequest;
 use Illuminate\Http\JsonResponse;
@@ -51,6 +52,18 @@ class UsuarioController
         $reenviar->execute($usuario, $this->actor($request));
 
         return ApiResponse::ok($this->uno($listar, $usuario, $this->actor($request)->id), message: 'Invitación reenviada.');
+    }
+
+    public function restablecerDobleFactor(Request $request, RestablecerDobleFactorAction $restablecer, ListarUsuariosAction $listar, int $usuario): JsonResponse
+    {
+        $datos = $request->validate(['motivo' => ['required', 'string', 'min:3', 'max:200']], [
+            'motivo.required' => 'Escribe el motivo (queda registrado).',
+            'motivo.min' => 'El motivo es muy corto.',
+            'motivo.max' => 'El motivo tiene máximo 200 caracteres.',
+        ]);
+        $restablecer->execute($usuario, $datos['motivo'], $this->actor($request));
+
+        return ApiResponse::ok($this->uno($listar, $usuario, $this->actor($request)->id), message: 'Verificación en dos pasos restablecida. Deberá configurarla de nuevo.');
     }
 
     /**

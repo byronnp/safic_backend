@@ -52,6 +52,11 @@ final class ResolveCondominio
             setPermissionsTeamId($condominioId);
             $user->unsetRelation('roles')->unsetRelation('permissions');
 
+            // El contador sin verificación en dos pasos solo puede configurarla (consultar su contexto)
+            if ($user->debeActivarDobleFactor() && ! str_ends_with($request->path(), 'me/contexto')) {
+                throw new ApiException('DOBLE_FACTOR_REQUERIDO', 'Tu perfil exige verificación en dos pasos. Actívala para continuar.', 403);
+            }
+
             $response = $next($request);
         } catch (Throwable $e) {
             $this->database->rollBack();
