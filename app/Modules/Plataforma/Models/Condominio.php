@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property string $nombre
  * @property int $total_unidades
  * @property string $estado
+ * @property string|null $estado_antes_suspension
  * @property array<string, mixed>|null $marca
  * @property int|null $plan_id
  * @property string|null $valor_unidad
@@ -80,7 +81,7 @@ class Condominio extends Model
         'codigo', 'nombre', 'tipo', 'ruc', 'razon_social', 'total_unidades',
         'moneda', 'pais', 'zona_horaria', 'estado', 'marca',
         'plan_id', 'valor_unidad', 'provincia_codigo', 'canton_codigo', 'parroquia_codigo',
-        'direccion', 'telefono', 'email_contacto', 'latitud', 'longitud', 'prueba_hasta',
+        'direccion', 'telefono', 'email_contacto', 'latitud', 'longitud', 'prueba_hasta', 'estado_antes_suspension',
     ];
 
     public const TIPOS = ['conjunto', 'edificio', 'urbanizacion', 'mixto'];

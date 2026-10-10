@@ -4660,6 +4660,156 @@ paths:
           $ref: '#/components/responses/SinPermisoPlataforma'
         '404':
           $ref: '#/components/responses/NoEncontrado'
+    patch:
+      tags: [Plataforma]
+      operationId: editarCondominioPlataforma
+      summary: Editar los datos de un condominio
+      description: |
+        Permiso: `plataforma.condominios-editar` (solo el super admin). Solo viaja lo que cambia. El RUC no se repite;
+        el total de unidades no baja de las ya registradas (422 `UNIDADES_REGISTRADAS`); cantón y parroquia deben
+        pertenecer a su provincia y cantón (422 `UBICACION_INCOHERENTE`). Queda en la bitácora de plataforma.
+      x-permiso: plataforma.condominios-editar
+      parameters:
+        - in: path
+          name: condominio
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre: { type: string, minLength: 2, maxLength: 120 }
+                tipo: { type: string, enum: [conjunto, edificio, urbanizacion, mixto] }
+                ruc: { type: string }
+                razon_social: { type: string, maxLength: 160 }
+                provincia_codigo: { type: string }
+                canton_codigo: { type: string }
+                parroquia_codigo: { type: string }
+                direccion: { type: string, maxLength: 200 }
+                telefono: { type: [string, 'null'] }
+                email_contacto: { type: [string, 'null'], format: email }
+                total_unidades: { type: integer, minimum: 1, maximum: 10000 }
+                plan_codigo: { type: string }
+                valor_unidad: { type: string, examples: ['1.50'] }
+                latitud: { type: number }
+                longitud: { type: number }
+      responses:
+        '200':
+          description: Condominio actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CondominioPlataforma' }
+                  message: { type: string }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /plataforma/condominios/{condominio}/inactivar:
+    post:
+      tags: [Plataforma]
+      operationId: inactivarCondominio
+      summary: Inactivar (suspender) un condominio
+      description: |
+        Permiso: `plataforma.condominios-editar` (solo el super admin). Corta el acceso de todos los usuarios del
+        condominio al instante, sin borrar nada. Exige motivo y queda en la bitácora. Guarda el estado previo para
+        devolverlo al reactivar. 409 `CONDOMINIO_YA_INACTIVO`.
+      x-permiso: plataforma.condominios-editar
+      parameters:
+        - in: path
+          name: condominio
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200':
+          description: Condominio inactivo (estado `suspendido`).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CondominioPlataforma' }
+                  message: { type: string }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`CONDOMINIO_YA_INACTIVO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /plataforma/condominios/{condominio}/reactivar:
+    post:
+      tags: [Plataforma]
+      operationId: reactivarCondominio
+      summary: Reactivar un condominio inactivo
+      description: 'Permiso: `plataforma.condominios-editar` (solo el super admin). Vuelve al estado que tenía antes de suspenderlo. Exige motivo. 409 `CONDOMINIO_NO_INACTIVO`.'
+      x-permiso: plataforma.condominios-editar
+      parameters:
+        - in: path
+          name: condominio
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200':
+          description: Condominio reactivado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CondominioPlataforma' }
+                  message: { type: string }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`CONDOMINIO_NO_INACTIVO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
 
   /plataforma/condominios/{condominio}/administradores/{usuario}/invitacion:
     post:
