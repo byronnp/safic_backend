@@ -16,7 +16,7 @@ function propietaria(Condominio $condominio, string $unidad, array $persona = []
     return enCondominio($condominio, function () use ($unidad, $persona, $relacion) {
         $u = Unidad::factory()->create(['codigo' => $unidad]);
         $p = Persona::factory()->create($persona);
-        Ocupante::create(['unidad_id' => $u->id, 'persona_id' => $p->id, 'relacion' => $relacion, 'es_principal' => false, 'fecha_inicio' => now()->subYear()->toDateString()]);
+        Ocupante::create(['unidad_id' => $u->id, 'persona_id' => $p->id, 'relacion' => $relacion, 'es_principal' => false, 'fecha_inicio' => hoyLocal()->subYear()->toDateString()]);
 
         return $p;
     });
@@ -45,7 +45,7 @@ beforeEach(function () {
     $this->fernando = propietaria($this->condominio, 'C-12', ['nombres' => 'Fernando', 'apellidos' => 'Salazar', 'email' => 'fsalazar@example.com']);
     $this->paola = propietaria($this->condominio, 'B-201', ['nombres' => 'Paola', 'apellidos' => 'Cedeño', 'email' => 'pcedeno@example.com']);
 
-    $this->hasta = now()->addYear()->toDateString();
+    $this->hasta = hoyLocal()->addYear()->toDateString();
     $this->asignar = fn (string $cargo, Persona $persona, array $cambios = []) => ($this->api)()->postJson("/api/v1/directiva/{$cargo}", $cambios + [
         'persona_id' => $persona->id, 'acta' => 'Acta 2026-01', 'periodo_hasta' => $this->hasta,
     ]);
@@ -144,14 +144,14 @@ it('cambiar de titular cierra el periodo anterior y le quita solo ese cargo', fu
 
 it('el cargo con el periodo vencido sigue como prorrogado', function () {
     ($this->asignar)('secretario', $this->paola)->assertOk();
-    enCondominio($this->condominio, fn () => CargoDirectiva::where('cargo', 'secretario')->update(['periodo_fin' => now()->subDay()->toDateString()]));
+    enCondominio($this->condominio, fn () => CargoDirectiva::where('cargo', 'secretario')->update(['periodo_fin' => hoyLocal()->subDay()->toDateString()]));
 
     expect(collect(($this->api)()->getJson('/api/v1/directiva')->json('data'))->firstWhere('cargo', 'secretario')['estado'])->toBe('prorrogado');
 });
 
 it('avisa si el titular ya no es propietario', function () {
     ($this->asignar)('presidente', $this->fernando)->assertOk();
-    enCondominio($this->condominio, fn () => Ocupante::where('persona_id', $this->fernando->id)->update(['fecha_fin' => now()->subDay()->toDateString()]));
+    enCondominio($this->condominio, fn () => Ocupante::where('persona_id', $this->fernando->id)->update(['fecha_fin' => hoyLocal()->subDay()->toDateString()]));
 
     $presidente = collect(($this->api)()->getJson('/api/v1/directiva')->json('data'))->firstWhere('cargo', 'presidente');
     expect($presidente['titular']['sigue_siendo_propietario'])->toBeFalse()->and($presidente['estado'])->toBe('vigente');
@@ -178,8 +178,8 @@ it('el tesorero consume cupo del plan y el relevo no pide uno más', function ()
 
 it('valida el acta, el periodo y la persona', function () {
     ($this->asignar)('presidente', $this->fernando, ['acta' => ''])->assertStatus(422)->assertJsonPath('error.fields.acta.0', 'Escribe el acta que respalda el nombramiento.');
-    ($this->asignar)('presidente', $this->fernando, ['periodo_hasta' => now()->toDateString()])->assertStatus(422)->assertJsonPath('error.fields.periodo_hasta.0', 'El periodo debe terminar después de hoy.');
-    ($this->asignar)('presidente', $this->fernando, ['periodo_hasta' => now()->addYears(5)->toDateString()])->assertStatus(422)->assertJsonPath('error.fields.periodo_hasta.0', 'El periodo puede durar hasta 4 años.');
+    ($this->asignar)('presidente', $this->fernando, ['periodo_hasta' => hoyLocal()->toDateString()])->assertStatus(422)->assertJsonPath('error.fields.periodo_hasta.0', 'El periodo debe terminar después de hoy.');
+    ($this->asignar)('presidente', $this->fernando, ['periodo_hasta' => hoyLocal()->addYears(5)->toDateString()])->assertStatus(422)->assertJsonPath('error.fields.periodo_hasta.0', 'El periodo puede durar hasta 4 años.');
     ($this->asignar)('presidente', $this->fernando, ['persona_id' => 999999])->assertStatus(422)->assertJsonPath('error.fields.persona_id.0', 'Esa persona no existe en este condominio.');
     expect(CargoDirectiva::withoutGlobalScopes()->count())->toBe(0);
 });
@@ -192,7 +192,7 @@ it('solo existen los cuatro cargos de la directiva', function () {
 it('no mezcla personas ni cargos de otro condominio', function () {
     $otro = Condominio::factory()->create();
     $ajena = propietaria($otro, 'Z-1', ['email' => 'ajena@example.com']);
-    enCondominio($otro, fn () => CargoDirectiva::create(['cargo' => 'presidente', 'persona_id' => $ajena->id, 'periodo_inicio' => now()->subYear()->toDateString(), 'periodo_fin' => $this->hasta, 'acta' => 'Acta ajena']));
+    enCondominio($otro, fn () => CargoDirectiva::create(['cargo' => 'presidente', 'persona_id' => $ajena->id, 'periodo_inicio' => hoyLocal()->subYear()->toDateString(), 'periodo_fin' => $this->hasta, 'acta' => 'Acta ajena']));
 
     ($this->asignar)('presidente', $ajena)->assertStatus(422)->assertJsonPath('error.fields.persona_id.0', 'Esa persona no existe en este condominio.');
     expect(collect(($this->api)()->getJson('/api/v1/directiva')->json('data'))->pluck('estado')->unique()->all())->toBe(['vacante']);
