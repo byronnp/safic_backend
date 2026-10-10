@@ -99,6 +99,8 @@ class MenuSeeder extends Seeder
                     ['clave' => 'finanzas.resumen', 'etiqueta' => 'Resumen', 'icono' => 'sym_r_dashboard', 'ruta' => 'finanzas-resumen', 'permiso' => Permiso::FinanzasVer],
                     ['clave' => 'finanzas.cuotas', 'etiqueta' => 'Cuotas del mes', 'icono' => 'sym_r_receipt_long', 'ruta' => 'finanzas-cuotas', 'permiso' => Permiso::FinanzasVer],
                     ['clave' => 'finanzas.pagos', 'etiqueta' => 'Pagos por aprobar', 'icono' => 'sym_r_fact_check', 'ruta' => 'finanzas-pagos-por-aprobar', 'permiso' => Permiso::PagosAprobar],
+                    ['clave' => 'finanzas.cuentas', 'etiqueta' => 'Cuentas por pagar', 'icono' => 'sym_r_payments', 'ruta' => 'finanzas-cuentas-por-pagar', 'permiso' => Permiso::FinanzasVer],
+                    ['clave' => 'finanzas.proveedores', 'etiqueta' => 'Proveedores', 'icono' => 'sym_r_local_shipping', 'ruta' => 'finanzas-proveedores', 'permiso' => Permiso::FinanzasVer],
                 ],
             ],
             [

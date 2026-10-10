@@ -1893,6 +1893,372 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /proveedores:
+    get:
+      tags: [Finanzas]
+      operationId: listarProveedores
+      summary: Proveedores con saldo, estado y cuenta para pagos
+      description: |
+        Permiso: `finanzas.ver`. Cada proveedor trae lo que se le debe, su estado (`sin_facturas`, `por_aprobar`,
+        `vence_pronto` a 7 días o menos, `al_dia`), su cuenta vigente y el cambio de cuenta en espera si lo hay.
+        `meta.conteos` cuenta los tres filtros.
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: filtro, in: query, schema: { type: string, enum: [todos, con_saldo, cuenta_en_cambio] } }
+        - { name: buscar, in: query, schema: { type: string, maxLength: 80 } }
+      responses:
+        '200':
+          description: Proveedores activos por razón social.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Proveedor' } }
+                  meta:
+                    type: object
+                    properties:
+                      conteos: { type: object, additionalProperties: { type: integer } }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+    post:
+      tags: [Finanzas]
+      operationId: crearProveedor
+      summary: Agregar un proveedor
+      description: 'Permiso: `proveedores.editar`. El RUC (13 dígitos) no se repite en el condominio (409 `PROVEEDOR_DUPLICADO`) ni se cambia después.'
+      x-permiso: proveedores.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ruc, razon_social]
+              properties:
+                ruc: { type: string, pattern: '^\d{13}$' }
+                razon_social: { type: string, minLength: 3, maxLength: 160 }
+                categoria: { type: [string, 'null'], maxLength: 60 }
+                email: { type: [string, 'null'], format: email }
+                telefono: { type: [string, 'null'], maxLength: 30 }
+      responses:
+        '201':
+          description: Proveedor agregado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Proveedor' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`PROVEEDOR_DUPLICADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /proveedores/{proveedor}:
+    patch:
+      tags: [Finanzas]
+      operationId: editarProveedor
+      summary: Editar o desactivar un proveedor
+      description: 'Permiso: `proveedores.editar`. Solo viaja lo que cambia. Desactivar (`activo: false`) lo quita de la lista; sus facturas se conservan.'
+      x-permiso: proveedores.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: proveedor, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                razon_social: { type: string, minLength: 3, maxLength: 160 }
+                categoria: { type: [string, 'null'], maxLength: 60 }
+                email: { type: [string, 'null'], format: email }
+                telefono: { type: [string, 'null'], maxLength: 30 }
+                activo: { type: boolean }
+      responses:
+        '200':
+          description: Proveedor actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Proveedor' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /proveedores/{proveedor}/cuenta-bancaria:
+    post:
+      tags: [Finanzas]
+      operationId: cambiarCuentaProveedor
+      summary: Pedir el cambio de la cuenta bancaria de un proveedor
+      description: |
+        Permiso: `proveedores.editar`. Exige la contraseña de quien lo pide (422 en `password`), avisa por correo a
+        administración y tesorería y se activa a las 24 horas; mientras tanto se paga a la cuenta vigente. La primera
+        cuenta de un proveedor queda vigente al instante. Solo un cambio en espera a la vez (409 `CAMBIO_EN_ESPERA`).
+        Límite de peticiones compartido con los pagos (429).
+      x-permiso: proveedores.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: proveedor, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [banco, tipo, numero, titular, password]
+              properties:
+                banco: { type: string, minLength: 2, maxLength: 60 }
+                tipo: { type: string, enum: [corriente, ahorros] }
+                numero: { type: string, pattern: '^[0-9\-]{6,30}$' }
+                titular: { type: string, minLength: 3, maxLength: 120 }
+                password: { type: string, format: password }
+      responses:
+        '201':
+          description: Cambio solicitado (o cuenta vigente si era la primera).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Proveedor' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`CAMBIO_EN_ESPERA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /proveedores/{proveedor}/cuenta-bancaria/pendiente:
+    delete:
+      tags: [Finanzas]
+      operationId: detenerCambioCuentaProveedor
+      summary: Detener un cambio de cuenta que aún no se activó
+      description: 'Permiso: `proveedores.editar`. La cuenta vigente sigue igual. 404 `SIN_CAMBIO_EN_ESPERA` si no hay cambio.'
+      x-permiso: proveedores.editar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: proveedor, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Cambio detenido.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Proveedor' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /gastos:
+    get:
+      tags: [Finanzas]
+      operationId: listarGastos
+      summary: Cuentas por pagar (facturas de proveedores)
+      description: |
+        Permiso: `finanzas.ver`. De la que vence antes a la más reciente. `meta.resumen` suma lo por aprobar, lo por
+        pagar (aprobadas con saldo) y lo vencido; `meta.conteos` cuenta cada filtro.
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: filtro, in: query, schema: { type: string, enum: [todas, por_aprobar, por_pagar, pagadas, rechazadas] } }
+        - { name: buscar, in: query, schema: { type: string, maxLength: 80 } }
+      responses:
+        '200':
+          description: Facturas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Gasto' } }
+                  meta:
+                    type: object
+                    properties:
+                      resumen: { type: object, additionalProperties: true }
+                      conteos: { type: object, additionalProperties: { type: integer } }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+    post:
+      tags: [Finanzas]
+      operationId: registrarGasto
+      summary: Registrar una factura a mano
+      description: |
+        Permiso: `gastos.registrar`. IVA del 15 % sobre el subtotal si `con_iva`, redondeado al centavo. Nace
+        `por_aprobar`. Sin `vence_el` vence a los 30 días de la emisión. 409 `FACTURA_DUPLICADA`, 422 `FECHA_FUTURA`.
+      x-permiso: gastos.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [proveedor_id, numero, fecha_emision, subtotal, con_iva]
+              properties:
+                proveedor_id: { type: integer }
+                numero: { type: string, pattern: '^\d{3}-\d{3}-\d{9}$' }
+                fecha_emision: { type: string, format: date }
+                vence_el: { type: [string, 'null'], format: date }
+                subtotal: { type: string, examples: ['2400.33'] }
+                con_iva: { type: boolean }
+                categoria: { type: [string, 'null'] }
+                descripcion: { type: [string, 'null'] }
+                pdf: { type: string, format: binary, description: PDF de hasta 5 MB. }
+          application/json:
+            schema:
+              type: object
+              required: [proveedor_id, numero, fecha_emision, subtotal, con_iva]
+              properties:
+                proveedor_id: { type: integer }
+                numero: { type: string }
+                fecha_emision: { type: string, format: date }
+                vence_el: { type: [string, 'null'], format: date }
+                subtotal: { type: string }
+                con_iva: { type: boolean }
+                categoria: { type: [string, 'null'] }
+                descripcion: { type: [string, 'null'] }
+      responses:
+        '201':
+          description: Factura registrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Gasto' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`FACTURA_DUPLICADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /gastos/importar-xml:
+    post:
+      tags: [Finanzas]
+      operationId: importarFacturaXml
+      summary: Registrar una factura desde su XML del SRI
+      description: |
+        Permiso: `gastos.registrar`. Lee el XML (con o sin el envoltorio de autorización), valida estructura, RUC,
+        clave de acceso (dígito verificador) y totales; no consulta al SRI. Crea el proveedor por RUC si no existe.
+        422 `XML_INVALIDO`, 409 `FACTURA_DUPLICADA`.
+      x-permiso: gastos.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [xml]
+              properties:
+                xml: { type: string, format: binary, description: XML de hasta 1 MB. }
+                pdf: { type: string, format: binary, description: PDF de hasta 5 MB. }
+                vence_el: { type: [string, 'null'], format: date }
+                categoria: { type: [string, 'null'] }
+      responses:
+        '201':
+          description: Factura registrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Gasto' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`FACTURA_DUPLICADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -4934,6 +5300,69 @@ components:
           properties:
             metodo: { type: string, enum: [general, tipo, alicuota, unidad] }
             dia_vencimiento: { type: integer }
+    CuentaProveedor:
+      type: object
+      required: [id, banco, tipo, numero, titular]
+      properties:
+        id: { type: integer }
+        banco: { type: string }
+        tipo: { type: string, enum: [corriente, ahorros] }
+        numero: { type: string }
+        titular: { type: string }
+
+    Proveedor:
+      type: object
+      required: [id, ruc, razon_social, saldo_por_pagar, estado, cuenta, cambio_de_cuenta]
+      properties:
+        id: { type: integer }
+        ruc: { type: string }
+        razon_social: { type: string }
+        categoria: { type: [string, 'null'] }
+        email: { type: [string, 'null'] }
+        telefono: { type: [string, 'null'] }
+        saldo_por_pagar: { type: string, examples: ['1840.00'] }
+        estado: { type: string, enum: [sin_facturas, por_aprobar, vence_pronto, al_dia] }
+        proximo_vencimiento: { type: [string, 'null'], format: date }
+        cuenta:
+          oneOf: [{ $ref: '#/components/schemas/CuentaProveedor' }, { type: 'null' }]
+        cambio_de_cuenta:
+          description: Cambio en espera (se activa en `activa_en`); null si no hay.
+          oneOf:
+            - allOf:
+                - { $ref: '#/components/schemas/CuentaProveedor' }
+                - type: object
+                  properties:
+                    activa_en: { type: [string, 'null'], format: date-time }
+                    solicitado_por: { type: [string, 'null'] }
+                    solicitado_en: { type: [string, 'null'], format: date-time }
+            - { type: 'null' }
+
+    Gasto:
+      type: object
+      required: [id, proveedor, numero, origen, fecha_emision, vence_el, subtotal, iva, total, saldo, estado, vencida]
+      properties:
+        id: { type: integer }
+        proveedor:
+          type: object
+          properties:
+            id: { type: integer }
+            razon_social: { type: string }
+            ruc: { type: string }
+        numero: { type: string, examples: ['001-002-000004512'] }
+        categoria: { type: [string, 'null'] }
+        descripcion: { type: [string, 'null'] }
+        origen: { type: string, enum: [xml, manual] }
+        fecha_emision: { type: string, format: date }
+        vence_el: { type: string, format: date }
+        subtotal: { type: string }
+        iva: { type: string }
+        total: { type: string }
+        saldo: { type: string }
+        estado: { type: string, enum: [por_aprobar, aprobada, rechazada, pagada] }
+        vencida: { type: boolean }
+        tiene_xml: { type: boolean }
+        tiene_pdf: { type: boolean }
+
     CuentaBancaria:
       type: object
       required: [id, banco, tipo, numero, titular, es_principal, activa]
