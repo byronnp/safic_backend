@@ -48,7 +48,7 @@ final class ListarPagosAction
                 'id' => $p->id,
                 'unidad_id' => $p->unidad_id,
                 'unidad' => $unidades[$p->unidad_id] ?? '—',
-                'pagador' => $p->user_id === null ? null : ($usuarios[$p->user_id] ?? null),
+                'pagador' => $p->user_id === null ? $p->pagador_nombre : ($usuarios[$p->user_id] ?? null),
                 'banco' => $p->cuenta_bancaria_id === null ? $p->banco_origen : ($cuentas[$p->cuenta_bancaria_id] ?? $p->banco_origen),
                 'metodo' => $p->metodo,
                 'monto' => (string) $p->monto,

@@ -46,6 +46,7 @@ it('el administrador ve inicio, unidades con bloques y su configuración', funct
         ]],
         ['id' => 'finanzas', 'etiqueta' => 'Finanzas', 'icono' => 'sym_r_account_balance_wallet', 'hijos' => [
             ['id' => 'finanzas.resumen', 'etiqueta' => 'Resumen', 'icono' => 'sym_r_dashboard', 'ruta' => 'finanzas-resumen', 'permiso' => 'finanzas.ver'],
+            ['id' => 'finanzas.cuotas', 'etiqueta' => 'Cuotas del mes', 'icono' => 'sym_r_receipt_long', 'ruta' => 'finanzas-cuotas', 'permiso' => 'finanzas.ver'],
             ['id' => 'finanzas.pagos', 'etiqueta' => 'Pagos por aprobar', 'icono' => 'sym_r_fact_check', 'ruta' => 'finanzas-pagos-por-aprobar', 'permiso' => 'pagos.aprobar'],
         ]],
         ['id' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true, 'hijos' => [
@@ -62,7 +63,7 @@ it('ninguna pantalla en vista previa llega al menú de producción', function ()
     // Solo rutas que ya tienen pantalla con API; una vista previa se suma cuando pasa a datos reales
     $rutas = MenuItem::query()->whereNotNull('ruta')->pluck('ruta')->sort()->values()->all();
 
-    expect($rutas)->toBe(['bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-pagos-por-aprobar', 'finanzas-resumen', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
+    expect($rutas)->toBe(['bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-cuotas', 'finanzas-pagos-por-aprobar', 'finanzas-resumen', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
 });
 
 it('un perfil sin permisos de configuración no ve esa sección', function () {

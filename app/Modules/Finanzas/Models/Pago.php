@@ -28,6 +28,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property int|null $revisado_por
  * @property Carbon|null $revisado_en
  * @property string $diferencia
+ * @property string|null $pagador_nombre Quien pagó cuando no hay cuenta detrás (efectivo)
  * @property list<array{cuota_id: int, periodo: string, monto: string}>|null $cuotas_declaradas
  */
 class Pago extends Model implements AuditableContract
@@ -46,7 +47,7 @@ class Pago extends Model implements AuditableContract
 
     protected $fillable = [
         'unidad_id', 'user_id', 'metodo', 'monto', 'cuenta_bancaria_id', 'numero_comprobante', 'banco_origen', 'fecha_pago',
-        'comprobante_ruta', 'estado', 'motivo_rechazo', 'revisado_por', 'revisado_en', 'diferencia', 'cuotas_declaradas',
+        'comprobante_ruta', 'estado', 'motivo_rechazo', 'revisado_por', 'revisado_en', 'diferencia', 'cuotas_declaradas', 'pagador_nombre',
     ];
 
     protected function casts(): array

@@ -12,15 +12,15 @@ use App\Modules\Unidades\Models\Unidad;
 final class UnidadesACobrarAction
 {
     /**
-     * @return array{unidades: list<array{id: int, codigo: string, cuota_mensual: string}>, sin_cuota: int}
+     * @return array{unidades: list<array{id: int, codigo: string, cuota_mensual: string, alicuota: string|null}>, sin_cuota: int}
      */
     public function execute(): array
     {
         $unidades = Unidad::query()
             ->where('cuota_mensual', '>', 0)
             ->orderBy('codigo')
-            ->get(['id', 'codigo', 'cuota_mensual'])
-            ->map(fn (Unidad $u) => ['id' => $u->id, 'codigo' => $u->codigo, 'cuota_mensual' => (string) $u->cuota_mensual])
+            ->get(['id', 'codigo', 'cuota_mensual', 'alicuota'])
+            ->map(fn (Unidad $u) => ['id' => $u->id, 'codigo' => $u->codigo, 'cuota_mensual' => (string) $u->cuota_mensual, 'alicuota' => $u->alicuota === null ? null : (string) $u->alicuota])
             ->all();
 
         return [
