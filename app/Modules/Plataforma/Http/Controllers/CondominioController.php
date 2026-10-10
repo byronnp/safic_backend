@@ -5,9 +5,12 @@ namespace App\Modules\Plataforma\Http\Controllers;
 use App\Core\Http\Responses\ApiResponse;
 use App\Core\Permissions\Rol;
 use App\Models\User;
+use App\Modules\Plataforma\Actions\CambiarEstadoCondominioAction;
 use App\Modules\Plataforma\Actions\CrearCondominioAction;
+use App\Modules\Plataforma\Actions\EditarCondominioAction;
 use App\Modules\Plataforma\Actions\ReenviarInvitacionAdministradorAction;
 use App\Modules\Plataforma\Http\Requests\CrearCondominioRequest;
+use App\Modules\Plataforma\Http\Requests\EditarCondominioRequest;
 use App\Modules\Plataforma\Http\Requests\ReenviarInvitacionRequest;
 use App\Modules\Plataforma\Http\Resources\CondominioPlataformaResource;
 use App\Modules\Plataforma\Models\Condominio;
@@ -66,6 +69,40 @@ class CondominioController
                 ? 'Condominio creado. El administrador ya tenía cuenta: lo verá en su selector de condominios.'
                 : 'Condominio creado. Enviamos la invitación al administrador.',
         );
+    }
+
+    public function update(EditarCondominioRequest $request, EditarCondominioAction $editar, int $condominio): JsonResponse
+    {
+        $actualizado = $editar->execute($condominio, $request->validated());
+        $this->cargarAdministradores(new Collection([$actualizado]));
+
+        return ApiResponse::ok(new CondominioPlataformaResource($actualizado), message: 'Datos del condominio actualizados.');
+    }
+
+    public function inactivar(Request $request, CambiarEstadoCondominioAction $cambiar, int $condominio): JsonResponse
+    {
+        $motivo = $this->motivo($request);
+        $actualizado = $cambiar->inactivar($condominio, $motivo)->load(['plan', 'provincia', 'canton', 'parroquia']);
+        $this->cargarAdministradores(new Collection([$actualizado]));
+
+        return ApiResponse::ok(new CondominioPlataformaResource($actualizado), message: 'Condominio inactivado. Sus usuarios ya no pueden entrar.');
+    }
+
+    public function reactivar(Request $request, CambiarEstadoCondominioAction $cambiar, int $condominio): JsonResponse
+    {
+        $motivo = $this->motivo($request);
+        $actualizado = $cambiar->reactivar($condominio, $motivo)->load(['plan', 'provincia', 'canton', 'parroquia']);
+        $this->cargarAdministradores(new Collection([$actualizado]));
+
+        return ApiResponse::ok(new CondominioPlataformaResource($actualizado), message: 'Condominio reactivado.');
+    }
+
+    private function motivo(Request $request): string
+    {
+        return $request->validate(['motivo' => ['required', 'string', 'min:3', 'max:300']], [
+            'motivo.required' => 'Escribe el motivo.',
+            'motivo.min' => 'El motivo es muy corto.',
+        ])['motivo'];
     }
 
     /**

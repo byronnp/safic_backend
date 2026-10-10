@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 // el permiso se mira en el equipo 0 (roles de plataforma). Cada ruta exige su permiso.
 
 $condominios = 'permission:'.Permiso::PlataformaCondominios->value;
+$editarCondominios = 'permission:'.Permiso::PlataformaCondominiosEditar->value;
 $roles = 'permission:'.Permiso::PlataformaRoles->value;
 $auditoria = 'permission:'.Permiso::PlataformaAuditoria->value;
 
@@ -26,6 +27,9 @@ Route::post('usuarios/{usuario}/doble-factor/restablecer', [UsuarioPlataformaCon
 Route::get('condominios', [CondominioController::class, 'index'])->middleware($condominios);
 Route::post('condominios', [CondominioController::class, 'store'])->middleware($condominios);
 Route::get('condominios/{condominio}', [CondominioController::class, 'show'])->whereNumber('condominio')->middleware($condominios);
+Route::patch('condominios/{condominio}', [CondominioController::class, 'update'])->whereNumber('condominio')->middleware($editarCondominios);
+Route::post('condominios/{condominio}/inactivar', [CondominioController::class, 'inactivar'])->whereNumber('condominio')->middleware($editarCondominios);
+Route::post('condominios/{condominio}/reactivar', [CondominioController::class, 'reactivar'])->whereNumber('condominio')->middleware($editarCondominios);
 Route::post('condominios/{condominio}/administradores/{usuario}/invitacion', [CondominioController::class, 'reenviarInvitacion'])
     ->whereNumber(['condominio', 'usuario'])
     ->middleware($condominios);

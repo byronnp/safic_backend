@@ -33,6 +33,7 @@ enum Permiso: string
 
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
+    case PlataformaCondominiosEditar = 'plataforma.condominios-editar';
     case PlataformaRoles = 'plataforma.roles';
     case PlataformaCobranza = 'plataforma.cobranza';
     case PlataformaAuditoria = 'plataforma.auditoria';
@@ -67,6 +68,7 @@ enum Permiso: string
             self::GastosAprobarN2 => 'Aprobar facturas grandes (2.º nivel)',
             self::GastosPagar => 'Pagar facturas a proveedores',
             self::PlataformaCondominios => 'Gestionar condominios',
+            self::PlataformaCondominiosEditar => 'Editar e inactivar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
             self::PlataformaCobranza => 'Gestionar la cobranza',
             self::PlataformaAuditoria => 'Consultar la bitácora de plataforma',
