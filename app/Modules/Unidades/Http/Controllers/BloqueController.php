@@ -3,11 +3,14 @@
 namespace App\Modules\Unidades\Http\Controllers;
 
 use App\Core\Http\Responses\ApiResponse;
+use App\Modules\Unidades\Actions\ActualizarBloqueAction;
 use App\Modules\Unidades\Actions\CrearBloqueAction;
+use App\Modules\Unidades\Actions\EliminarBloqueAction;
 use App\Modules\Unidades\Http\Requests\GuardarBloqueRequest;
 use App\Modules\Unidades\Http\Resources\BloqueResource;
 use App\Modules\Unidades\Models\Bloque;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
 
 class BloqueController
 {
@@ -24,5 +27,20 @@ class BloqueController
         $datos = $request->validated();
 
         return ApiResponse::created(new BloqueResource($crear->execute($datos)), message: 'Bloque creado.');
+    }
+
+    public function update(GuardarBloqueRequest $request, ActualizarBloqueAction $actualizar, int $bloque): JsonResponse
+    {
+        /** @var array{nombre?: string, orden?: int} $datos */
+        $datos = $request->validated();
+
+        return ApiResponse::ok(new BloqueResource($actualizar->execute($bloque, $datos)), message: 'Bloque actualizado.');
+    }
+
+    public function destroy(EliminarBloqueAction $eliminar, int $bloque): Response
+    {
+        $eliminar->execute($bloque);
+
+        return ApiResponse::noContent();
     }
 }

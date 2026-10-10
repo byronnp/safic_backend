@@ -20,6 +20,14 @@ Route::get('bloques', [BloqueController::class, 'index'])
 Route::post('bloques', [BloqueController::class, 'store'])
     ->middleware('permission:'.Permiso::UnidadesEditar->value);
 
+Route::patch('bloques/{bloque}', [BloqueController::class, 'update'])
+    ->whereNumber('bloque')
+    ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
+Route::delete('bloques/{bloque}', [BloqueController::class, 'destroy'])
+    ->whereNumber('bloque')
+    ->middleware('permission:'.Permiso::UnidadesEditar->value);
+
 Route::get('unidades', [UnidadController::class, 'index'])
     ->middleware('permission:'.Permiso::UnidadesVer->value);
 
