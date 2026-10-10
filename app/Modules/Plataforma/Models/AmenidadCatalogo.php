@@ -2,6 +2,7 @@
 
 namespace App\Modules\Plataforma\Models;
 
+use App\Core\Audit\RegistraBitacora;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -21,6 +22,18 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AmenidadCatalogo extends Model
 {
+    use RegistraBitacora;
+
+    public function bitacoraEntidad(): string
+    {
+        return 'catalogo_amenidad';
+    }
+
+    public function bitacoraEtiqueta(): string
+    {
+        return $this->nombre;
+    }
+
     protected $table = 'amenidades_catalogo';
 
     protected $fillable = [

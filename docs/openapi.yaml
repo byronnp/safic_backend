@@ -2520,6 +2520,56 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /plataforma/bitacora:
+    get:
+      tags: [Plataforma]
+      operationId: listarBitacoraPlataforma
+      summary: Bitácora de cambios de plataforma
+      description: |
+        Permiso: `plataforma.auditoria` (super admin). Quién cambió qué en condominios, membresías, catálogo de amenidades,
+        menú, roles y permisos, con los valores antes y después. Solo lectura, del más reciente al más antiguo. Los datos
+        personales (teléfono, correo) no se guardan. Solo se registra lo que hace una persona con sesión.
+      x-permiso: plataforma.auditoria
+      parameters:
+        - { name: entidad, in: query, schema: { type: string, enum: [condominio, membresia, catalogo_amenidad, menu, rol] } }
+        - { name: evento, in: query, schema: { type: string, enum: [creado, actualizado, eliminado] } }
+        - { name: usuario_id, in: query, schema: { type: integer } }
+        - { name: condominio_id, in: query, schema: { type: integer } }
+        - { name: desde, in: query, schema: { type: string, format: date } }
+        - { name: hasta, in: query, schema: { type: string, format: date } }
+        - { name: buscar, in: query, description: 'Texto en el nombre del registro o de quien lo cambió.', schema: { type: string, maxLength: 80 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: por_pagina, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+      responses:
+        '200':
+          description: Página de registros.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/RegistroBitacora' } }
+                  meta:
+                    type: object
+                    properties:
+                      pagination:
+                        type: object
+                        properties:
+                          page: { type: integer }
+                          per_page: { type: integer }
+                          total: { type: integer }
+                          last_page: { type: integer }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoPlataforma'
+        '422':
+          description: Filtro inválido.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /plataforma/usuarios/buscar:
     get:
       tags: [Plataforma]
@@ -3236,6 +3286,22 @@ components:
         acta: { type: string, maxLength: 80, examples: ['Acta 2026-03'] }
         periodo_hasta: { type: string, format: date, description: 'Después de hoy y hasta 4 años.' }
 
+    RegistroBitacora:
+      type: object
+      required: [id, fecha, usuario_id, usuario, evento, entidad, entidad_id, etiqueta, condominio_id, antes, despues, ip]
+      properties:
+        id: { type: integer }
+        fecha: { type: string, format: date-time }
+        usuario_id: { type: [integer, 'null'] }
+        usuario: { type: [string, 'null'], description: 'Nombre de quien hizo el cambio, tal como estaba entonces.' }
+        evento: { type: string, enum: [creado, actualizado, eliminado] }
+        entidad: { type: string, enum: [condominio, membresia, catalogo_amenidad, menu, rol] }
+        entidad_id: { type: [string, 'null'], description: Id o clave del registro cambiado. }
+        etiqueta: { type: [string, 'null'], description: Nombre legible del registro. }
+        condominio_id: { type: [integer, 'null'] }
+        antes: { type: [object, 'null'], additionalProperties: true }
+        despues: { type: [object, 'null'], additionalProperties: true }
+        ip: { type: [string, 'null'] }
     RolAdmin:
       type: object
       required: [clave, nombre, tipo, condominios, permisos, bloqueos, obligatorios]

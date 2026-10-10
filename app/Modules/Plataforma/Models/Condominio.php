@@ -2,6 +2,7 @@
 
 namespace App\Modules\Plataforma\Models;
 
+use App\Core\Audit\RegistraBitacora;
 use App\Models\User;
 use Database\Factories\CondominioFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -42,6 +43,26 @@ use Illuminate\Support\Carbon;
  */
 class Condominio extends Model
 {
+    use RegistraBitacora;
+
+    /** @var list<string> */
+    protected array $bitacoraExcluir = ['remember_token'];
+
+    public function bitacoraEntidad(): string
+    {
+        return 'condominio';
+    }
+
+    public function bitacoraCondominioId(): ?int
+    {
+        return $this->id;
+    }
+
+    public function bitacoraEtiqueta(): string
+    {
+        return $this->nombre;
+    }
+
     /** @use HasFactory<CondominioFactory> */
     use HasFactory;
 

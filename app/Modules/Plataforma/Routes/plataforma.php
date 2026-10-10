@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Permissions\Permiso;
+use App\Modules\Plataforma\Http\Controllers\BitacoraController;
 use App\Modules\Plataforma\Http\Controllers\CatalogoAmenidadesController;
 use App\Modules\Plataforma\Http\Controllers\CatalogoController;
 use App\Modules\Plataforma\Http\Controllers\CondominioController;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 
 $condominios = 'permission:'.Permiso::PlataformaCondominios->value;
 $roles = 'permission:'.Permiso::PlataformaRoles->value;
+$auditoria = 'permission:'.Permiso::PlataformaAuditoria->value;
 
 Route::get('planes', [CatalogoController::class, 'planes'])->middleware($condominios);
 Route::get('amenidades', [CatalogoController::class, 'amenidades'])->middleware($condominios);
@@ -48,3 +50,6 @@ Route::post('menu-sistema/{item}/mover', [MenuSistemaController::class, 'mover']
 Route::get('roles', [RolesAdminController::class, 'index'])->middleware($roles);
 Route::post('roles', [RolesAdminController::class, 'store'])->middleware($roles);
 Route::put('roles/{rol}/permisos', [RolesAdminController::class, 'permisos'])->where('rol', '[a-z0-9_]+')->middleware($roles);
+
+// Bitácora de cambios de plataforma (solo lectura)
+Route::get('bitacora', [BitacoraController::class, 'index'])->middleware($auditoria);

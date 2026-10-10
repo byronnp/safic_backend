@@ -2,6 +2,7 @@
 
 namespace App\Modules\Plataforma\Actions;
 
+use App\Core\Audit\BitacoraPlataforma;
 use App\Core\Http\Exceptions\ApiException;
 use App\Core\Menu\Models\MenuItem;
 use Illuminate\Support\Facades\DB;
@@ -119,6 +120,12 @@ final class GuardarMenuItemAction
         }
 
         $ids = Role::query()->whereNull('condominio_id')->where('guard_name', 'api')->whereIn('name', $nombres)->pluck('id')->all();
+        $antes = $item->roles()->pluck('name')->sort()->values()->all();
         $item->roles()->sync($ids);
+        $despues = collect($nombres)->unique()->sort()->values()->all();
+
+        if ($antes !== $despues) {
+            BitacoraPlataforma::registrar('actualizado', 'menu', $item->id, $item->ambito.': '.$item->etiqueta, ['perfiles' => $antes], ['perfiles' => $despues]);
+        }
     }
 }
