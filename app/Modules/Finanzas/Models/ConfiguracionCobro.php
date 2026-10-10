@@ -18,7 +18,6 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string|null $presupuesto_mensual
  * @property int $dia_vencimiento 1–28; 0 = último día del mes
  * @property Carbon $aplica_desde
- * @property string $tolerancia_bancaria Diferencia de centavos que no impide dar la cuota por pagada
  */
 class ConfiguracionCobro extends Model implements AuditableContract
 {
@@ -45,7 +44,6 @@ class ConfiguracionCobro extends Model implements AuditableContract
             'presupuesto_mensual' => 'decimal:2',
             'dia_vencimiento' => 'integer',
             'aplica_desde' => 'date',
-            'tolerancia_bancaria' => 'decimal:2',
         ];
     }
 }

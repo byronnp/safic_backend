@@ -2,6 +2,7 @@
 
 use App\Core\Permissions\Permiso;
 use App\Modules\Finanzas\Http\Controllers\CobroController;
+use App\Modules\Finanzas\Http\Controllers\ConfiguracionFinanzasController;
 use App\Modules\Finanzas\Http\Controllers\CuentaBancariaController;
 use App\Modules\Finanzas\Http\Controllers\CuotaController;
 use App\Modules\Finanzas\Http\Controllers\EstadoCuentaController;
@@ -20,6 +21,13 @@ Route::get('cobro', [CobroController::class, 'show'])
     ->middleware('permission:'.Permiso::CondominioEditar->value);
 
 Route::put('cobro', [CobroController::class, 'update'])
+    ->middleware('permission:'.Permiso::CondominioEditar->value);
+
+// Reglas de dinero: umbral de la 2.ª aprobación, quién paga lo que aprobó, tolerancia bancaria
+Route::get('finanzas/configuracion', [ConfiguracionFinanzasController::class, 'show'])
+    ->middleware('permission:'.Permiso::CondominioEditar->value);
+
+Route::put('finanzas/configuracion', [ConfiguracionFinanzasController::class, 'update'])
     ->middleware('permission:'.Permiso::CondominioEditar->value);
 
 // Cuotas del mes y resumen financiero
