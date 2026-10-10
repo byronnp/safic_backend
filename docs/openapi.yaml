@@ -2259,6 +2259,269 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /gastos/{gasto}:
+    get:
+      tags: [Finanzas]
+      operationId: verGasto
+      summary: Una factura con su historial de aprobación
+      description: 'Permiso: `finanzas.ver`. Quién la registró y cada aprobación o rechazo (nivel, quién, comentario, si fue en subrogación).'
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: gasto, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Factura.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/GastoDetalle' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /gastos/{gasto}/aprobar:
+    post:
+      tags: [Finanzas]
+      operationId: aprobarGasto
+      summary: Aprobar una factura (nivel 1 o 2)
+      description: |
+        Permiso: `gastos.aprobar-n1` o `gastos.aprobar-n2` (la ruta acepta cualquiera; el nivel que toca lo decide el caso de uso).
+        El 1.er nivel lo da la administración; si el total supera el umbral del condominio (por defecto $ 500,00) falta un 2.º
+        nivel de presidente o vicepresidente (este queda marcado `en_subrogacion`). Quien registró la factura no la aprueba
+        (403 `REGISTRO_PROPIO`) y la misma persona no da los dos niveles (403 `MISMA_PERSONA`). 403 `NIVEL_NO_PERMITIDO`,
+        409 `GASTO_NO_PENDIENTE`.
+      x-permiso: gastos.aprobar-n1|gastos.aprobar-n2
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: gasto, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comentario: { type: [string, 'null'], maxLength: 300 }
+      responses:
+        '200':
+          description: Aprobación registrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/GastoDetalle' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`GASTO_NO_PENDIENTE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /gastos/{gasto}/rechazar:
+    post:
+      tags: [Finanzas]
+      operationId: rechazarGasto
+      summary: Rechazar una factura
+      description: 'Permiso: `gastos.aprobar-n1` o `gastos.aprobar-n2`, según el nivel que toca. Exige motivo y cierra la factura. Mismas reglas que aprobar.'
+      x-permiso: gastos.aprobar-n1|gastos.aprobar-n2
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: gasto, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200':
+          description: Factura rechazada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/GastoDetalle' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`GASTO_NO_PENDIENTE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /pagos-proveedor:
+    get:
+      tags: [Finanzas]
+      operationId: listarPagosProveedor
+      summary: Pagos hechos a proveedores
+      description: 'Permiso: `finanzas.ver`. Del más reciente al más antiguo (hasta 200), con las facturas que cubrió cada uno.'
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: proveedor_id, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: Pagos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/PagoProveedor' } }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    post:
+      tags: [Finanzas]
+      operationId: registrarPagoProveedor
+      summary: Registrar un pago a un proveedor
+      description: |
+        Permiso: `gastos.pagar`. Registra la transferencia hecha desde la banca en línea. Solo facturas aprobadas del proveedor;
+        se permiten abonos (se aplican a la factura más antigua primero). Se paga a la cuenta vigente del proveedor
+        (409 `SIN_CUENTA_PROVEEDOR`). 422 `MONTO_SUPERA_SALDO`, `FECHA_FUTURA`; 409 `FACTURA_NO_APROBADA`, `REFERENCIA_DUPLICADA`;
+        403 `APROBADOR_NO_PAGA` (quien aprobó una de las facturas no la paga, salvo configuración del condominio).
+      x-permiso: gastos.pagar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [proveedor_id, facturas, monto, cuenta_bancaria_id, fecha_pago, referencia]
+              properties:
+                proveedor_id: { type: integer }
+                facturas: { type: array, items: { type: integer }, minItems: 1, maxItems: 50 }
+                monto: { type: string, examples: ['800.00'] }
+                cuenta_bancaria_id: { type: integer, description: Cuenta del condominio desde la que se pagó. }
+                fecha_pago: { type: string, format: date }
+                referencia: { type: string, minLength: 3, maxLength: 40 }
+                comprobante: { type: string, format: binary, description: Foto o PDF de hasta 5 MB. }
+          application/json:
+            schema:
+              type: object
+              required: [proveedor_id, facturas, monto, cuenta_bancaria_id, fecha_pago, referencia]
+              properties:
+                proveedor_id: { type: integer }
+                facturas: { type: array, items: { type: integer } }
+                monto: { type: string }
+                cuenta_bancaria_id: { type: integer }
+                fecha_pago: { type: string, format: date }
+                referencia: { type: string }
+      responses:
+        '201':
+          description: Pago registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PagoProveedor' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`SIN_CUENTA_PROVEEDOR`, `FACTURA_NO_APROBADA` o `REFERENCIA_DUPLICADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /pagos-proveedor/{pago}/anular:
+    post:
+      tags: [Finanzas]
+      operationId: anularPagoProveedor
+      summary: Anular un pago a proveedor
+      description: 'Permiso: `gastos.pagar`. Exige motivo, devuelve el saldo a las facturas (una pagada vuelve a aprobada) y deja constancia de quién y cuándo. 409 `PAGO_YA_ANULADO`.'
+      x-permiso: gastos.pagar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: pago, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200':
+          description: Pago anulado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PagoProveedor' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`PAGO_YA_ANULADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -5357,11 +5620,62 @@ components:
         subtotal: { type: string }
         iva: { type: string }
         total: { type: string }
+        pagado: { type: string }
         saldo: { type: string }
         estado: { type: string, enum: [por_aprobar, aprobada, rechazada, pagada] }
+        pagada_parcial: { type: boolean, description: Aprobada con abonos y saldo pendiente. }
+        requiere_segunda_aprobacion: { type: boolean, description: El total supera el umbral del condominio. }
+        nivel_pendiente: { type: [integer, 'null'], enum: [1, 2, null], description: Qué aprobación falta; null si ya no espera ninguna. }
+        motivo_rechazo: { type: [string, 'null'] }
         vencida: { type: boolean }
         tiene_xml: { type: boolean }
         tiene_pdf: { type: boolean }
+
+    GastoDetalle:
+      allOf:
+        - { $ref: '#/components/schemas/Gasto' }
+        - type: object
+          properties:
+            registrada_por: { type: [string, 'null'] }
+            registrada_en: { type: [string, 'null'], format: date-time }
+            aprobaciones:
+              type: array
+              items:
+                type: object
+                properties:
+                  nivel: { type: integer, enum: [1, 2] }
+                  decision: { type: string, enum: [aprobada, rechazada] }
+                  por: { type: [string, 'null'] }
+                  comentario: { type: [string, 'null'] }
+                  en_subrogacion: { type: boolean }
+                  en: { type: [string, 'null'], format: date-time }
+
+    PagoProveedor:
+      type: object
+      required: [id, codigo, proveedor, monto, fecha_pago, referencia, estado, facturas]
+      properties:
+        id: { type: integer }
+        codigo: { type: string, examples: ['PP-0087'] }
+        proveedor:
+          type: object
+          properties:
+            id: { type: integer }
+            razon_social: { type: string }
+            ruc: { type: string }
+        monto: { type: string }
+        fecha_pago: { type: string, format: date }
+        referencia: { type: string }
+        estado: { type: string, enum: [registrado, anulado] }
+        motivo_anulacion: { type: [string, 'null'] }
+        tiene_comprobante: { type: boolean }
+        facturas:
+          type: array
+          items:
+            type: object
+            properties:
+              gasto_id: { type: integer }
+              numero: { type: string }
+              monto: { type: string }
 
     CuentaBancaria:
       type: object

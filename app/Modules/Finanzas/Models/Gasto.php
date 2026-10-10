@@ -27,6 +27,8 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string $pagado
  * @property string $estado por_aprobar|aprobada|rechazada|pagada
  * @property string|null $xml_ruta
+ * @property int $nivel_aprobado
+ * @property string|null $motivo_rechazo
  * @property string|null $pdf_ruta
  * @property int|null $registrado_por
  */
@@ -40,7 +42,7 @@ class Gasto extends Model implements AuditableContract
 
     protected $fillable = [
         'proveedor_id', 'numero', 'clave_acceso', 'origen', 'categoria', 'descripcion', 'fecha_emision', 'vence_el',
-        'subtotal', 'iva', 'total', 'pagado', 'estado', 'xml_ruta', 'pdf_ruta', 'registrado_por',
+        'subtotal', 'iva', 'total', 'pagado', 'estado', 'nivel_aprobado', 'motivo_rechazo', 'xml_ruta', 'pdf_ruta', 'registrado_por',
     ];
 
     protected function casts(): array

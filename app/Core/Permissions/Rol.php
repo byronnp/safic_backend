@@ -125,9 +125,10 @@ enum Rol: string
             self::SuperAdmin => Permiso::cases(),
             self::Soporte => [Permiso::PlataformaCondominios],
             self::Cobranza, self::ContadorPlataforma => [Permiso::PlataformaCobranza],
-            self::Administrador => array_values(array_filter(Permiso::cases(), fn (Permiso $p) => ! $p->esDePlataforma())),
-            self::Tesorero => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::PagosAprobar, Permiso::GastosRegistrar, Permiso::ProveedoresEditar],
-            self::Presidente, self::Vicepresidente => [Permiso::UnidadesVer, Permiso::FinanzasVer],
+            // El 2.º nivel de aprobación es de la directiva (presidente o vicepresidente), no de la administración
+            self::Administrador => array_values(array_filter(Permiso::cases(), fn (Permiso $p) => ! $p->esDePlataforma() && $p !== Permiso::GastosAprobarN2)),
+            self::Tesorero => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::PagosAprobar, Permiso::GastosRegistrar, Permiso::ProveedoresEditar, Permiso::GastosPagar],
+            self::Presidente, self::Vicepresidente => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::GastosAprobarN2],
             self::Secretario => [Permiso::UnidadesVer],
             self::Guardia => [Permiso::UnidadesVer, Permiso::GaritaDirectorio],
             self::Contador => [Permiso::FinanzasVer],
