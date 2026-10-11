@@ -4,7 +4,11 @@ namespace App\Modules\Finanzas\Services;
 
 use App\Core\Support\Dinero;
 use App\Core\Tenancy\Calendario;
+use App\Modules\Finanzas\Actions\ObtenerConciliacionAction;
+use App\Modules\Finanzas\Models\CuentaBancaria;
 use App\Modules\Finanzas\Models\Cuota;
+use App\Modules\Finanzas\Models\EstadoCuentaBancario;
+use App\Modules\Finanzas\Models\MovimientoBancario;
 use App\Modules\Finanzas\Models\PeriodoFinanciero;
 use App\Modules\Unidades\Actions\UnidadesACobrarAction;
 use Carbon\CarbonImmutable;
@@ -20,6 +24,7 @@ final class CierreMes
     public function __construct(
         private readonly Calendario $calendario,
         private readonly UnidadesACobrarAction $aCobrar,
+        private readonly ObtenerConciliacionAction $conciliacion,
     ) {}
 
     /**
@@ -42,7 +47,7 @@ final class CierreMes
 
         $terminado = $this->calendario->hoy() > $fin;
 
-        return [
+        return [...[
             [
                 'clave' => 'mes_terminado', 'titulo' => 'El mes ya terminó',
                 'detalle' => $terminado ? 'Todos los movimientos del mes ya tienen fecha.' : 'Se cierra desde el primer día del mes siguiente.',
@@ -68,7 +73,48 @@ final class CierreMes
                 'detalle' => $sinPagar === 0 ? 'Todas las aprobadas tienen su pago.' : "{$sinPagar} ".($sinPagar === 1 ? 'aprobada sin pagar' : 'aprobadas sin pagar').' (pasan al mes siguiente)',
                 'estado' => $sinPagar === 0 ? 'listo' : 'revisar',
             ],
-        ];
+        ], ...$this->conciliaciones($mes)];
+    }
+
+    /**
+     * Un punto por cuenta bancaria activa: el estado de cuenta del mes debe estar importado, sin
+     * líneas por confirmar o identificar y cuadrado con el banco.
+     *
+     * @return list<array{clave: string, titulo: string, detalle: string, estado: string}>
+     */
+    private function conciliaciones(CarbonImmutable $mes): array
+    {
+        $puntos = [];
+        foreach (CuentaBancaria::query()->where('activa', true)->orderBy('id')->get() as $cuenta) {
+            $titulo = "Conciliación de {$cuenta->banco} ····".substr((string) $cuenta->numero, -4);
+            $clave = "conciliacion_{$cuenta->id}";
+
+            $estado = EstadoCuentaBancario::query()->where('cuenta_bancaria_id', $cuenta->id)->where('periodo', $mes->toDateString())->first();
+            if ($estado === null) {
+                $puntos[] = ['clave' => $clave, 'titulo' => $titulo, 'detalle' => 'Aún no se importó el estado de cuenta de este mes.', 'estado' => 'revisar'];
+
+                continue;
+            }
+
+            $movs = MovimientoBancario::query()->where('estado_cuenta_id', $estado->id)->get();
+            $pendientes = $movs->whereIn('estado', [MovimientoBancario::SUGERIDO, MovimientoBancario::SIN_IDENTIFICAR]);
+            if ($pendientes->isNotEmpty()) {
+                $monto = Dinero::texto(abs(Dinero::suma($pendientes->map(fn (MovimientoBancario $m) => (string) $m->monto))));
+                $n = $pendientes->count();
+                $puntos[] = ['clave' => $clave, 'titulo' => $titulo, 'detalle' => "{$n} ".($n === 1 ? 'movimiento sin identificar o por confirmar' : 'movimientos sin identificar o por confirmar')." · $ {$monto}", 'estado' => 'bloquea'];
+
+                continue;
+            }
+
+            $diferencia = $this->conciliacion->cuadre($estado, $movs)['diferencia'];
+            $puntos[] = match (true) {
+                $diferencia === null => ['clave' => $clave, 'titulo' => $titulo, 'detalle' => 'El archivo no trae saldos: no se puede cuadrar.', 'estado' => 'revisar'],
+                Dinero::centavos($diferencia) !== 0 => ['clave' => $clave, 'titulo' => $titulo, 'detalle' => "Diferencia de $ {$diferencia} con el banco. Identifica la línea o registra un ajuste con motivo.", 'estado' => 'bloquea'],
+                default => ['clave' => $clave, 'titulo' => $titulo, 'detalle' => $movs->count().' movimientos · diferencia $ 0.00', 'estado' => 'listo'],
+            };
+        }
+
+        return $puntos;
     }
 
     /**

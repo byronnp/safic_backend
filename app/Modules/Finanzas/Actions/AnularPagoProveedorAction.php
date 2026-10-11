@@ -6,6 +6,7 @@ use App\Core\Http\Exceptions\ApiException;
 use App\Core\Support\Dinero;
 use App\Models\User;
 use App\Modules\Finanzas\Models\Gasto;
+use App\Modules\Finanzas\Models\MovimientoBancario;
 use App\Modules\Finanzas\Models\PagoProveedor;
 use App\Modules\Finanzas\Services\PeriodoAbierto;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,10 @@ final class AnularPagoProveedorAction
 
             // Anular un pago de un mes cerrado cambiaría un mes que ya se revisó
             $this->periodoAbierto->exigir($pago->fecha_pago->toDateString());
+
+            if (MovimientoBancario::query()->where('pago_proveedor_id', $pago->id)->exists()) {
+                throw new ApiException('PAGO_CONCILIADO', 'Este pago ya está conciliado con el banco: deshaz la conciliación antes de anularlo.', 409);
+            }
 
             if ($pago->estado !== 'registrado') {
                 throw new ApiException('PAGO_YA_ANULADO', 'Este pago ya está anulado.', 409);

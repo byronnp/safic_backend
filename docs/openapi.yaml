@@ -2697,6 +2697,306 @@ paths:
         '422':
           $ref: '#/components/responses/Validacion'
 
+  /conciliacion/estados:
+    get:
+      tags: [Finanzas]
+      operationId: listarEstadosCuenta
+      summary: Estados de cuenta del banco importados
+      description: 'Permiso: `finanzas.ver`. Uno por cuenta y mes, del más reciente al más antiguo, con cuántas líneas hay y cuántas esperan que alguien las confirme o identifique.'
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: cuenta_bancaria_id, in: query, schema: { type: integer } }
+        - { name: periodo, in: query, schema: { type: string, pattern: '^\d{4}-\d{2}$' } }
+      responses:
+        '200':
+          description: Estados de cuenta.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/EstadoCuentaBanco' } }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+    post:
+      tags: [Finanzas]
+      operationId: importarEstadoCuenta
+      summary: Importar el estado de cuenta de un mes
+      description: |
+        Permiso: `conciliacion.gestionar` (administrador y tesorero). Excel (.xlsx) o CSV con fecha, descripción,
+        débito y crédito (o monto) y, de preferencia, saldo; se reconocen las columnas por su nombre. Solo se importan
+        las líneas del mes; las que ya estaban se descartan, así que volver a subir el archivo no duplica nada (`meta.duplicados`).
+        Cada línea se clasifica: automática (monto exacto más código de la unidad o referencia, o una regla guardada),
+        sugerida o sin identificar. 422 `ESTADO_FORMATO_DESCONOCIDO`, `ESTADO_FUERA_DEL_MES`, `CUENTA_INVALIDA`;
+        409 `PERIODO_CERRADO`. Límite de peticiones compartido con los pagos (429).
+      x-permiso: conciliacion.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [cuenta_bancaria_id, periodo, archivo]
+              properties:
+                cuenta_bancaria_id: { type: integer }
+                periodo: { type: string, pattern: '^\d{4}-\d{2}$', examples: ['2026-09'] }
+                archivo: { type: string, format: binary, description: 'Hasta 5 MB.' }
+                saldo_inicial: { type: [string, 'null'], description: 'Solo si el archivo no trae saldos.' }
+                saldo_final: { type: [string, 'null'], description: 'Solo si el archivo no trae saldos.' }
+      responses:
+        '201':
+          description: Importado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Conciliacion' }
+                  meta: { type: object, properties: { nuevos: { type: integer }, duplicados: { type: integer }, fuera_del_mes: { type: integer } } }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`PERIODO_CERRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /conciliacion/estados/{estado}:
+    get:
+      tags: [Finanzas]
+      operationId: verConciliacion
+      summary: Un estado de cuenta con sus líneas y el cuadre
+      description: |
+        Permiso: `finanzas.ver`. Las líneas vienen en tres grupos: automáticas (ya resueltas), sugeridas y sin identificar.
+        El cuadre es saldo inicial + pagos de residentes + intereses − gastos pagados − comisiones ± otros ± ajustes contra
+        el saldo del banco; solo cuentan las líneas resueltas. `archivo_cuadra` dice si el saldo inicial más todas las líneas
+        da el saldo final del archivo.
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: estado, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Conciliación.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Conciliacion' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /conciliacion/estados/{estado}/ajustes:
+    post:
+      tags: [Finanzas]
+      operationId: registrarAjusteConciliacion
+      summary: Justificar una diferencia con un motivo
+      description: 'Permiso: `conciliacion.gestionar`. El ajuste (positivo suma, negativo resta; no cero) entra al saldo de la app y queda auditado. 409 `PERIODO_CERRADO`.'
+      x-permiso: conciliacion.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: estado, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [monto, motivo]
+              properties:
+                monto: { type: string, examples: ['-12.00'] }
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '201':
+          description: Ajuste registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Conciliacion' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`PERIODO_CERRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /conciliacion/movimientos/{movimiento}/vincular:
+    post:
+      tags: [Finanzas]
+      operationId: vincularMovimiento
+      summary: Confirmar que una línea del banco es un pago concreto
+      description: |
+        Permiso: `conciliacion.gestionar`. Un crédito se vincula a un pago de residente aprobado; un débito, a un pago a
+        proveedor. El monto debe ser el mismo (422 `MONTO_DISTINTO`, `DIRECCION_INVALIDA`) y un pago va a una sola línea
+        (409 `PAGO_YA_CONCILIADO`, `MOVIMIENTO_RESUELTO`, `PERIODO_CERRADO`).
+      x-permiso: conciliacion.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: movimiento, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tipo, pago_id]
+              properties:
+                tipo: { type: string, enum: [pago_residente, pago_proveedor] }
+                pago_id: { type: integer }
+      responses:
+        '200':
+          description: Línea conciliada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Conciliacion' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`PAGO_YA_CONCILIADO`, `MOVIMIENTO_RESUELTO` o `PERIODO_CERRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /conciliacion/movimientos/{movimiento}/clasificar:
+    post:
+      tags: [Finanzas]
+      operationId: clasificarMovimiento
+      summary: Clasificar una línea como comisión, interés u otro
+      description: |
+        Permiso: `conciliacion.gestionar`. Una comisión es un débito y un interés un crédito (422 `DIRECCION_INVALIDA`).
+        Con `guardar_regla` se guarda «la descripción contiene…» (`patron`, o la descripción sin números) y las líneas
+        pendientes parecidas del mismo estado de cuenta se resuelven solas. Las reglas también aplican a futuras importaciones.
+      x-permiso: conciliacion.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: movimiento, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tipo]
+              properties:
+                tipo: { type: string, enum: [interes, comision, otro] }
+                guardar_regla: { type: boolean }
+                patron: { type: [string, 'null'], maxLength: 80 }
+      responses:
+        '200':
+          description: Línea clasificada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Conciliacion' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`MOVIMIENTO_RESUELTO` o `PERIODO_CERRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /conciliacion/movimientos/{movimiento}/deshacer:
+    post:
+      tags: [Finanzas]
+      operationId: deshacerMovimiento
+      summary: Deshacer la conciliación de una línea
+      description: 'Permiso: `conciliacion.gestionar`. Libera el pago y la clasifica de nuevo desde cero. 409 `MOVIMIENTO_PENDIENTE`, `PERIODO_CERRADO`.'
+      x-permiso: conciliacion.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: movimiento, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Conciliación deshecha.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/Conciliacion' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`MOVIMIENTO_PENDIENTE` o `PERIODO_CERRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -6127,6 +6427,68 @@ components:
                 periodo: { type: string }
                 por: { type: [string, 'null'] }
             - { type: 'null' }
+
+    LineaBanco:
+      type: object
+      properties:
+        id: { type: integer }
+        fecha: { type: string, format: date }
+        descripcion: { type: string }
+        referencia: { type: [string, 'null'] }
+        monto: { type: string, description: 'Crédito (+) o débito (−).' }
+        estado: { type: string, enum: [automatico, sugerido, sin_identificar, conciliado] }
+        tipo: { type: [string, 'null'], enum: [pago_residente, pago_proveedor, interes, comision, otro, null] }
+        pago_id: { type: [integer, 'null'] }
+        pago_proveedor_id: { type: [integer, 'null'] }
+        propuesta:
+          oneOf:
+            - type: object
+              properties:
+                tipo: { type: string }
+                id: { type: [integer, 'null'] }
+                texto: { type: [string, 'null'] }
+            - { type: 'null' }
+
+    EstadoCuentaBanco:
+      type: object
+      properties:
+        id: { type: integer }
+        cuenta_bancaria_id: { type: integer }
+        cuenta: { type: string, examples: ['Banco Pichincha · Corriente ····4821'] }
+        periodo: { type: string, examples: ['2026-09'] }
+        archivo_nombre: { type: string }
+        movimientos: { type: integer }
+        duplicados: { type: integer }
+        pendientes: { type: integer }
+        conteos:
+          type: object
+          properties:
+            automaticos: { type: integer }
+            sugeridos: { type: integer }
+            sin_identificar: { type: integer }
+
+    Conciliacion:
+      allOf:
+        - { $ref: '#/components/schemas/EstadoCuentaBanco' }
+        - type: object
+          properties:
+            automaticos: { type: array, items: { $ref: '#/components/schemas/LineaBanco' } }
+            sugeridos: { type: array, items: { $ref: '#/components/schemas/LineaBanco' } }
+            sin_identificar: { type: array, items: { $ref: '#/components/schemas/LineaBanco' } }
+            cuadre:
+              type: object
+              properties:
+                saldo_inicial: { type: [string, 'null'] }
+                pagos_residentes: { type: string }
+                intereses: { type: string }
+                gastos_pagados: { type: string }
+                comisiones: { type: string }
+                otros: { type: string }
+                ajustes: { type: string }
+                saldo_app: { type: [string, 'null'] }
+                saldo_banco: { type: [string, 'null'] }
+                diferencia: { type: [string, 'null'] }
+                archivo_cuadra: { type: [boolean, 'null'] }
 
     CuentaBancaria:
       type: object
