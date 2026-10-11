@@ -127,7 +127,7 @@ enum Rol: string
             self::Cobranza, self::ContadorPlataforma => [Permiso::PlataformaCobranza],
             // El 2.º nivel de aprobación es de la directiva (presidente o vicepresidente), no de la administración
             self::Administrador => array_values(array_filter(Permiso::cases(), fn (Permiso $p) => ! $p->esDePlataforma() && $p !== Permiso::GastosAprobarN2)),
-            self::Tesorero => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::PagosAprobar, Permiso::GastosRegistrar, Permiso::ProveedoresEditar, Permiso::GastosPagar, Permiso::PeriodosCerrar],
+            self::Tesorero => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::PagosAprobar, Permiso::GastosRegistrar, Permiso::ProveedoresEditar, Permiso::GastosPagar, Permiso::PeriodosCerrar, Permiso::ConciliacionGestionar],
             self::Presidente, self::Vicepresidente => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::GastosAprobarN2],
             self::Secretario => [Permiso::UnidadesVer],
             self::Guardia => [Permiso::UnidadesVer, Permiso::GaritaDirectorio],

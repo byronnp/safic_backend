@@ -3,6 +3,7 @@
 use App\Core\Permissions\Permiso;
 use App\Modules\Finanzas\Http\Controllers\CierreMesController;
 use App\Modules\Finanzas\Http\Controllers\CobroController;
+use App\Modules\Finanzas\Http\Controllers\ConciliacionController;
 use App\Modules\Finanzas\Http\Controllers\ConfiguracionFinanzasController;
 use App\Modules\Finanzas\Http\Controllers\CuentaBancariaController;
 use App\Modules\Finanzas\Http\Controllers\CuotaController;
@@ -172,3 +173,30 @@ Route::post('finanzas/periodos/{periodo}/cerrar', [CierreMesController::class, '
 Route::post('finanzas/periodos/{periodo}/reabrir', [CierreMesController::class, 'reabrir'])
     ->where('periodo', '\d{4}-\d{2}')
     ->middleware('permission:'.Permiso::PeriodosReabrir->value);
+
+// Conciliación bancaria: estados de cuenta del banco, líneas, reglas y cuadre
+Route::get('conciliacion/estados', [ConciliacionController::class, 'index'])
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::get('conciliacion/estados/{estado}', [ConciliacionController::class, 'show'])
+    ->whereNumber('estado')
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('conciliacion/estados', [ConciliacionController::class, 'importar'])
+    ->middleware(['permission:'.Permiso::ConciliacionGestionar->value, 'throttle:pagos']);
+
+Route::post('conciliacion/estados/{estado}/ajustes', [ConciliacionController::class, 'ajuste'])
+    ->whereNumber('estado')
+    ->middleware('permission:'.Permiso::ConciliacionGestionar->value);
+
+Route::post('conciliacion/movimientos/{movimiento}/vincular', [ConciliacionController::class, 'vincular'])
+    ->whereNumber('movimiento')
+    ->middleware('permission:'.Permiso::ConciliacionGestionar->value);
+
+Route::post('conciliacion/movimientos/{movimiento}/clasificar', [ConciliacionController::class, 'clasificar'])
+    ->whereNumber('movimiento')
+    ->middleware('permission:'.Permiso::ConciliacionGestionar->value);
+
+Route::post('conciliacion/movimientos/{movimiento}/deshacer', [ConciliacionController::class, 'deshacer'])
+    ->whereNumber('movimiento')
+    ->middleware('permission:'.Permiso::ConciliacionGestionar->value);
