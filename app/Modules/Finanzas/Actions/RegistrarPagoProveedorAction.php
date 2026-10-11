@@ -16,6 +16,7 @@ use App\Modules\Finanzas\Models\PagoProveedor;
 use App\Modules\Finanzas\Models\PagoProveedorAplicacion;
 use App\Modules\Finanzas\Models\Proveedor;
 use App\Modules\Finanzas\Models\ProveedorCuenta;
+use App\Modules\Finanzas\Services\PeriodoAbierto;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +34,7 @@ final class RegistrarPagoProveedorAction
         private readonly SequenceService $secuencias,
         private readonly ArchivosCondominio $archivos,
         private readonly Calendario $calendario,
+        private readonly PeriodoAbierto $periodoAbierto,
     ) {}
 
     /**
@@ -43,6 +45,8 @@ final class RegistrarPagoProveedorAction
         if ($fechaPago > $this->calendario->hoy()) {
             throw new ApiException('FECHA_FUTURA', 'La fecha de la transferencia no puede ser futura.', 422);
         }
+
+        $this->periodoAbierto->exigir($fechaPago);
 
         $ruta = $comprobante !== null ? $this->archivos->guardar($comprobante, 'pagos-proveedor') : null;
 

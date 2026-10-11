@@ -7,6 +7,7 @@ use App\Core\Support\Dinero;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Finanzas\Models\Pago;
+use App\Modules\Finanzas\Services\PeriodoAbierto;
 use App\Modules\Unidades\Actions\ResponsablesDePagoAction;
 use App\Modules\Unidades\Actions\UnidadEstadoCuentaAction;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ final class RegistrarPagoEfectivoAction
         private readonly ResponsablesDePagoAction $responsables,
         private readonly AprobarPagoAction $aprobar,
         private readonly Calendario $calendario,
+        private readonly PeriodoAbierto $periodoAbierto,
     ) {}
 
     public function execute(int $unidadId, string $monto, ?string $fecha, User $actor): Pago
@@ -38,6 +40,8 @@ final class RegistrarPagoEfectivoAction
         if ($fecha > $hoy) {
             throw new ApiException('FECHA_FUTURA', 'La fecha del pago no puede ser futura.', 422);
         }
+
+        $this->periodoAbierto->exigir($fecha);
 
         $pago = DB::transaction(fn (): Pago => Pago::create([
             'unidad_id' => $unidadId,

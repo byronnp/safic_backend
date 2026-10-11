@@ -10,6 +10,7 @@ use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Finanzas\Models\Gasto;
 use App\Modules\Finanzas\Models\Proveedor;
+use App\Modules\Finanzas\Services\PeriodoAbierto;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
@@ -28,6 +29,7 @@ final class RegistrarGastoAction
     public function __construct(
         private readonly ArchivosCondominio $archivos,
         private readonly Calendario $calendario,
+        private readonly PeriodoAbierto $periodoAbierto,
     ) {}
 
     /**
@@ -73,6 +75,7 @@ final class RegistrarGastoAction
         if ($emision->isAfter($this->calendario->hoy())) {
             throw new ApiException('FECHA_FUTURA', 'La fecha de emisión no puede ser futura.', 422);
         }
+        $this->periodoAbierto->exigir($d['fecha_emision']);
         $vence = $d['vence_el'] ?? $emision->addDays(self::PLAZO_POR_DEFECTO_DIAS)->toDateString();
         if (CarbonImmutable::parse($vence)->isBefore($emision)) {
             throw new ApiException('VENCIMIENTO_INVALIDO', 'El vencimiento no puede ser anterior a la emisión.', 422);

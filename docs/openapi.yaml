@@ -2585,6 +2585,118 @@ paths:
         '422':
           $ref: '#/components/responses/Validacion'
 
+  /finanzas/periodos/{periodo}/cierre:
+    get:
+      tags: [Finanzas]
+      operationId: verCierreMes
+      summary: Lista de verificación del cierre de un mes
+      description: |
+        Permiso: `finanzas.ver`. Cada punto es `listo`, `revisar` (se puede cerrar, pero conviene mirarlo) o `bloquea`.
+        `puede_cerrar` es verdadero si el mes tiene cuotas emitidas, sigue abierto y nada bloquea. De un mes cerrado trae
+        quién lo cerró y el resumen que quedó; de uno reabierto, quién, cuándo y por qué.
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: periodo, in: path, required: true, schema: { type: string, pattern: '^\d{4}-\d{2}$', examples: ['2026-09'] } }
+      responses:
+        '200':
+          description: Cierre del mes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CierreMes' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /finanzas/periodos/{periodo}/cerrar:
+    post:
+      tags: [Finanzas]
+      operationId: cerrarMes
+      summary: Cerrar un mes
+      description: |
+        Permiso: `periodos.cerrar` (administrador y tesorero). Guarda quién cerró y el resumen (emitido, cobrado, pagado a
+        proveedores). Desde ahí el mes es de solo lectura: emitir cuotas, aprobar pagos y registrar o anular pagos y facturas
+        con fecha en ese mes responden 409 `PERIODO_CERRADO`. 409 `PERIODO_SIN_EMITIR`, `PERIODO_YA_CERRADO`, `CIERRE_BLOQUEADO`.
+      x-permiso: periodos.cerrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: periodo, in: path, required: true, schema: { type: string, pattern: '^\d{4}-\d{2}$', examples: ['2026-09'] } }
+      responses:
+        '200':
+          description: Mes cerrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CierreMes' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`PERIODO_SIN_EMITIR`, `PERIODO_YA_CERRADO` o `CIERRE_BLOQUEADO` (con `details.punto`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /finanzas/periodos/{periodo}/reabrir:
+    post:
+      tags: [Finanzas]
+      operationId: reabrirMes
+      summary: Reabrir un mes cerrado
+      description: 'Permiso: `periodos.reabrir` (solo el administrador). Exige motivo y queda auditado. Solo se reabre el último mes cerrado (409 `REABRIR_EL_ULTIMO`); 409 `PERIODO_NO_CERRADO`.'
+      x-permiso: periodos.reabrir
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: periodo, in: path, required: true, schema: { type: string, pattern: '^\d{4}-\d{2}$', examples: ['2026-09'] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200':
+          description: Mes reabierto.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CierreMes' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`PERIODO_NO_CERRADO` o `REABRIR_EL_ULTIMO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -5968,6 +6080,53 @@ components:
         umbral_segunda_aprobacion: { type: string, examples: ['500.00'] }
         aprobador_puede_pagar: { type: boolean }
         tolerancia_bancaria: { type: string, examples: ['0.50'] }
+
+    CierreMes:
+      type: object
+      required: [periodo, emitido, estado, verificaciones, puede_cerrar, resumen]
+      properties:
+        periodo: { type: string, examples: ['2026-09'] }
+        emitido: { type: boolean }
+        estado: { type: [string, 'null'], enum: [abierto, cerrado, null] }
+        verificaciones:
+          type: array
+          items:
+            type: object
+            properties:
+              clave: { type: string, examples: [mes_terminado, cuotas, pagos, facturas_por_aprobar, facturas_sin_pagar] }
+              titulo: { type: string }
+              detalle: { type: string }
+              estado: { type: string, enum: [listo, revisar, bloquea] }
+        puede_cerrar: { type: boolean }
+        motivo_bloqueo: { type: [string, 'null'] }
+        resumen:
+          type: object
+          properties:
+            emitido: { type: string }
+            cobrado: { type: string }
+            gastos_pagados: { type: string }
+        cierre:
+          oneOf:
+            - type: object
+              properties:
+                cerrado_por: { type: [string, 'null'] }
+                cerrado_en: { type: [string, 'null'], format: date-time }
+            - { type: 'null' }
+        reapertura:
+          oneOf:
+            - type: object
+              properties:
+                reabierto_por: { type: [string, 'null'] }
+                reabierto_en: { type: string, format: date-time }
+                motivo: { type: [string, 'null'] }
+            - { type: 'null' }
+        anterior_cerrado:
+          oneOf:
+            - type: object
+              properties:
+                periodo: { type: string }
+                por: { type: [string, 'null'] }
+            - { type: 'null' }
 
     CuentaBancaria:
       type: object
