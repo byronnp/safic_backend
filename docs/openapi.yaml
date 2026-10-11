@@ -6454,6 +6454,7 @@ components:
       properties:
         id: { type: integer }
         cuenta_bancaria_id: { type: integer }
+        cuenta: { type: string, examples: ['Banco Pichincha · Corriente ····4821'] }
         periodo: { type: string, examples: ['2026-09'] }
         archivo_nombre: { type: string }
         movimientos: { type: integer }

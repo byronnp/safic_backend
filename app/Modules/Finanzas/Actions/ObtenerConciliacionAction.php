@@ -4,6 +4,7 @@ namespace App\Modules\Finanzas\Actions;
 
 use App\Core\Support\Dinero;
 use App\Modules\Finanzas\Models\AjusteConciliacion;
+use App\Modules\Finanzas\Models\CuentaBancaria;
 use App\Modules\Finanzas\Models\EstadoCuentaBancario;
 use App\Modules\Finanzas\Models\MovimientoBancario;
 use Illuminate\Support\Collection;
@@ -94,6 +95,7 @@ final class ObtenerConciliacionAction
         return [
             'id' => $e->id,
             'cuenta_bancaria_id' => $e->cuenta_bancaria_id,
+            'cuenta' => $this->nombreCuenta($e->cuenta_bancaria_id),
             'periodo' => $e->periodo->format('Y-m'),
             'archivo_nombre' => $e->archivo_nombre,
             'movimientos' => $movs->count(),
@@ -105,5 +107,13 @@ final class ObtenerConciliacionAction
                 'sin_identificar' => $movs->where('estado', MovimientoBancario::SIN_IDENTIFICAR)->count(),
             ],
         ];
+    }
+
+    /** «Banco Pichincha · Corriente ····4821»: lo que se ve sin tener permiso para listar las cuentas. */
+    private function nombreCuenta(int $id): string
+    {
+        $c = CuentaBancaria::query()->find($id);
+
+        return $c === null ? 'Cuenta' : "{$c->banco} · ".ucfirst($c->tipo).' ····'.substr((string) $c->numero, -4);
     }
 }

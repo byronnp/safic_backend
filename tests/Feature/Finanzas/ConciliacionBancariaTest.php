@@ -55,6 +55,7 @@ it('importa el estado de cuenta y clasifica: automático por código y monto, co
 
     expect($r->json('meta'))->toMatchArray(['nuevos' => 3, 'duplicados' => 0, 'fuera_del_mes' => 0])
         ->and($r->json('data.conteos'))->toMatchArray(['automaticos' => 1, 'sugeridos' => 1, 'sin_identificar' => 1])
+        ->and($r->json('data.cuenta'))->toBe('Banco Pichincha · Corriente ····4821')
         ->and($r->json('data.automaticos.0'))->toMatchArray(['tipo' => 'pago_residente', 'estado' => 'automatico'])
         ->and($r->json('data.sugeridos.0.propuesta'))->toMatchArray(['tipo' => 'comision'])
         ->and($r->json('data.cuadre'))->toMatchArray(['saldo_inicial' => '1000.00', 'saldo_banco' => '1067.59', 'archivo_cuadra' => true]);
