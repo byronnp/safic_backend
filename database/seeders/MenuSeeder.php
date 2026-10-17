@@ -104,6 +104,7 @@ class MenuSeeder extends Seeder
                     ['clave' => 'finanzas.reportes', 'etiqueta' => 'Reportes', 'icono' => 'sym_r_bar_chart', 'ruta' => 'finanzas-reportes', 'permiso' => Permiso::FinanzasVer],
                     ['clave' => 'finanzas.pagos', 'etiqueta' => 'Pagos por aprobar', 'icono' => 'sym_r_fact_check', 'ruta' => 'finanzas-pagos-por-aprobar', 'permiso' => Permiso::PagosAprobar],
                     ['clave' => 'finanzas.cuentas', 'etiqueta' => 'Cuentas por pagar', 'icono' => 'sym_r_payments', 'ruta' => 'finanzas-cuentas-por-pagar', 'permiso' => Permiso::FinanzasVer],
+                    ['clave' => 'finanzas.recurrentes', 'etiqueta' => 'Gastos recurrentes', 'icono' => 'sym_r_autorenew', 'ruta' => 'finanzas-recurrentes', 'permiso' => Permiso::FinanzasVer],
                     ['clave' => 'finanzas.proveedores', 'etiqueta' => 'Proveedores', 'icono' => 'sym_r_local_shipping', 'ruta' => 'finanzas-proveedores', 'permiso' => Permiso::FinanzasVer],
                     ['clave' => 'finanzas.aprobaciones', 'etiqueta' => 'Aprobaciones', 'icono' => 'sym_r_approval', 'ruta' => 'finanzas-aprobaciones', 'permiso' => Permiso::GastosAprobarN2],
                 ],

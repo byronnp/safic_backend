@@ -53,6 +53,7 @@ it('el administrador ve inicio, unidades con bloques y su configuración', funct
             ['id' => 'finanzas.reportes', 'etiqueta' => 'Reportes', 'icono' => 'sym_r_bar_chart', 'ruta' => 'finanzas-reportes', 'permiso' => 'finanzas.ver'],
             ['id' => 'finanzas.pagos', 'etiqueta' => 'Pagos por aprobar', 'icono' => 'sym_r_fact_check', 'ruta' => 'finanzas-pagos-por-aprobar', 'permiso' => 'pagos.aprobar'],
             ['id' => 'finanzas.cuentas', 'etiqueta' => 'Cuentas por pagar', 'icono' => 'sym_r_payments', 'ruta' => 'finanzas-cuentas-por-pagar', 'permiso' => 'finanzas.ver'],
+            ['id' => 'finanzas.recurrentes', 'etiqueta' => 'Gastos recurrentes', 'icono' => 'sym_r_autorenew', 'ruta' => 'finanzas-recurrentes', 'permiso' => 'finanzas.ver'],
             ['id' => 'finanzas.proveedores', 'etiqueta' => 'Proveedores', 'icono' => 'sym_r_local_shipping', 'ruta' => 'finanzas-proveedores', 'permiso' => 'finanzas.ver'],
         ]],
         ['id' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true, 'hijos' => [
@@ -69,7 +70,7 @@ it('ninguna pantalla en vista previa llega al menú de producción', function ()
     // Solo rutas que ya tienen pantalla con API; una vista previa se suma cuando pasa a datos reales
     $rutas = MenuItem::query()->whereNotNull('ruta')->pluck('ruta')->sort()->values()->all();
 
-    expect($rutas)->toBe(['bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-aprobaciones', 'finanzas-cierre-mes', 'finanzas-conciliacion', 'finanzas-cuentas-por-pagar', 'finanzas-cuotas', 'finanzas-morosidad', 'finanzas-pagos-por-aprobar', 'finanzas-proveedores', 'finanzas-reportes', 'finanzas-resumen', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
+    expect($rutas)->toBe(['bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-aprobaciones', 'finanzas-cierre-mes', 'finanzas-conciliacion', 'finanzas-cuentas-por-pagar', 'finanzas-cuotas', 'finanzas-morosidad', 'finanzas-pagos-por-aprobar', 'finanzas-proveedores', 'finanzas-recurrentes', 'finanzas-reportes', 'finanzas-resumen', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
 });
 
 it('un perfil sin permisos de configuración no ve esa sección', function () {
