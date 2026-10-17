@@ -28,6 +28,7 @@ enum Permiso: string
     case PagosAprobar = 'pagos.aprobar';
     case GastosRegistrar = 'gastos.registrar';
     case ProveedoresEditar = 'proveedores.editar';
+    case CajaChicaRegistrar = 'cajachica.registrar';
     case GastosAprobarN1 = 'gastos.aprobar-n1';
     case GastosAprobarN2 = 'gastos.aprobar-n2';
     case GastosPagar = 'gastos.pagar';
@@ -47,7 +48,7 @@ enum Permiso: string
     {
         return match (true) {
             str_starts_with($this->value, 'plataforma.') => 'plataforma',
-            str_starts_with($this->value, 'finanzas.'), str_starts_with($this->value, 'cuotas.'), str_starts_with($this->value, 'cuenta.'), str_starts_with($this->value, 'pagos.'), str_starts_with($this->value, 'gastos.'), str_starts_with($this->value, 'periodos.'), str_starts_with($this->value, 'conciliacion.'), str_starts_with($this->value, 'morosidad.'), str_starts_with($this->value, 'proveedores.') => 'finanzas',
+            str_starts_with($this->value, 'finanzas.'), str_starts_with($this->value, 'cuotas.'), str_starts_with($this->value, 'cuenta.'), str_starts_with($this->value, 'pagos.'), str_starts_with($this->value, 'gastos.'), str_starts_with($this->value, 'periodos.'), str_starts_with($this->value, 'cajachica.'), str_starts_with($this->value, 'conciliacion.'), str_starts_with($this->value, 'morosidad.'), str_starts_with($this->value, 'proveedores.') => 'finanzas',
             default => 'nucleo',
         };
     }
@@ -70,6 +71,7 @@ enum Permiso: string
             self::PagosAprobar => 'Aprobar pagos de residentes',
             self::GastosRegistrar => 'Registrar facturas de proveedores',
             self::ProveedoresEditar => 'Gestionar proveedores y sus cuentas',
+            self::CajaChicaRegistrar => 'Registrar gastos de la caja chica',
             self::GastosAprobarN1 => 'Aprobar facturas (1.er nivel)',
             self::GastosAprobarN2 => 'Aprobar facturas grandes (2.º nivel)',
             self::GastosPagar => 'Pagar facturas a proveedores',
@@ -102,7 +104,7 @@ enum Permiso: string
         return in_array($this, [
             self::UnidadesEditar, self::ResidentesVerDatos, self::UsuariosGestionar,
             self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar,
-            self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosPagar,
+            self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosPagar, self::CajaChicaRegistrar,
             self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar,
         ], true);
     }
@@ -110,7 +112,7 @@ enum Permiso: string
     /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
     public function esEscritura(): bool
     {
-        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar], true);
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar], true);
     }
 
     public function esDePlataforma(): bool
