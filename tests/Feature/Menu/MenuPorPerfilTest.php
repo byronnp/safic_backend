@@ -58,6 +58,7 @@ it('el administrador ve inicio, unidades con bloques y su configuración', funct
             ['id' => 'finanzas.proveedores', 'etiqueta' => 'Proveedores', 'icono' => 'sym_r_local_shipping', 'ruta' => 'finanzas-proveedores', 'permiso' => 'finanzas.ver'],
         ]],
         ['id' => 'areas', 'etiqueta' => 'Áreas comunes', 'icono' => 'sym_r_pool', 'hijos' => [
+            ['id' => 'areas.agenda', 'etiqueta' => 'Agenda', 'icono' => 'sym_r_calendar_month', 'ruta' => 'areas-agenda', 'permiso' => 'reservas.gestionar'],
             ['id' => 'areas.reglas', 'etiqueta' => 'Áreas y reglas', 'icono' => 'sym_r_rule', 'ruta' => 'areas-reglas', 'permiso' => 'reservas.gestionar'],
         ]],
         ['id' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true, 'hijos' => [
@@ -74,7 +75,7 @@ it('ninguna pantalla en vista previa llega al menú de producción', function ()
     // Solo rutas que ya tienen pantalla con API; una vista previa se suma cuando pasa a datos reales
     $rutas = MenuItem::query()->whereNotNull('ruta')->pluck('ruta')->sort()->values()->all();
 
-    expect($rutas)->toBe(['areas-reglas', 'bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-aprobaciones', 'finanzas-caja-chica', 'finanzas-cierre-mes', 'finanzas-conciliacion', 'finanzas-cuentas-por-pagar', 'finanzas-cuotas', 'finanzas-morosidad', 'finanzas-pagos-por-aprobar', 'finanzas-proveedores', 'finanzas-recurrentes', 'finanzas-reportes', 'finanzas-resumen', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
+    expect($rutas)->toBe(['areas-agenda', 'areas-reglas', 'bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-aprobaciones', 'finanzas-caja-chica', 'finanzas-cierre-mes', 'finanzas-conciliacion', 'finanzas-cuentas-por-pagar', 'finanzas-cuotas', 'finanzas-morosidad', 'finanzas-pagos-por-aprobar', 'finanzas-proveedores', 'finanzas-recurrentes', 'finanzas-reportes', 'finanzas-resumen', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
 });
 
 it('un perfil sin permisos de configuración no ve esa sección', function () {

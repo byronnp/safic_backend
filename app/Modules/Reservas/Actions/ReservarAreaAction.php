@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Amenidades\Models\CondominioAmenidad;
 use App\Modules\Reservas\Models\ReglaArea;
 use App\Modules\Reservas\Models\Reserva;
+use App\Modules\Reservas\Services\BloqueosDeArea;
 use App\Modules\Reservas\Services\CobroDeReserva;
 use App\Modules\Reservas\Services\FranjasDeArea;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
@@ -28,6 +29,7 @@ final class ReservarAreaAction
         private readonly FranjasDeArea $franjas,
         private readonly UnidadesDeCuentaAction $unidades,
         private readonly CobroDeReserva $cobro,
+        private readonly BloqueosDeArea $bloqueos,
     ) {}
 
     public function execute(User $user, int $amenidadId, int $unidadId, string $fecha, string $inicio, int $horas, bool $aceptaReglamento): Reserva
@@ -45,6 +47,9 @@ final class ReservarAreaAction
 
         $this->exigirDisponible($area, $fecha);
         $this->exigirReglas($regla, $fecha, $inicio, $horas);
+        if ($this->bloqueos->bloquea($area->id, $fecha, $inicio, $this->franjas->fin($inicio, $horas))) {
+            throw new ApiException('HORARIO_BLOQUEADO', 'El área está bloqueada en ese horario. Elige otro.', 409);
+        }
 
         try {
             return DB::transaction(function () use ($user, $area, $regla, $unidadId, $fecha, $inicio, $horas): Reserva {
