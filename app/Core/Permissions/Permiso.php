@@ -37,6 +37,10 @@ enum Permiso: string
     case ConciliacionGestionar = 'conciliacion.gestionar';
     case MorosidadGestionar = 'morosidad.gestionar';
 
+    // Áreas comunes · reglas, agenda y aprobación de reservas
+    case ReservasGestionar = 'reservas.gestionar';
+    case ReservasPropias = 'reservas.propias';
+
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
     case PlataformaCondominiosEditar = 'plataforma.condominios-editar';
@@ -48,6 +52,7 @@ enum Permiso: string
     {
         return match (true) {
             str_starts_with($this->value, 'plataforma.') => 'plataforma',
+            str_starts_with($this->value, 'reservas.') => 'reservas',
             str_starts_with($this->value, 'finanzas.'), str_starts_with($this->value, 'cuotas.'), str_starts_with($this->value, 'cuenta.'), str_starts_with($this->value, 'pagos.'), str_starts_with($this->value, 'gastos.'), str_starts_with($this->value, 'periodos.'), str_starts_with($this->value, 'cajachica.'), str_starts_with($this->value, 'conciliacion.'), str_starts_with($this->value, 'morosidad.'), str_starts_with($this->value, 'proveedores.') => 'finanzas',
             default => 'nucleo',
         };
@@ -79,6 +84,8 @@ enum Permiso: string
             self::PeriodosReabrir => 'Reabrir un mes cerrado',
             self::ConciliacionGestionar => 'Conciliar los estados de cuenta del banco',
             self::MorosidadGestionar => 'Gestionar la morosidad: recordatorios, convenios y restricciones',
+            self::ReservasGestionar => 'Gestionar áreas comunes: reglas, agenda y reservas',
+            self::ReservasPropias => 'Reservar áreas comunes para su unidad',
             self::PlataformaCondominios => 'Gestionar condominios',
             self::PlataformaCondominiosEditar => 'Editar e inactivar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
@@ -93,6 +100,7 @@ enum Permiso: string
         return match (true) {
             $this === self::GaritaDirectorio => 'Garita',
             $this->modulo() === 'finanzas' => 'Finanzas',
+            $this->modulo() === 'reservas' => 'Áreas comunes',
             $this->esDePlataforma() => 'Plataforma',
             default => 'Núcleo',
         };
@@ -105,14 +113,14 @@ enum Permiso: string
             self::UnidadesEditar, self::ResidentesVerDatos, self::UsuariosGestionar,
             self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar,
             self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosPagar, self::CajaChicaRegistrar,
-            self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar,
+            self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar,
         ], true);
     }
 
     /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
     public function esEscritura(): bool
     {
-        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar], true);
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar], true);
     }
 
     public function esDePlataforma(): bool

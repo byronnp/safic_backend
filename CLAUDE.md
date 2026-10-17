@@ -165,3 +165,7 @@ Migración + endpoint + Resource + pruebas (incluida la de aislamiento y la de p
 - Datos personales (cédula, teléfono, correo) se enmascaran para roles sin `residentes.ver_datos`.
 - No agregar paquetes sin justificarlo en el pull request.
 - Caja chica (F2 · 7b): fondo fijo con gastos menores respaldados con foto; «Reponer» agrupa los abiertos en un gasto CC-aaaa-nnn que sigue aprobación, pago y conciliación; permiso `cajachica.registrar`.
+- Áreas y reglas (F3 · 3a): módulo Reservas con las reglas de uso de cada amenidad reservable (horario, duración, anticipación, capacidad, costo, garantía, reglamento); permiso `reservas.gestionar`.
+- Reservar (F3 · 3b): el residente reserva áreas de su unidad con las reglas del área; sin cruces (restricción de exclusión en la base), tope mensual, anticipación y reglamento aceptado; permiso `reservas.propias`.
+- Aprobación y cobro (F3 · 3c): la administración aprueba o rechaza solicitudes (48 h para responder); al confirmarse se cobran uso y garantía como cuotas extraordinarias; `reservas:vencer` (cada 15 min) vence solicitudes y cancela reservas sin pagar a las 24 h.
+- Agenda y bloqueos (F3 · 3d): agenda semanal de reservas para la administración, cancelar una reserva con motivo y bloquear un área (día o franja); si hay reservas encima se pide confirmar y se cancelan avisando.
