@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Route;
 | - cada módulo declara sus rutas en app/Modules/<Modulo>/Routes/{condominio,plataforma,sesion}.php
 |   y routes/api.php los carga solos;
 | - las rutas de condominio y de plataforma exigen un permiso y van en su grupo;
-| - las de sesión solo exigen sesión (catálogos compartidos, sin datos de un condominio).
+| - las de sesión solo exigen sesión (catálogos compartidos, sin datos de un condominio);
+| - las públicas (sin sesión, como la página del QR de una visita) van bajo /publico y deben tener su límite de velocidad.
 */
 
 it('los módulos solo tienen archivos de rutas por ámbito', function () {
@@ -34,9 +35,17 @@ it('cada ruta de un módulo va en su grupo y exige su permiso', function () {
         $middlewares = $route->gatherMiddleware();
         $uri = $route->uri();
         $tienePermiso = collect($middlewares)->contains(fn ($m) => is_string($m) && str_starts_with($m, 'permission:'));
+        $esPublica = str_starts_with($uri, 'api/v1/publico/');
         $esPlataforma = in_array('plataforma', $middlewares, true);
         $esCondominio = in_array('condominio', $middlewares, true);
 
+        if ($esPublica) {
+            if (! collect($middlewares)->contains(fn ($m) => is_string($m) && str_starts_with($m, 'throttle:'))) {
+                $problemas[] = "{$uri}: una ruta pública necesita límite de velocidad";
+            }
+
+            continue;
+        }
         if (! in_array('auth:api', $middlewares, true)) {
             $problemas[] = "{$uri}: falta auth:api";
         }

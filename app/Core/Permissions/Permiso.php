@@ -42,6 +42,9 @@ enum Permiso: string
     case ReservasPropias = 'reservas.propias';
     case ReservasGarita = 'reservas.garita';
 
+    // Garita · visitas autorizadas por el residente
+    case VisitasPropias = 'visitas.propias';
+
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
     case PlataformaCondominiosEditar = 'plataforma.condominios-editar';
@@ -54,6 +57,7 @@ enum Permiso: string
         return match (true) {
             str_starts_with($this->value, 'plataforma.') => 'plataforma',
             str_starts_with($this->value, 'reservas.') => 'reservas',
+            str_starts_with($this->value, 'visitas.') => 'garita',
             str_starts_with($this->value, 'finanzas.'), str_starts_with($this->value, 'cuotas.'), str_starts_with($this->value, 'cuenta.'), str_starts_with($this->value, 'pagos.'), str_starts_with($this->value, 'gastos.'), str_starts_with($this->value, 'periodos.'), str_starts_with($this->value, 'cajachica.'), str_starts_with($this->value, 'conciliacion.'), str_starts_with($this->value, 'morosidad.'), str_starts_with($this->value, 'proveedores.') => 'finanzas',
             default => 'nucleo',
         };
@@ -88,6 +92,7 @@ enum Permiso: string
             self::ReservasGestionar => 'Gestionar áreas comunes: reglas, agenda y reservas',
             self::ReservasPropias => 'Reservar áreas comunes para su unidad',
             self::ReservasGarita => 'Dar ingreso y recibir las áreas reservadas del día',
+            self::VisitasPropias => 'Autorizar visitas a su unidad',
             self::PlataformaCondominios => 'Gestionar condominios',
             self::PlataformaCondominiosEditar => 'Editar e inactivar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
@@ -103,6 +108,7 @@ enum Permiso: string
             $this === self::GaritaDirectorio => 'Garita',
             $this->modulo() === 'finanzas' => 'Finanzas',
             $this->modulo() === 'reservas' => 'Áreas comunes',
+            $this->modulo() === 'garita' => 'Garita',
             $this->esDePlataforma() => 'Plataforma',
             default => 'Núcleo',
         };
