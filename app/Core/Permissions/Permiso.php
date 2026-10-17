@@ -33,6 +33,7 @@ enum Permiso: string
     case PeriodosCerrar = 'periodos.cerrar';
     case PeriodosReabrir = 'periodos.reabrir';
     case ConciliacionGestionar = 'conciliacion.gestionar';
+    case MorosidadGestionar = 'morosidad.gestionar';
 
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
@@ -45,7 +46,7 @@ enum Permiso: string
     {
         return match (true) {
             str_starts_with($this->value, 'plataforma.') => 'plataforma',
-            str_starts_with($this->value, 'finanzas.'), str_starts_with($this->value, 'cuotas.'), str_starts_with($this->value, 'cuenta.'), str_starts_with($this->value, 'pagos.'), str_starts_with($this->value, 'gastos.'), str_starts_with($this->value, 'periodos.'), str_starts_with($this->value, 'conciliacion.'), str_starts_with($this->value, 'proveedores.') => 'finanzas',
+            str_starts_with($this->value, 'finanzas.'), str_starts_with($this->value, 'cuotas.'), str_starts_with($this->value, 'cuenta.'), str_starts_with($this->value, 'pagos.'), str_starts_with($this->value, 'gastos.'), str_starts_with($this->value, 'periodos.'), str_starts_with($this->value, 'conciliacion.'), str_starts_with($this->value, 'morosidad.'), str_starts_with($this->value, 'proveedores.') => 'finanzas',
             default => 'nucleo',
         };
     }
@@ -73,6 +74,7 @@ enum Permiso: string
             self::PeriodosCerrar => 'Cerrar el mes',
             self::PeriodosReabrir => 'Reabrir un mes cerrado',
             self::ConciliacionGestionar => 'Conciliar los estados de cuenta del banco',
+            self::MorosidadGestionar => 'Gestionar la morosidad: recordatorios, convenios y restricciones',
             self::PlataformaCondominios => 'Gestionar condominios',
             self::PlataformaCondominiosEditar => 'Editar e inactivar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
@@ -99,14 +101,14 @@ enum Permiso: string
             self::UnidadesEditar, self::ResidentesVerDatos, self::UsuariosGestionar,
             self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar,
             self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosPagar,
-            self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar,
+            self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar,
         ], true);
     }
 
     /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
     public function esEscritura(): bool
     {
-        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar], true);
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar], true);
     }
 
     public function esDePlataforma(): bool

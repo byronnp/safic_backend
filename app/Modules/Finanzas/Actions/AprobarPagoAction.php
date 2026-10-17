@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Modules\Finanzas\Mail\PagoAprobadoMail;
 use App\Modules\Finanzas\Models\Pago;
 use App\Modules\Finanzas\Services\AplicacionPagoService;
+use App\Modules\Finanzas\Services\MorosidadService;
 use App\Modules\Finanzas\Services\PeriodoAbierto;
 use App\Modules\Finanzas\Services\ToleranciaBancaria;
 use App\Modules\Plataforma\Models\Condominio;
@@ -30,6 +31,7 @@ final class AprobarPagoAction
         private readonly SequenceService $secuencias,
         private readonly CodigosDeUnidadesAction $codigos,
         private readonly PeriodoAbierto $periodoAbierto,
+        private readonly MorosidadService $morosidad,
     ) {}
 
     public function execute(int $id, ?string $montoRecibido, User $actor): Pago
@@ -63,6 +65,9 @@ final class AprobarPagoAction
 
             return $pago;
         });
+
+        // Pagar puede levantar la restricción de áreas comunes (Decreto 462)
+        $this->morosidad->reevaluar($pago->unidad_id);
 
         $this->avisar($pago);
 

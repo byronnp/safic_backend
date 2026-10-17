@@ -100,6 +100,7 @@ class MenuSeeder extends Seeder
                     ['clave' => 'finanzas.cuotas', 'etiqueta' => 'Cuotas del mes', 'icono' => 'sym_r_receipt_long', 'ruta' => 'finanzas-cuotas', 'permiso' => Permiso::FinanzasVer],
                     ['clave' => 'finanzas.cierre', 'etiqueta' => 'Cierre de mes', 'icono' => 'sym_r_lock', 'ruta' => 'finanzas-cierre-mes', 'permiso' => Permiso::FinanzasVer],
                     ['clave' => 'finanzas.conciliacion', 'etiqueta' => 'Conciliación bancaria', 'icono' => 'sym_r_account_balance', 'ruta' => 'finanzas-conciliacion', 'permiso' => Permiso::FinanzasVer],
+                    ['clave' => 'finanzas.morosidad', 'etiqueta' => 'Morosidad', 'icono' => 'sym_r_notifications_active', 'ruta' => 'finanzas-morosidad', 'permiso' => Permiso::FinanzasVer],
                     ['clave' => 'finanzas.pagos', 'etiqueta' => 'Pagos por aprobar', 'icono' => 'sym_r_fact_check', 'ruta' => 'finanzas-pagos-por-aprobar', 'permiso' => Permiso::PagosAprobar],
                     ['clave' => 'finanzas.cuentas', 'etiqueta' => 'Cuentas por pagar', 'icono' => 'sym_r_payments', 'ruta' => 'finanzas-cuentas-por-pagar', 'permiso' => Permiso::FinanzasVer],
                     ['clave' => 'finanzas.proveedores', 'etiqueta' => 'Proveedores', 'icono' => 'sym_r_local_shipping', 'ruta' => 'finanzas-proveedores', 'permiso' => Permiso::FinanzasVer],

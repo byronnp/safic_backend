@@ -2565,6 +2565,9 @@ paths:
                 umbral_segunda_aprobacion: { type: string, examples: ['500.00'] }
                 aprobador_puede_pagar: { type: boolean }
                 tolerancia_bancaria: { type: string, examples: ['0.50'], description: 'De 0.00 a 5.00.' }
+                dias_gracia: { type: integer, minimum: 0, maximum: 30 }
+                meses_restriccion: { type: integer, minimum: 1, maximum: 12 }
+                dias_aviso_restriccion: { type: integer, minimum: 1, maximum: 30 }
       responses:
         '200':
           description: Reglas guardadas.
@@ -2996,6 +2999,250 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+
+  /finanzas/morosidad:
+    get:
+      tags: [Finanzas]
+      operationId: listarMorosidad
+      summary: Cartera vencida por unidad
+      description: |
+        Permiso: `finanzas.ver`. Las unidades con cuotas vencidas, de la que más atraso tiene a la que menos, con su
+        situación (`restringida`, `notificada` con la fecha en que restringe, `convenio` con su cuota, `recordatorio` con
+        la fecha del último aviso o `ninguna`). `en_mora` es verdadero cuando la cuota vencida más antigua pasó los días de
+        gracia y no hay un convenio al día. `meta` trae el resumen (cartera y unidades por antigüedad), los conteos de cada
+        filtro y las reglas vigentes.
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: filtro, in: query, schema: { type: string, enum: [todas, en_mora, restringidas, convenio] } }
+        - { name: buscar, in: query, schema: { type: string, maxLength: 80 } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: por_pagina, in: query, schema: { type: integer, minimum: 1, maximum: 200 } }
+      responses:
+        '200':
+          description: Cartera vencida.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/UnidadMorosa' } }
+                  meta:
+                    type: object
+                    properties:
+                      resumen: { type: object, additionalProperties: true }
+                      conteos: { type: object, additionalProperties: { type: integer } }
+                      reglas: { type: object, additionalProperties: { type: integer } }
+                      pagination: { $ref: '#/components/schemas/Paginacion' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /finanzas/morosidad/recordatorios:
+    post:
+      tags: [Finanzas]
+      operationId: enviarRecordatoriosMora
+      summary: Recordar por correo a quienes deben
+      description: 'Permiso: `morosidad.gestionar` (administrador y tesorero). Sin `unidad_ids`, a todas las que tienen cuotas vencidas. Una vez al día por unidad; quien no tiene correo se cuenta aparte. Los recordatorios automáticos (3 días antes, el día y cada 15 días de atraso) los envía una tarea diaria.'
+      x-permiso: morosidad.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                unidad_ids: { type: [array, 'null'], items: { type: integer }, maxItems: 500 }
+      responses:
+        '200':
+          description: Resultado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      enviados: { type: integer }
+                      sin_correo: { type: integer }
+                      ya_avisadas: { type: integer }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /finanzas/morosidad/restricciones/{unidad}/levantar:
+    post:
+      tags: [Finanzas]
+      operationId: levantarRestriccionMora
+      summary: Levantar a mano la restricción de áreas comunes
+      description: 'Permiso: `morosidad.gestionar`. Exige motivo y queda auditado. La restricción también se levanta sola al pagar o al firmar un convenio. 404 `SIN_RESTRICCION`.'
+      x-permiso: morosidad.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: unidad, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200':
+          description: Restricción levantada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: object, properties: { unidad_id: { type: integer } } }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /finanzas/convenios:
+    get:
+      tags: [Finanzas]
+      operationId: listarConvenios
+      summary: Convenios de pago
+      description: 'Permiso: `finanzas.ver`. Los activos primero, con su plan de cuotas, lo pagado desde la firma y si va al día.'
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: unidad_id, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: Convenios.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/ConvenioPago' } }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    post:
+      tags: [Finanzas]
+      operationId: crearConvenio
+      summary: Firmar un convenio de pago
+      description: |
+        Permiso: `morosidad.gestionar`. El total es lo vencido al firmar, en 2 a 36 cuotas mensuales; los pagos aprobados
+        desde hoy las cubren en orden. Un solo convenio activo por unidad. Levanta la restricción de áreas comunes si la había.
+        409 `SIN_DEUDA_VENCIDA`, `CONVENIO_ACTIVO`; 422 `FECHA_PASADA`.
+      x-permiso: morosidad.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [unidad_id, cuotas, primera_cuota_el]
+              properties:
+                unidad_id: { type: integer }
+                cuotas: { type: integer, minimum: 2, maximum: 36 }
+                primera_cuota_el: { type: string, format: date }
+      responses:
+        '201':
+          description: Convenio registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ConvenioPago' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`SIN_DEUDA_VENCIDA` o `CONVENIO_ACTIVO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /finanzas/convenios/{convenio}/cancelar:
+    post:
+      tags: [Finanzas]
+      operationId: cancelarConvenio
+      summary: Cancelar un convenio activo
+      description: 'Permiso: `morosidad.gestionar`. Exige motivo. Desde ahí la unidad vuelve a contar como deudora. 409 `CONVENIO_NO_ACTIVO`.'
+      x-permiso: morosidad.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: convenio, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200':
+          description: Convenio cancelado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ConvenioPago' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`CONVENIO_NO_ACTIVO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
 
   /cobro:
     get:
@@ -6375,11 +6622,14 @@ components:
 
     ConfiguracionFinanzas:
       type: object
-      required: [umbral_segunda_aprobacion, aprobador_puede_pagar, tolerancia_bancaria]
+      required: [umbral_segunda_aprobacion, aprobador_puede_pagar, tolerancia_bancaria, dias_gracia, meses_restriccion, dias_aviso_restriccion]
       properties:
         umbral_segunda_aprobacion: { type: string, examples: ['500.00'] }
         aprobador_puede_pagar: { type: boolean }
         tolerancia_bancaria: { type: string, examples: ['0.50'] }
+        dias_gracia: { type: integer, minimum: 0, maximum: 30, description: 'Días después del vencimiento antes de considerar la mora.' }
+        meses_restriccion: { type: integer, minimum: 1, maximum: 12, description: 'Meses de deuda vencida desde los que se restringen las áreas comunes (Decreto 462).' }
+        dias_aviso_restriccion: { type: integer, minimum: 1, maximum: 30, description: 'Días entre la notificación y la restricción.' }
 
     CierreMes:
       type: object
@@ -6489,6 +6739,66 @@ components:
                 saldo_banco: { type: [string, 'null'] }
                 diferencia: { type: [string, 'null'] }
                 archivo_cuadra: { type: [boolean, 'null'] }
+
+    UnidadMorosa:
+      type: object
+      properties:
+        unidad_id: { type: integer }
+        codigo: { type: string }
+        responsable:
+          oneOf:
+            - type: object
+              properties:
+                nombre: { type: string }
+                relacion: { type: string }
+            - { type: 'null' }
+        cuotas_vencidas: { type: integer }
+        meses_vencidos: { type: integer }
+        dias_atraso: { type: integer }
+        saldo_vencido: { type: string }
+        en_mora: { type: boolean }
+        situacion:
+          type: object
+          required: [tipo]
+          properties:
+            tipo: { type: string, enum: [restringida, notificada, convenio, recordatorio, ninguna] }
+            desde: { type: string, format: date }
+            restringe_desde: { type: string, format: date }
+            fecha: { type: string, format: date }
+            cuota: { type: integer }
+            de: { type: integer }
+            al_dia: { type: boolean }
+
+    ConvenioPago:
+      type: object
+      properties:
+        id: { type: integer }
+        unidad_id: { type: integer }
+        codigo: { type: string }
+        responsable:
+          oneOf:
+            - type: object
+              properties:
+                nombre: { type: string }
+                relacion: { type: string }
+            - { type: 'null' }
+        estado: { type: string, enum: [activo, cumplido, cancelado] }
+        motivo_cancelacion: { type: [string, 'null'] }
+        monto_total: { type: string }
+        cuotas: { type: integer }
+        desde: { type: string, format: date }
+        pagado: { type: string }
+        cuotas_cubiertas: { type: integer }
+        al_dia: { type: [boolean, 'null'] }
+        proxima_cuota_el: { type: [string, 'null'], format: date }
+        plan:
+          type: array
+          items:
+            type: object
+            properties:
+              numero: { type: integer }
+              vence_el: { type: string, format: date }
+              monto: { type: string }
 
     CuentaBancaria:
       type: object
