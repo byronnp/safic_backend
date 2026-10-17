@@ -165,3 +165,4 @@ Migración + endpoint + Resource + pruebas (incluida la de aislamiento y la de p
 - Datos personales (cédula, teléfono, correo) se enmascaran para roles sin `residentes.ver_datos`.
 - No agregar paquetes sin justificarlo en el pull request.
 - Caja chica (F2 · 7b): fondo fijo con gastos menores respaldados con foto; «Reponer» agrupa los abiertos en un gasto CC-aaaa-nnn que sigue aprobación, pago y conciliación; permiso `cajachica.registrar`.
+- Áreas y reglas (F3 · 3a): módulo Reservas con las reglas de uso de cada amenidad reservable (horario, duración, anticipación, capacidad, costo, garantía, reglamento); permiso `reservas.gestionar`.
