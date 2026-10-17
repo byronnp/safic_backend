@@ -4012,6 +4012,116 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /areas-comunes/solicitudes:
+    get:
+      tags: [Reservas]
+      operationId: listarSolicitudesReserva
+      summary: Solicitudes de reserva pendientes de aprobación
+      description: Permiso `reservas.gestionar`. La más antigua primero (la que vence antes). Sin respuesta en 48 h la solicitud vence sola.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Solicitudes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/SolicitudReserva' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /areas-comunes/reservas/{reserva}/aprobar:
+    post:
+      tags: [Reservas]
+      operationId: aprobarReserva
+      summary: Aprobar una solicitud de reserva
+      description: |
+        Permiso `reservas.gestionar`. La reserva queda `confirmada`, se cobran el uso y la garantía en la cuenta de la unidad
+        (dos cuotas extraordinarias) y se avisa al residente por correo. Hay que pagar hasta 24 h antes de empezar o la reserva se
+        cancela sola. 409 `RESERVA_NO_PENDIENTE`, `RESERVA_YA_EMPEZO`, `PERIODO_CERRADO`.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: reserva, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Reserva aprobada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/ResolucionReserva' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`RESERVA_NO_PENDIENTE`, `RESERVA_YA_EMPEZO` o `PERIODO_CERRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /areas-comunes/reservas/{reserva}/rechazar:
+    post:
+      tags: [Reservas]
+      operationId: rechazarReserva
+      summary: Rechazar una solicitud de reserva
+      description: Permiso `reservas.gestionar`. El motivo lo ve el residente y se le avisa por correo. Libera el horario. 409 `RESERVA_NO_PENDIENTE`.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: reserva, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 200 }
+      responses:
+        '200':
+          description: Solicitud rechazada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/ResolucionReserva' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`RESERVA_NO_PENDIENTE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -7711,7 +7821,7 @@ components:
               estado: { type: string, enum: [libre, ocupada, cerrada] }
     MiReserva:
       type: object
-      required: [id, area, unidad, fecha, inicio, fin, estado, costo, garantia, proxima, puede_cancelar]
+      required: [id, area, unidad, fecha, inicio, fin, estado, costo, garantia, proxima, puede_cancelar, por_pagar, pagar_antes_de, motivo]
       properties:
         id: { type: integer }
         area: { type: string }
@@ -7724,6 +7834,30 @@ components:
         garantia: { type: string }
         proxima: { type: boolean }
         puede_cancelar: { type: boolean }
+        por_pagar: { type: string, description: 'Lo que falta pagar del cobro de la reserva (0.00 si no hay).' }
+        pagar_antes_de: { type: [string, 'null'], description: 'Fecha y hora local (YYYY-MM-DDTHH:MM) límite para pagar; si no se paga la reserva se cancela sola.' }
+        motivo: { type: [string, 'null'], description: 'Motivo del rechazo o de la cancelación.' }
+    SolicitudReserva:
+      type: object
+      required: [id, area, unidad, solicitante, fecha, inicio, fin, costo, garantia, solicitada_en, vence_en]
+      properties:
+        id: { type: integer }
+        area: { type: string }
+        unidad: { type: string }
+        solicitante: { type: [string, 'null'] }
+        fecha: { type: string, format: date }
+        inicio: { type: string }
+        fin: { type: string }
+        costo: { type: string }
+        garantia: { type: string }
+        solicitada_en: { type: string, format: date-time }
+        vence_en: { type: string, format: date-time }
+    ResolucionReserva:
+      type: object
+      required: [id, estado]
+      properties:
+        id: { type: integer }
+        estado: { type: string, enum: [confirmada, rechazada] }
     GastoRecurrente:
       type: object
       properties:

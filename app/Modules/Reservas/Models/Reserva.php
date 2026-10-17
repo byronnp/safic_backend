@@ -21,6 +21,10 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string $estado pendiente|confirmada|rechazada|cancelada|vencida
  * @property string $costo
  * @property string $garantia
+ * @property int|null $cuota_uso_id
+ * @property int|null $cuota_garantia_id
+ * @property Carbon|null $limite_pago_en
+ * @property Carbon $created_at
  */
 class Reserva extends Model implements AuditableContract
 {
@@ -41,9 +45,22 @@ class Reserva extends Model implements AuditableContract
 
     protected $table = 'reservas';
 
+    /** Horas que la administración tiene para responder una solicitud. */
+    public const HORAS_PARA_RESPONDER = 48;
+
+    /** Horas antes de empezar en que el cobro debe estar pagado o la reserva se cancela sola. */
+    public const HORAS_PARA_PAGAR = 24;
+
+    /** @return list<int> */
+    public function cuotaIds(): array
+    {
+        return array_values(array_filter([$this->cuota_uso_id, $this->cuota_garantia_id]));
+    }
+
     protected $fillable = [
         'amenidad_id', 'unidad_id', 'solicitante_id', 'fecha', 'inicio', 'fin', 'estado', 'costo', 'garantia',
-        'reglamento_aceptado_en', 'cancelada_en', 'motivo_cancelacion',
+        'reglamento_aceptado_en', 'cancelada_en', 'motivo_cancelacion', 'cuota_uso_id', 'cuota_garantia_id', 'limite_pago_en',
+        'resuelta_por', 'resuelta_en', 'motivo_rechazo',
     ];
 
     protected function casts(): array
@@ -54,6 +71,8 @@ class Reserva extends Model implements AuditableContract
             'garantia' => 'decimal:2',
             'reglamento_aceptado_en' => 'datetime',
             'cancelada_en' => 'datetime',
+            'limite_pago_en' => 'datetime',
+            'resuelta_en' => 'datetime',
         ];
     }
 }

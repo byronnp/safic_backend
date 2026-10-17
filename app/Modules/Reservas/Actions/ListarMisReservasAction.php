@@ -2,9 +2,11 @@
 
 namespace App\Modules\Reservas\Actions;
 
+use App\Core\Support\Dinero;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Amenidades\Models\CondominioAmenidad;
+use App\Modules\Finanzas\Actions\CargosDeReservaAction;
 use App\Modules\Reservas\Models\Reserva;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 use Carbon\CarbonImmutable;
@@ -15,7 +17,11 @@ use Carbon\CarbonImmutable;
  */
 final class ListarMisReservasAction
 {
-    public function __construct(private readonly Calendario $calendario, private readonly UnidadesDeCuentaAction $unidades) {}
+    public function __construct(
+        private readonly Calendario $calendario,
+        private readonly UnidadesDeCuentaAction $unidades,
+        private readonly CargosDeReservaAction $cargos,
+    ) {}
 
     /** @return list<array<string, mixed>> */
     public function execute(User $user): array
@@ -28,12 +34,16 @@ final class ListarMisReservasAction
         $filas = $reservas->map(function (Reserva $r) use ($areas, $unidades, $ahora): array {
             $empieza = CarbonImmutable::parse($r->fecha->toDateString().' '.$r->inicio, $ahora->getTimezone());
             $viva = in_array($r->estado, Reserva::VIVAS, true);
+            $saldo = $r->estado === Reserva::CONFIRMADA ? $this->cargos->saldoCentavos($r->cuotaIds()) : 0;
 
             return [
                 'id' => $r->id, 'area' => $areas->get($r->amenidad_id)->nombre ?? 'Área', 'unidad' => $unidades->get($r->unidad_id)['codigo'] ?? '',
                 'fecha' => $r->fecha->toDateString(), 'inicio' => substr($r->inicio, 0, 5), 'fin' => substr($r->fin, 0, 5),
                 'estado' => $r->estado, 'costo' => (string) $r->costo, 'garantia' => (string) $r->garantia,
                 'proxima' => $viva && $empieza >= $ahora, 'puede_cancelar' => $viva && $empieza > $ahora,
+                'por_pagar' => Dinero::texto($saldo),
+                'pagar_antes_de' => $saldo > 0 ? $r->limite_pago_en?->setTimezone($ahora->getTimezone())->format('Y-m-d\TH:i') : null,
+                'motivo' => $r->motivo_rechazo ?? $r->motivo_cancelacion,
             ];
         });
 

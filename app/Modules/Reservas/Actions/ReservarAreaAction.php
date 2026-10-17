@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Amenidades\Models\CondominioAmenidad;
 use App\Modules\Reservas\Models\ReglaArea;
 use App\Modules\Reservas\Models\Reserva;
+use App\Modules\Reservas\Services\CobroDeReserva;
 use App\Modules\Reservas\Services\FranjasDeArea;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 use Carbon\CarbonImmutable;
@@ -26,6 +27,7 @@ final class ReservarAreaAction
         private readonly Calendario $calendario,
         private readonly FranjasDeArea $franjas,
         private readonly UnidadesDeCuentaAction $unidades,
+        private readonly CobroDeReserva $cobro,
     ) {}
 
     public function execute(User $user, int $amenidadId, int $unidadId, string $fecha, string $inicio, int $horas, bool $aceptaReglamento): Reserva
@@ -49,12 +51,19 @@ final class ReservarAreaAction
                 $this->exigirTopeMensual($regla, $area->id, $unidadId, $fecha);
 
                 // Savepoint: un choque de horario aborta solo esta parte de la transacción
-                return DB::transaction(fn () => Reserva::create([
+                $reserva = DB::transaction(fn () => Reserva::create([
                     'amenidad_id' => $area->id, 'unidad_id' => $unidadId, 'solicitante_id' => $user->id, 'fecha' => $fecha,
                     'inicio' => $inicio, 'fin' => $this->franjas->fin($inicio, $horas),
                     'estado' => $area->requiere_aprobacion ? Reserva::PENDIENTE : Reserva::CONFIRMADA,
                     'costo' => (string) $regla->costo, 'garantia' => (string) $regla->garantia, 'reglamento_aceptado_en' => now(),
                 ]));
+
+                // Sin aprobación se confirma al instante y se cobra; con aprobación se cobra al aprobarla
+                if ($reserva->estado === Reserva::CONFIRMADA) {
+                    $this->cobro->generar($reserva);
+                }
+
+                return $reserva;
             });
         } catch (QueryException $e) {
             if ($e->getCode() === '23P01') {

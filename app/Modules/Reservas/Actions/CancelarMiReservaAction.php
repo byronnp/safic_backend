@@ -5,6 +5,7 @@ namespace App\Modules\Reservas\Actions;
 use App\Core\Http\Exceptions\ApiException;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
+use App\Modules\Finanzas\Actions\CargosDeReservaAction;
 use App\Modules\Reservas\Models\Reserva;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 use Carbon\CarbonImmutable;
@@ -15,7 +16,11 @@ use Illuminate\Support\Facades\DB;
  */
 final class CancelarMiReservaAction
 {
-    public function __construct(private readonly Calendario $calendario, private readonly UnidadesDeCuentaAction $unidades) {}
+    public function __construct(
+        private readonly Calendario $calendario,
+        private readonly UnidadesDeCuentaAction $unidades,
+        private readonly CargosDeReservaAction $cargos,
+    ) {}
 
     public function execute(User $user, int $reservaId, ?string $motivo): Reserva
     {
@@ -31,6 +36,8 @@ final class CancelarMiReservaAction
             }
 
             $reserva->forceFill(['estado' => Reserva::CANCELADA, 'cancelada_en' => now(), 'motivo_cancelacion' => $motivo])->save();
+            // Lo cobrado que nadie pagó se anula; lo ya pagado lo resuelve la administración
+            $this->cargos->anularSinPagar($reserva->cuotaIds());
 
             return $reserva;
         });
