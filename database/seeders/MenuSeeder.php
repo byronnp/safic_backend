@@ -111,6 +111,12 @@ class MenuSeeder extends Seeder
                 ],
             ],
             [
+                'clave' => 'areas', 'etiqueta' => 'Áreas comunes', 'icono' => 'sym_r_pool',
+                'hijos' => [
+                    ['clave' => 'areas.reglas', 'etiqueta' => 'Áreas y reglas', 'icono' => 'sym_r_rule', 'ruta' => 'areas-reglas', 'permiso' => Permiso::ReservasGestionar],
+                ],
+            ],
+            [
                 'clave' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true,
                 'hijos' => [
                     ['clave' => 'configuracion.condominio', 'etiqueta' => 'Datos del condominio', 'icono' => 'sym_r_domain', 'ruta' => 'configuracion-condominio', 'permiso' => Permiso::CondominioEditar],
