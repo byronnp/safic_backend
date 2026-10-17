@@ -39,6 +39,7 @@ enum Permiso: string
 
     // Áreas comunes · reglas, agenda y aprobación de reservas
     case ReservasGestionar = 'reservas.gestionar';
+    case ReservasPropias = 'reservas.propias';
 
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
@@ -84,6 +85,7 @@ enum Permiso: string
             self::ConciliacionGestionar => 'Conciliar los estados de cuenta del banco',
             self::MorosidadGestionar => 'Gestionar la morosidad: recordatorios, convenios y restricciones',
             self::ReservasGestionar => 'Gestionar áreas comunes: reglas, agenda y reservas',
+            self::ReservasPropias => 'Reservar áreas comunes para su unidad',
             self::PlataformaCondominios => 'Gestionar condominios',
             self::PlataformaCondominiosEditar => 'Editar e inactivar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
