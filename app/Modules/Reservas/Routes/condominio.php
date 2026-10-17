@@ -3,6 +3,7 @@
 use App\Core\Permissions\Permiso;
 use App\Modules\Reservas\Http\Controllers\AreaController;
 use App\Modules\Reservas\Http\Controllers\MisReservasController;
+use App\Modules\Reservas\Http\Controllers\SolicitudController;
 use Illuminate\Support\Facades\Route;
 
 // Rutas del módulo Reservas en el condominio activo. routes/api.php las carga dentro del
@@ -36,3 +37,15 @@ Route::post('mis-reservas', [MisReservasController::class, 'store'])
 Route::post('mis-reservas/{reserva}/cancelar', [MisReservasController::class, 'cancelar'])
     ->whereNumber('reserva')
     ->middleware('permission:'.Permiso::ReservasPropias->value);
+
+// Solicitudes de reserva con aprobación: la administración las aprueba (se cobra) o las rechaza (con motivo)
+Route::get('areas-comunes/solicitudes', [SolicitudController::class, 'index'])
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+Route::post('areas-comunes/reservas/{reserva}/aprobar', [SolicitudController::class, 'aprobar'])
+    ->whereNumber('reserva')
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+Route::post('areas-comunes/reservas/{reserva}/rechazar', [SolicitudController::class, 'rechazar'])
+    ->whereNumber('reserva')
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
