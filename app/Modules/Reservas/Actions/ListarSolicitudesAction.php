@@ -4,6 +4,7 @@ namespace App\Modules\Reservas\Actions;
 
 use App\Models\User;
 use App\Modules\Amenidades\Models\CondominioAmenidad;
+use App\Modules\Finanzas\Actions\EstadoDeUnidadParaAreasAction;
 use App\Modules\Reservas\Models\Reserva;
 use App\Modules\Unidades\Models\Unidad;
 
@@ -13,6 +14,8 @@ use App\Modules\Unidades\Models\Unidad;
  */
 final class ListarSolicitudesAction
 {
+    public function __construct(private readonly EstadoDeUnidadParaAreasAction $mora) {}
+
     /** @return list<array<string, mixed>> */
     public function execute(): array
     {
@@ -21,6 +24,8 @@ final class ListarSolicitudesAction
         $unidades = Unidad::query()->whereIn('id', $reservas->pluck('unidad_id'))->get()->keyBy('id');
         $usuarios = User::query()->whereIn('id', $reservas->pluck('solicitante_id')->filter())->get()->keyBy('id');
 
+        $alDia = $this->mora->alDia($reservas->pluck('unidad_id')->unique()->values()->all());
+
         return $reservas->map(fn (Reserva $r): array => [
             'id' => $r->id,
             'area' => $areas->get($r->amenidad_id)->nombre ?? 'Área',
@@ -28,6 +33,8 @@ final class ListarSolicitudesAction
             'solicitante' => $usuarios->get($r->solicitante_id)->name ?? null,
             'fecha' => $r->fecha->toDateString(), 'inicio' => substr($r->inicio, 0, 5), 'fin' => substr($r->fin, 0, 5),
             'costo' => (string) $r->costo, 'garantia' => (string) $r->garantia,
+            'unidad_al_dia' => $alDia[$r->unidad_id] ?? true,
+            'unidad_restringida' => $this->mora->restringida($r->unidad_id),
             'solicitada_en' => $r->created_at->toIso8601String(),
             'vence_en' => $r->created_at->addHours(Reserva::HORAS_PARA_RESPONDER)->toIso8601String(),
         ])->values()->all();

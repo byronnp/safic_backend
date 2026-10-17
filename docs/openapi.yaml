@@ -4268,6 +4268,123 @@ paths:
         '404':
           $ref: '#/components/responses/NoEncontrado'
 
+  /garita/reservas-hoy:
+    get:
+      tags: [Reservas]
+      operationId: reservasDeHoy
+      summary: Reservas de hoy para el guardia
+      description: |
+        Permiso `reservas.garita`. Solo las confirmadas, en uso o finalizadas de hoy que estén pagadas o sean gratuitas (el guardia no
+        recibe pagos). `restringida: true` = la unidad tiene la restricción de áreas comunes por mora y no debe ingresar.
+      x-permiso: reservas.garita
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Reservas de hoy.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [fecha, reservas]
+                    properties:
+                      fecha: { type: string, format: date }
+                      reservas:
+                        type: array
+                        items: { $ref: '#/components/schemas/ReservaDeHoy' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /garita/reservas/{reserva}/ingreso:
+    post:
+      tags: [Reservas]
+      operationId: registrarIngresoReserva
+      summary: Dar el ingreso a una reserva de hoy
+      description: |
+        Permiso `reservas.garita`. Pasa la reserva a `en_uso`. 409 `RESERVA_NO_ES_DE_HOY`, `RESERVA_NO_CONFIRMADA`,
+        `RESERVA_SIN_PAGAR`, `UNIDAD_RESTRINGIDA`.
+      x-permiso: reservas.garita
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: reserva, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Ingreso registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/ResolucionReserva' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: Conflicto de estado, pago o restricción.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /garita/reservas/{reserva}/entrega:
+    post:
+      tags: [Reservas]
+      operationId: recibirAreaReserva
+      summary: Recibir el área al terminar el uso
+      description: |
+        Permiso `reservas.garita`. Pasa la reserva a `finalizada`. Con `danos` se guarda el reporte y se avisa por correo a la
+        administración, que decide si descuenta de la garantía o cobra a la cuenta de la unidad. 409 `RESERVA_NO_EN_USO`.
+      x-permiso: reservas.garita
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: reserva, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                danos: { type: [string, 'null'], minLength: 3, maxLength: 500 }
+      responses:
+        '200':
+          description: Área recibida.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/ResolucionReserva' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`RESERVA_NO_EN_USO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -7929,15 +8046,16 @@ components:
           type: array
           items:
             type: object
-            required: [unidad_id, codigo]
+            required: [unidad_id, codigo, restringida]
             properties:
               unidad_id: { type: integer }
               codigo: { type: string }
+              restringida: { type: boolean, description: 'Tiene la restricción de áreas comunes por mora (Decreto 462).' }
         areas:
           type: array
           items:
             type: object
-            required: [id, nombre, ubicacion, estado, mantenimiento_hasta, requiere_aprobacion, capacidad, duracion_min_horas, duracion_max_horas, costo, garantia, reglamento]
+            required: [id, nombre, ubicacion, estado, mantenimiento_hasta, requiere_aprobacion, restringible_por_mora, capacidad, duracion_min_horas, duracion_max_horas, costo, garantia, reglamento]
             properties:
               id: { type: integer }
               nombre: { type: string }
@@ -7945,6 +8063,7 @@ components:
               estado: { type: string, enum: [disponible, mantenimiento] }
               mantenimiento_hasta: { type: [string, 'null'], format: date }
               requiere_aprobacion: { type: boolean }
+              restringible_por_mora: { type: boolean }
               capacidad: { type: [integer, 'null'] }
               duracion_min_horas: { type: integer }
               duracion_max_horas: { type: integer }
@@ -7975,7 +8094,7 @@ components:
         fecha: { type: string, format: date }
         inicio: { type: string }
         fin: { type: string }
-        estado: { type: string, enum: [pendiente, confirmada, rechazada, cancelada, vencida] }
+        estado: { type: string, enum: [pendiente, confirmada, en_uso, finalizada, rechazada, cancelada, vencida] }
         costo: { type: string }
         garantia: { type: string }
         proxima: { type: boolean }
@@ -7985,7 +8104,7 @@ components:
         motivo: { type: [string, 'null'], description: 'Motivo del rechazo o de la cancelación.' }
     SolicitudReserva:
       type: object
-      required: [id, area, unidad, solicitante, fecha, inicio, fin, costo, garantia, solicitada_en, vence_en]
+      required: [id, area, unidad, solicitante, fecha, inicio, fin, costo, garantia, unidad_al_dia, unidad_restringida, solicitada_en, vence_en]
       properties:
         id: { type: integer }
         area: { type: string }
@@ -7996,6 +8115,8 @@ components:
         fin: { type: string }
         costo: { type: string }
         garantia: { type: string }
+        unidad_al_dia: { type: boolean, description: 'La unidad no está en mora.' }
+        unidad_restringida: { type: boolean }
         solicitada_en: { type: string, format: date-time }
         vence_en: { type: string, format: date-time }
     ResolucionReserva:
@@ -8036,7 +8157,7 @@ components:
               fecha: { type: string, format: date }
               inicio: { type: string }
               fin: { type: string }
-              estado: { type: string, enum: [pendiente, confirmada] }
+              estado: { type: string, enum: [pendiente, confirmada, en_uso] }
         bloqueos:
           type: array
           items:
@@ -8049,6 +8170,20 @@ components:
               inicio: { type: [string, 'null'] }
               fin: { type: [string, 'null'] }
               motivo: { type: string }
+    ReservaDeHoy:
+      type: object
+      required: [id, area, unidad, persona, inicio, fin, estado, costo, garantia, restringida]
+      properties:
+        id: { type: integer }
+        area: { type: string }
+        unidad: { type: string }
+        persona: { type: [string, 'null'] }
+        inicio: { type: string }
+        fin: { type: string }
+        estado: { type: string, enum: [confirmada, en_uso, finalizada] }
+        costo: { type: string }
+        garantia: { type: string }
+        restringida: { type: boolean }
     GastoRecurrente:
       type: object
       properties:

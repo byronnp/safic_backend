@@ -66,7 +66,7 @@ it('registra los permisos de un rol antes y después', function () {
 
     $r = RegistroBitacora::query()->where('entidad', 'rol')->firstOrFail();
     expect($r->entidad_id)->toBe('guardia')
-        ->and($r->valores_anteriores)->toBe(['permisos' => ['garita.directorio', 'unidades.ver']])
+        ->and($r->valores_anteriores)->toBe(['permisos' => ['garita.directorio', 'reservas.garita', 'unidades.ver']])
         ->and($r->valores_nuevos)->toBe(['permisos' => ['unidades.ver']]);
 });
 

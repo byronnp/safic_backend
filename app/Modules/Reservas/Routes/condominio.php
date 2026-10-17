@@ -2,6 +2,7 @@
 
 use App\Core\Permissions\Permiso;
 use App\Modules\Reservas\Http\Controllers\AreaController;
+use App\Modules\Reservas\Http\Controllers\GaritaReservasController;
 use App\Modules\Reservas\Http\Controllers\MisReservasController;
 use App\Modules\Reservas\Http\Controllers\SolicitudController;
 use Illuminate\Support\Facades\Route;
@@ -64,3 +65,15 @@ Route::post('areas-comunes/bloqueos', [SolicitudController::class, 'bloquear'])
 Route::delete('areas-comunes/bloqueos/{bloqueo}', [SolicitudController::class, 'desbloquear'])
     ->whereNumber('bloqueo')
     ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+// Garita: las reservas de hoy pagadas o gratuitas; el guardia da el ingreso y recibe el área
+Route::get('garita/reservas-hoy', [GaritaReservasController::class, 'index'])
+    ->middleware('permission:'.Permiso::ReservasGarita->value);
+
+Route::post('garita/reservas/{reserva}/ingreso', [GaritaReservasController::class, 'ingreso'])
+    ->whereNumber('reserva')
+    ->middleware('permission:'.Permiso::ReservasGarita->value);
+
+Route::post('garita/reservas/{reserva}/entrega', [GaritaReservasController::class, 'entrega'])
+    ->whereNumber('reserva')
+    ->middleware('permission:'.Permiso::ReservasGarita->value);

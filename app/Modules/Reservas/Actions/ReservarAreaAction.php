@@ -6,6 +6,7 @@ use App\Core\Http\Exceptions\ApiException;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Amenidades\Models\CondominioAmenidad;
+use App\Modules\Finanzas\Actions\EstadoDeUnidadParaAreasAction;
 use App\Modules\Reservas\Models\ReglaArea;
 use App\Modules\Reservas\Models\Reserva;
 use App\Modules\Reservas\Services\BloqueosDeArea;
@@ -30,6 +31,7 @@ final class ReservarAreaAction
         private readonly UnidadesDeCuentaAction $unidades,
         private readonly CobroDeReserva $cobro,
         private readonly BloqueosDeArea $bloqueos,
+        private readonly EstadoDeUnidadParaAreasAction $mora,
     ) {}
 
     public function execute(User $user, int $amenidadId, int $unidadId, string $fecha, string $inicio, int $horas, bool $aceptaReglamento): Reserva
@@ -46,6 +48,9 @@ final class ReservarAreaAction
             ?? throw new ApiException('AREA_SIN_REGLAS', 'Esta área aún no está habilitada para reservas.', 409);
 
         $this->exigirDisponible($area, $fecha);
+        if (! $area->esencial && $this->mora->restringida($unidadId)) {
+            throw new ApiException('UNIDAD_RESTRINGIDA', 'Tu unidad tiene restringido el uso de áreas comunes por cuotas vencidas (Decreto 462). Paga o solicita un convenio y se habilita en máximo 24 horas.', 409);
+        }
         $this->exigirReglas($regla, $fecha, $inicio, $horas);
         if ($this->bloqueos->bloquea($area->id, $fecha, $inicio, $this->franjas->fin($inicio, $horas))) {
             throw new ApiException('HORARIO_BLOQUEADO', 'El área está bloqueada en ese horario. Elige otro.', 409);

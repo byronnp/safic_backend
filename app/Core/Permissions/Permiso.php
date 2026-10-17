@@ -40,6 +40,7 @@ enum Permiso: string
     // Áreas comunes · reglas, agenda y aprobación de reservas
     case ReservasGestionar = 'reservas.gestionar';
     case ReservasPropias = 'reservas.propias';
+    case ReservasGarita = 'reservas.garita';
 
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
@@ -86,6 +87,7 @@ enum Permiso: string
             self::MorosidadGestionar => 'Gestionar la morosidad: recordatorios, convenios y restricciones',
             self::ReservasGestionar => 'Gestionar áreas comunes: reglas, agenda y reservas',
             self::ReservasPropias => 'Reservar áreas comunes para su unidad',
+            self::ReservasGarita => 'Dar ingreso y recibir las áreas reservadas del día',
             self::PlataformaCondominios => 'Gestionar condominios',
             self::PlataformaCondominiosEditar => 'Editar e inactivar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
@@ -120,7 +122,7 @@ enum Permiso: string
     /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
     public function esEscritura(): bool
     {
-        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar], true);
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar, self::ReservasGarita], true);
     }
 
     public function esDePlataforma(): bool
