@@ -9,6 +9,7 @@ use App\Modules\Finanzas\Http\Controllers\CuentaBancariaController;
 use App\Modules\Finanzas\Http\Controllers\CuotaController;
 use App\Modules\Finanzas\Http\Controllers\EstadoCuentaController;
 use App\Modules\Finanzas\Http\Controllers\GastoController;
+use App\Modules\Finanzas\Http\Controllers\GastoRecurrenteController;
 use App\Modules\Finanzas\Http\Controllers\MiCuentaController;
 use App\Modules\Finanzas\Http\Controllers\MorosidadController;
 use App\Modules\Finanzas\Http\Controllers\PagoController;
@@ -238,3 +239,22 @@ Route::get('finanzas/reportes/{reporte}/excel', [ReporteController::class, 'exce
 
 Route::get('finanzas/exportaciones', [ReporteController::class, 'exportaciones'])
     ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+// Gastos recurrentes: cada mes se crea la cuenta por pagar y se avisa para adjuntar la factura real
+Route::get('finanzas/recurrentes', [GastoRecurrenteController::class, 'index'])
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('finanzas/recurrentes', [GastoRecurrenteController::class, 'store'])
+    ->middleware('permission:'.Permiso::GastosRegistrar->value);
+
+Route::patch('finanzas/recurrentes/{recurrente}', [GastoRecurrenteController::class, 'update'])
+    ->whereNumber('recurrente')
+    ->middleware('permission:'.Permiso::GastosRegistrar->value);
+
+Route::get('finanzas/recurrentes/{recurrente}/facturas', [GastoRecurrenteController::class, 'facturas'])
+    ->whereNumber('recurrente')
+    ->middleware('permission:'.Permiso::GastosRegistrar->value);
+
+Route::post('finanzas/recurrentes/{recurrente}/factura', [GastoRecurrenteController::class, 'vincular'])
+    ->whereNumber('recurrente')
+    ->middleware('permission:'.Permiso::GastosRegistrar->value);

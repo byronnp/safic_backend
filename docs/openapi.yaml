@@ -3342,6 +3342,230 @@ paths:
         '403':
           $ref: '#/components/responses/SinPermisoOCondominio'
 
+  /finanzas/recurrentes:
+    get:
+      tags: [Finanzas]
+      operationId: listarGastosRecurrentes
+      summary: Gastos recurrentes y su estado en un mes
+      description: |
+        Permiso: `finanzas.ver`. Cada gasto trae lo que pasa en el mes (`mes.estado`: `programado` antes de su día,
+        `falta_factura` desde su día, `factura_recibida`, `pausado`). `meta.resumen`: lo comprometido al mes (solo montos
+        fijos, sin luz ni agua), cuántas facturas faltan y el próximo gasto.
+      x-permiso: finanzas.ver
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: periodo, in: query, schema: { type: string, pattern: '^\d{4}-\d{2}$' }, description: 'Mes; por defecto el mes en curso.' }
+      responses:
+        '200':
+          description: Gastos recurrentes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/GastoRecurrente' } }
+                  meta:
+                    type: object
+                    properties:
+                      resumen:
+                        type: object
+                        properties:
+                          comprometido: { type: string }
+                          por_adjuntar: { type: integer }
+                          proximo:
+                            oneOf:
+                              - type: object
+                                properties:
+                                  nombre: { type: string }
+                                  fecha: { type: string, format: date }
+                              - { type: 'null' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+    post:
+      tags: [Finanzas]
+      operationId: crearGastoRecurrente
+      summary: Crear un gasto recurrente
+      description: 'Permiso: `gastos.registrar`. Si ya pasó su día de este mes, se crea la ocurrencia del mes y se avisa por correo a administración y tesorería que falta la factura. 422 `PROVEEDOR_INVALIDO`, `APROBACION_SIN_MONTO`.'
+      x-permiso: gastos.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nombre, proveedor_id, dia_mes]
+              properties:
+                nombre: { type: string, minLength: 3, maxLength: 80 }
+                proveedor_id: { type: integer }
+                categoria: { type: [string, 'null'], maxLength: 60 }
+                monto: { type: [string, 'null'], examples: ['1250.00'], description: 'Sin monto = variable (luz, agua).' }
+                dia_mes: { type: integer, minimum: 1, maximum: 28 }
+                aprobacion_automatica: { type: boolean, description: 'Nivel 1 automático si la factura coincide con el monto; exige monto fijo.' }
+      responses:
+        '201':
+          description: Gasto recurrente creado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/GastoRecurrente' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /finanzas/recurrentes/{recurrente}:
+    patch:
+      tags: [Finanzas]
+      operationId: editarGastoRecurrente
+      summary: Editar, pausar o reactivar un gasto recurrente
+      description: 'Permiso: `gastos.registrar`. Solo viaja lo que cambia. `activo: false` lo pausa (no se crea el del mes).'
+      x-permiso: gastos.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: recurrente, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nombre: { type: string, minLength: 3, maxLength: 80 }
+                proveedor_id: { type: integer }
+                categoria: { type: [string, 'null'], maxLength: 60 }
+                monto: { type: [string, 'null'], examples: ['1250.00'], description: 'Sin monto = variable (luz, agua).' }
+                dia_mes: { type: integer, minimum: 1, maximum: 28 }
+                aprobacion_automatica: { type: boolean, description: 'Nivel 1 automático si la factura coincide con el monto; exige monto fijo.' }
+                activo: { type: boolean }
+      responses:
+        '200':
+          description: Gasto recurrente actualizado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/GastoRecurrente' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /finanzas/recurrentes/{recurrente}/facturas:
+    get:
+      tags: [Finanzas]
+      operationId: facturasCandidatasRecurrente
+      summary: Facturas del proveedor que se pueden adjuntar
+      description: 'Permiso: `gastos.registrar`. Las 20 más recientes del proveedor que aún no cubren ningún gasto recurrente.'
+      x-permiso: gastos.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: recurrente, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Facturas candidatas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        numero: { type: string }
+                        fecha_emision: { type: string, format: date }
+                        total: { type: string }
+                        estado: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /finanzas/recurrentes/{recurrente}/factura:
+    post:
+      tags: [Finanzas]
+      operationId: vincularFacturaRecurrente
+      summary: Adjuntar la factura real de un gasto recurrente en un mes
+      description: |
+        Permiso: `gastos.registrar`. La factura debe ser del mismo proveedor y no estar vinculada a otro gasto. Si el gasto
+        tiene aprobación automática y la factura coincide con su monto, el nivel 1 se da solo (queda el registro, sin
+        persona; `meta.aprobada_automaticamente`); sobre el umbral sigue faltando la segunda aprobación.
+        409 `AUN_NO_SE_CREA`, `YA_TIENE_FACTURA`, `FACTURA_YA_VINCULADA`, `PERIODO_CERRADO`; 422 `PROVEEDOR_DISTINTO`.
+      x-permiso: gastos.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: recurrente, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [periodo, gasto_id]
+              properties:
+                periodo: { type: string, pattern: '^\d{4}-\d{2}$', examples: ['2026-10'] }
+                gasto_id: { type: integer }
+      responses:
+        '200':
+          description: Factura vinculada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/GastoRecurrente' }
+                  meta: { type: object, properties: { aprobada_automaticamente: { type: boolean } } }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`AUN_NO_SE_CREA`, `YA_TIENE_FACTURA`, `FACTURA_YA_VINCULADA` o `PERIODO_CERRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -6929,6 +7153,29 @@ components:
         user_nombre: { type: string }
         user_rol: { type: [string, 'null'] }
         en: { type: string, format: date-time }
+
+    GastoRecurrente:
+      type: object
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        proveedor:
+          type: object
+          properties:
+            id: { type: integer }
+            razon_social: { type: string }
+        categoria: { type: [string, 'null'] }
+        monto: { type: [string, 'null'] }
+        dia_mes: { type: integer }
+        activo: { type: boolean }
+        aprobacion_automatica: { type: boolean }
+        mes:
+          type: object
+          properties:
+            estado: { type: string, enum: [programado, falta_factura, factura_recibida, pausado] }
+            fecha_prevista: { type: string, format: date }
+            gasto_id: { type: [integer, 'null'] }
+            aprobada_automaticamente: { type: boolean }
 
     CuentaBancaria:
       type: object
