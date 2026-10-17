@@ -118,6 +118,12 @@ class MenuSeeder extends Seeder
                 ],
             ],
             [
+                'clave' => 'seguridad', 'etiqueta' => 'Seguridad y comunicación', 'icono' => 'sym_r_shield_person',
+                'hijos' => [
+                    ['clave' => 'seguridad.bitacora', 'etiqueta' => 'Bitácora de garita', 'icono' => 'sym_r_badge', 'ruta' => 'garita-bitacora', 'permiso' => Permiso::GaritaBitacora],
+                ],
+            ],
+            [
                 'clave' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true,
                 'hijos' => [
                     ['clave' => 'configuracion.condominio', 'etiqueta' => 'Datos del condominio', 'icono' => 'sym_r_domain', 'ruta' => 'configuracion-condominio', 'permiso' => Permiso::CondominioEditar],
