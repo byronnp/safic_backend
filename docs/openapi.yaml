@@ -43,7 +43,7 @@ tags:
   - name: Finanzas
     description: Cobro de cuotas del condominio.
   - name: Reservas
-    description: Áreas comunes: reglas de uso, reservas, agenda y bloqueos.
+    description: 'Áreas comunes: reglas de uso, reservas, agenda y bloqueos.'
   - name: Catálogos
     description: Datos compartidos que no dependen del condominio.
   - name: Plataforma
