@@ -4,6 +4,7 @@ namespace App\Modules\Garita\Actions;
 
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
+use App\Modules\Garita\Models\AccesoGarita;
 use App\Modules\Garita\Models\AutorizacionVisita;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 
@@ -15,7 +16,7 @@ final class ListarMisVisitasAction
 {
     public function __construct(private readonly Calendario $calendario, private readonly UnidadesDeCuentaAction $unidades) {}
 
-    /** @return array{unidades: list<array{unidad_id: int, codigo: string}>, visitas: list<array<string, mixed>>} */
+    /** @return array{unidades: list<array{unidad_id: int, codigo: string}>, visitas: list<array<string, mixed>>, ingresos: list<array<string, mixed>>} */
     public function execute(User $user): array
     {
         $mias = collect($this->unidades->execute($user->id))->keyBy('unidad_id');
@@ -29,6 +30,12 @@ final class ListarMisVisitasAction
         return [
             'unidades' => $mias->map(fn (array $u): array => ['unidad_id' => $u['unidad_id'], 'codigo' => $u['codigo']])->values()->all(),
             'visitas' => $visitas,
+            'ingresos' => AccesoGarita::query()->whereIn('unidad_id', $mias->keys())->orderByDesc('entrada_en')->limit(15)->get()
+                ->map(fn (AccesoGarita $a): array => [
+                    'id' => $a->id, 'nombre' => $a->nombre, 'tipo' => $a->tipo, 'autorizado_por' => $a->autorizado_por, 'estado' => $a->estado,
+                    'entrada_en' => $a->entrada_en->setTimezone($this->calendario->zonaHoraria())->toIso8601String(),
+                    'salida_en' => $a->salida_en?->setTimezone($this->calendario->zonaHoraria())->toIso8601String(),
+                ])->values()->all(),
         ];
     }
 

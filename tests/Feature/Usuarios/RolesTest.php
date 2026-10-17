@@ -47,7 +47,7 @@ it('cada rol dice qué permite y el catálogo de permisos trae etiqueta, grupo y
     $catalogo = collect(($this->api)()->getJson('/api/v1/roles')->json('data.permisos'))->keyBy('clave');
 
     expect($roles['administrador']['permisos'])->toContain('unidades.editar', 'usuarios.gestionar', 'condominio.editar', 'garita.directorio')
-        ->and($roles['guardia']['permisos'])->toBe(['garita.directorio', 'reservas.garita', 'unidades.ver'])
+        ->and($roles['guardia']['permisos'])->toBe(['garita.directorio', 'garita.registrar', 'reservas.garita', 'unidades.ver'])
         ->and($roles['residente']['permisos'])->toBe(['cuenta.propia', 'reservas.propias', 'visitas.propias'])
         ->and($catalogo['garita.directorio'])->toBe(['clave' => 'garita.directorio', 'etiqueta' => 'Consultar el directorio de garita', 'grupo' => 'Garita', 'administrativo' => false])
         ->and($catalogo['unidades.editar'])->toMatchArray(['grupo' => 'Núcleo', 'administrativo' => true]);
@@ -68,7 +68,7 @@ it('el menú de cada rol sale de sus permisos y de las hojas asignadas', functio
     $roles = ($this->roles)();
     $etiquetas = fn (string $clave) => collect($roles[$clave]['menu'])->pluck('etiqueta')->all();
 
-    expect($etiquetas('administrador'))->toBe(['Inicio', 'Unidades', 'Bloques', 'Resumen', 'Cuotas del mes', 'Cierre de mes', 'Conciliación bancaria', 'Morosidad', 'Reportes', 'Pagos por aprobar', 'Cuentas por pagar', 'Gastos recurrentes', 'Caja chica', 'Proveedores', 'Agenda', 'Áreas y reglas', 'Datos del condominio', 'Cobro de cuotas', 'Amenidades', 'Usuarios', 'Roles'])
+    expect($etiquetas('administrador'))->toBe(['Inicio', 'Unidades', 'Bloques', 'Resumen', 'Cuotas del mes', 'Cierre de mes', 'Conciliación bancaria', 'Morosidad', 'Reportes', 'Pagos por aprobar', 'Cuentas por pagar', 'Gastos recurrentes', 'Caja chica', 'Proveedores', 'Agenda', 'Áreas y reglas', 'Bitácora de garita', 'Datos del condominio', 'Cobro de cuotas', 'Amenidades', 'Usuarios', 'Roles'])
         ->and($etiquetas('guardia'))->toBe(['Inicio', 'Unidades', 'Bloques'])
         ->and($etiquetas('residente'))->toBe(['Inicio'])
         ->and($roles['administrador']['menu'][1])->toBe(['etiqueta' => 'Unidades', 'icono' => 'sym_r_apartment']);

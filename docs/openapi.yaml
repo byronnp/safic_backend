@@ -4517,6 +4517,195 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /garita/panel:
+    get:
+      tags: [Garita]
+      operationId: panelGarita
+      summary: Quién está dentro y qué visitas se esperan hoy
+      description: Permiso `garita.registrar`. `esperadas` son autorizaciones con QR vigente hoy que aún no entraron.
+      x-permiso: garita.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Panel de la garita.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PanelGarita' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /garita/qr/validar:
+    post:
+      tags: [Garita]
+      operationId: validarQrVisita
+      summary: Validar el QR de una visita
+      description: |
+        Permiso `garita.registrar`. Responde quién es y a dónde va (para que el guardia confirme persona y placa) y si sirve ahora
+        (`valido`). Si no sirve, `motivo`: `QR_REVOCADO`, `QR_YA_USADO`, `QR_VENCIDO`, `QR_AUN_NO_VIGENTE`, `QR_DIA_NO_HABILITADO`,
+        `QR_FUERA_DE_HORARIO` o `QR_YA_DENTRO`. 404 `QR_NO_RECONOCIDO` si no existe o es de otro condominio.
+      x-permiso: garita.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, maxLength: 64 }
+      responses:
+        '200':
+          description: Resultado de la validación.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ValidacionQr' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /garita/accesos:
+    post:
+      tags: [Garita]
+      operationId: registrarIngresoGarita
+      summary: Registrar un ingreso
+      description: |
+        Permiso `garita.registrar`. Con `token` se vuelve a validar el QR y se cuenta el uso (409 con el motivo si ya no sirve). Sin `token`
+        (visita sin QR, proveedor, delivery) hacen falta `tipo`, `nombre` y `autorizado_por`; la visita lleva `unidad_codigo` y el resto
+        `unidad_codigo` o `destino`. 422 `UNIDAD_REQUERIDA`, `DESTINO_REQUERIDO`, `UNIDAD_NO_ENCONTRADA`.
+      x-permiso: garita.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token: { type: [string, 'null'], maxLength: 64 }
+                tipo: { type: string, enum: [visita, proveedor, delivery] }
+                nombre: { type: string, minLength: 3, maxLength: 120 }
+                documento: { type: [string, 'null'], pattern: '^[A-Za-z0-9]{5,20}$' }
+                placa: { type: [string, 'null'], examples: ['PDQ-3321'] }
+                unidad_codigo: { type: [string, 'null'], examples: ['A-102'] }
+                destino: { type: [string, 'null'], maxLength: 80 }
+                autorizado_por: { type: string, enum: [llamada, administracion, app_residente] }
+      responses:
+        '201':
+          description: Ingreso registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id, nombre, estado]
+                    properties:
+                      id: { type: integer }
+                      nombre: { type: string }
+                      estado: { type: string, enum: [dentro, salio] }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: El QR ya no sirve (`QR_REVOCADO`, `QR_YA_USADO`, `QR_VENCIDO`, `QR_AUN_NO_VIGENTE`, `QR_DIA_NO_HABILITADO`, `QR_FUERA_DE_HORARIO`, `QR_YA_DENTRO`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /garita/accesos/{acceso}/salida:
+    post:
+      tags: [Garita]
+      operationId: registrarSalidaGarita
+      summary: Registrar la salida
+      description: Permiso `garita.registrar`. 409 `YA_SALIO`.
+      x-permiso: garita.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: acceso, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Salida registrada.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`YA_SALIO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /garita/bitacora:
+    get:
+      tags: [Garita]
+      operationId: bitacoraGarita
+      summary: Bitácora de garita
+      description: |
+        Permiso `garita.bitacora`. Ingresos y salidas del rango (hoy por defecto; máximo 31 días), los más recientes primero, con los
+        indicadores del día. Hasta 200 filas (`hay_mas`). Los datos del visitante se anonimizan a los 12 meses. 422 `RANGO_MUY_LARGO`.
+      x-permiso: garita.bitacora
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: desde, in: query, required: false, schema: { type: string, format: date } }
+        - { name: hasta, in: query, required: false, schema: { type: string, format: date } }
+        - { name: tipo, in: query, required: false, schema: { type: string, enum: [visita, proveedor, delivery] } }
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 80 }, description: 'Nombre, unidad o destino.' }
+      responses:
+        '200':
+          description: Bitácora.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/BitacoraGarita' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -8333,8 +8522,12 @@ components:
         token: { type: string, description: 'Es el QR. Opaco, sin datos personales; lleva el id del condominio.' }
     MisVisitas:
       type: object
-      required: [unidades, visitas]
+      required: [unidades, visitas, ingresos]
       properties:
+        ingresos:
+          type: array
+          description: Los últimos ingresos registrados por la garita en mis unidades.
+          items: { $ref: '#/components/schemas/IngresoMiUnidad' }
         unidades:
           type: array
           items:
@@ -8368,6 +8561,100 @@ components:
             direccion: { type: [string, 'null'] }
             latitud: { type: [string, 'null'] }
             longitud: { type: [string, 'null'] }
+    PanelGarita:
+      type: object
+      required: [dentro, esperadas]
+      properties:
+        dentro:
+          type: array
+          items:
+            type: object
+            required: [id, nombre, tipo, unidad, destino, placa, desde]
+            properties:
+              id: { type: integer }
+              nombre: { type: string }
+              tipo: { type: string, enum: [visita, proveedor, delivery] }
+              unidad: { type: [string, 'null'] }
+              destino: { type: [string, 'null'] }
+              placa: { type: [string, 'null'] }
+              desde: { type: string, examples: ['13:40'] }
+        esperadas:
+          type: array
+          items:
+            type: object
+            required: [id, nombre, unidad, placa, hora_desde, hora_hasta]
+            properties:
+              id: { type: integer }
+              nombre: { type: string }
+              unidad: { type: [string, 'null'] }
+              placa: { type: [string, 'null'] }
+              hora_desde: { type: string }
+              hora_hasta: { type: string }
+    ValidacionQr:
+      type: object
+      required: [valido, motivo, mensaje, visita]
+      properties:
+        valido: { type: boolean }
+        motivo: { type: [string, 'null'] }
+        mensaje: { type: [string, 'null'] }
+        visita:
+          type: object
+          required: [visitante, placa, unidad, autorizo, tipo, fecha_desde, fecha_hasta, hora_desde, hora_hasta, dias_semana]
+          properties:
+            visitante: { type: string }
+            placa: { type: [string, 'null'] }
+            unidad: { type: [string, 'null'] }
+            autorizo: { type: [string, 'null'] }
+            tipo: { type: string, enum: [unica, recurrente] }
+            fecha_desde: { type: string, format: date }
+            fecha_hasta: { type: string, format: date }
+            hora_desde: { type: string }
+            hora_hasta: { type: string }
+            dias_semana: { type: [array, 'null'], items: { type: integer } }
+    BitacoraGarita:
+      type: object
+      required: [desde, hasta, hay_mas, indicadores, accesos]
+      properties:
+        desde: { type: string, format: date }
+        hasta: { type: string, format: date }
+        hay_mas: { type: boolean }
+        indicadores:
+          type: object
+          required: [dentro_ahora, proveedores_dentro, ingresos_hoy, con_qr_hoy, sin_anunciar_hoy, sin_conexion]
+          properties:
+            dentro_ahora: { type: integer }
+            proveedores_dentro: { type: integer }
+            ingresos_hoy: { type: integer }
+            con_qr_hoy: { type: integer }
+            sin_anunciar_hoy: { type: integer }
+            sin_conexion: { type: integer, description: 'Accesos registrados sin conexión y aún no sincronizados.' }
+        accesos:
+          type: array
+          items:
+            type: object
+            required: [id, nombre, tipo, unidad, destino, autorizado_por, estado, entrada_en, salida_en, registrado_por]
+            properties:
+              id: { type: integer }
+              nombre: { type: string }
+              tipo: { type: string, enum: [visita, proveedor, delivery] }
+              unidad: { type: [string, 'null'] }
+              destino: { type: [string, 'null'] }
+              autorizado_por: { type: string, enum: [qr, llamada, app_residente, administracion] }
+              estado: { type: string, enum: [dentro, salio] }
+              entrada_en: { type: string, format: date-time }
+              salida_en: { type: [string, 'null'], format: date-time }
+              registrado_por: { type: [string, 'null'] }
+    IngresoMiUnidad:
+      type: object
+      required: [id, nombre, tipo, autorizado_por, estado, entrada_en, salida_en]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        tipo: { type: string, enum: [visita, proveedor, delivery] }
+        autorizado_por: { type: string }
+        estado: { type: string, enum: [dentro, salio] }
+        entrada_en: { type: string, format: date-time }
+        salida_en: { type: [string, 'null'], format: date-time }
     GastoRecurrente:
       type: object
       properties:
