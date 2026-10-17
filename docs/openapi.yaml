@@ -42,6 +42,8 @@ tags:
     description: Amenidades del condominio (del catálogo o propias).
   - name: Finanzas
     description: Cobro de cuotas del condominio.
+  - name: Comunicación
+    description: 'Anuncios de la administración y su lectura.'
   - name: Garita
     description: 'Visitas autorizadas, ingresos, paquetes y bitácora de la garita.'
   - name: Reservas
@@ -4852,6 +4854,265 @@ paths:
         '403':
           $ref: '#/components/responses/SinPermisoOCondominio'
 
+  /comunicacion/anuncios:
+    get:
+      tags: [Comunicación]
+      operationId: listarAnuncios
+      summary: Anuncios publicados y su lectura
+      description: Permiso `anuncios.publicar`. Los fijados primero y luego los más recientes (hasta 100), con cuántas unidades los leyeron y confirmaron.
+      x-permiso: anuncios.publicar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Anuncios.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AnuncioAdmin' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    post:
+      tags: [Comunicación]
+      operationId: publicarAnuncio
+      summary: Publicar un anuncio
+      description: |
+        Permiso `anuncios.publicar`. Se fija la lista de unidades que lo reciben (las que tienen a alguien viviendo) y se avisa por correo
+        a quienes tienen correo. Destino `todos`, `bloque` (con `bloque_id`) o `unidades` (por código). Adjunto opcional: PDF, JPG o PNG hasta 5 MB.
+        422 `UNIDADES_NO_ENCONTRADAS`, `SIN_DESTINATARIOS`, `BLOQUE_NO_ENCONTRADO`, `EXPIRA_PASADO`.
+      x-permiso: anuncios.publicar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [titulo, mensaje, destino_tipo]
+              properties:
+                titulo: { type: string, minLength: 3, maxLength: 120 }
+                mensaje: { type: string, minLength: 3, maxLength: 4000 }
+                destino_tipo: { type: string, enum: [todos, bloque, unidades] }
+                bloque_id: { type: integer }
+                unidades: { type: array, items: { type: string }, maxItems: 300 }
+                fijar: { type: boolean }
+                confirmacion: { type: boolean }
+                expira: { type: string, format: date }
+                adjunto: { type: string, format: binary }
+      responses:
+        '201':
+          description: Anuncio publicado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id]
+                    properties:
+                      id: { type: integer }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /comunicacion/anuncios/alcance:
+    get:
+      tags: [Comunicación]
+      operationId: alcanceAnuncio
+      summary: A cuántas unidades llegaría un anuncio
+      description: Permiso `anuncios.publicar`. Cuenta las unidades con alguien viviendo y las personas con cuenta del destino, antes de publicar.
+      x-permiso: anuncios.publicar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: destino_tipo, in: query, required: true, schema: { type: string, enum: [todos, bloque, unidades] } }
+        - { name: bloque_id, in: query, required: false, schema: { type: integer } }
+        - { name: unidades, in: query, required: false, schema: { type: array, items: { type: string } }, style: form, explode: true }
+      responses:
+        '200':
+          description: Alcance.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [destino, unidades, personas_con_cuenta]
+                    properties:
+                      destino: { type: string }
+                      unidades: { type: integer }
+                      personas_con_cuenta: { type: integer }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /comunicacion/anuncios/{anuncio}/reenviar:
+    post:
+      tags: [Comunicación]
+      operationId: reenviarAnuncio
+      summary: Reenviar a las unidades pendientes
+      description: Permiso `anuncios.publicar`. Avisa por correo a las unidades que no leyeron (o no confirmaron, si el anuncio lo pedía). 409 `ANUNCIO_EXPIRADO`.
+      x-permiso: anuncios.publicar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: anuncio, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Reenviado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [unidades]
+                    properties:
+                      unidades: { type: integer }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`ANUNCIO_EXPIRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /comunicacion/anuncios/{anuncio}/constancia:
+    get:
+      tags: [Comunicación]
+      operationId: constanciaAnuncio
+      summary: Constancia de lectura en PDF
+      description: Permiso `anuncios.publicar`. Qué unidades recibieron el anuncio, cuáles lo leyeron o confirmaron y cuándo, y cuáles siguen pendientes.
+      x-permiso: anuncios.publicar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: anuncio, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: El PDF.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /mis-avisos:
+    get:
+      tags: [Comunicación]
+      operationId: listarMisAvisos
+      summary: Avisos de la administración para mis unidades
+      description: Permiso `avisos.propios`. Los anuncios vigentes que llegaron a mis unidades (fijados primero) y si ya los leí o confirmé.
+      x-permiso: avisos.propios
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Avisos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MisAvisos' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /mis-avisos/{anuncio}/leer:
+    post:
+      tags: [Comunicación]
+      operationId: leerAviso
+      summary: Marcar un aviso como leído
+      description: Permiso `avisos.propios`. Idempotente; vale para todas mis unidades a las que llegó. 404 si no llegó a ninguna de mis unidades.
+      x-permiso: avisos.propios
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: anuncio, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Marcado.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /mis-avisos/{anuncio}/confirmar:
+    post:
+      tags: [Comunicación]
+      operationId: confirmarAviso
+      summary: Confirmar la lectura de un aviso
+      description: Permiso `avisos.propios`. Solo si el anuncio lo pide. 409 `NO_PIDE_CONFIRMACION`, `ANUNCIO_EXPIRADO`.
+      x-permiso: avisos.propios
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: anuncio, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Confirmado.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`NO_PIDE_CONFIRMACION` o `ANUNCIO_EXPIRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -8857,6 +9118,46 @@ components:
       properties:
         en_garita: { type: array, items: { $ref: '#/components/schemas/MiPaquete' } }
         entregados: { type: array, items: { $ref: '#/components/schemas/MiPaquete' } }
+    AnuncioAdmin:
+      type: object
+      required: [id, titulo, destino, publicado_en, expira_en, vigente, fijado, requiere_confirmacion, unidades, leidas, confirmadas, porcentaje_leido, tiene_adjunto]
+      properties:
+        id: { type: integer }
+        titulo: { type: string }
+        destino: { type: string }
+        publicado_en: { type: string, format: date }
+        expira_en: { type: [string, 'null'], format: date }
+        vigente: { type: boolean }
+        fijado: { type: boolean }
+        requiere_confirmacion: { type: boolean }
+        unidades: { type: integer }
+        leidas: { type: integer }
+        confirmadas: { type: integer }
+        porcentaje_leido: { type: integer, minimum: 0, maximum: 100 }
+        tiene_adjunto: { type: boolean }
+    MisAvisos:
+      type: object
+      required: [no_leidos, avisos]
+      properties:
+        no_leidos: { type: integer }
+        avisos:
+          type: array
+          items:
+            type: object
+            required: [id, titulo, mensaje, destino, publicado_en, expira_en, fijado, requiere_confirmacion, leido, confirmado, adjunto_nombre, adjunto_url]
+            properties:
+              id: { type: integer }
+              titulo: { type: string }
+              mensaje: { type: string }
+              destino: { type: string }
+              publicado_en: { type: string, format: date }
+              expira_en: { type: [string, 'null'], format: date }
+              fijado: { type: boolean }
+              requiere_confirmacion: { type: boolean }
+              leido: { type: boolean }
+              confirmado: { type: boolean }
+              adjunto_nombre: { type: [string, 'null'] }
+              adjunto_url: { type: [string, 'null'], description: 'Enlace temporal al adjunto.' }
     GastoRecurrente:
       type: object
       properties:

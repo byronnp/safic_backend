@@ -121,6 +121,7 @@ class MenuSeeder extends Seeder
                 'clave' => 'seguridad', 'etiqueta' => 'Seguridad y comunicación', 'icono' => 'sym_r_shield_person',
                 'hijos' => [
                     ['clave' => 'seguridad.bitacora', 'etiqueta' => 'Bitácora de garita', 'icono' => 'sym_r_badge', 'ruta' => 'garita-bitacora', 'permiso' => Permiso::GaritaBitacora],
+                    ['clave' => 'seguridad.anuncios', 'etiqueta' => 'Anuncios', 'icono' => 'sym_r_campaign', 'ruta' => 'comunicacion-anuncios', 'permiso' => Permiso::AnunciosPublicar],
                 ],
             ],
             [
