@@ -19,13 +19,14 @@ class AnonimizarGarita extends Command
 
     public function handle(TenantContext $tenant, AnonimizarGaritaAction $anonimizar): int
     {
-        $accesos = $autorizaciones = 0;
+        $accesos = $autorizaciones = $paquetes = 0;
         foreach (DB::table('condominios')->where('estado', '!=', Condominio::ESTADO_SUSPENDIDO)->pluck('id') as $id) {
             $r = $tenant->run((int) $id, fn (): array => $anonimizar->execute());
             $accesos += $r['accesos'];
             $autorizaciones += $r['autorizaciones'];
+            $paquetes += $r['paquetes'];
         }
-        $this->info("Accesos anonimizados: {$accesos} · Autorizaciones anonimizadas: {$autorizaciones}");
+        $this->info("Accesos anonimizados: {$accesos} · Autorizaciones anonimizadas: {$autorizaciones} · Paquetes anonimizados: {$paquetes}");
 
         return self::SUCCESS;
     }
