@@ -22,6 +22,7 @@ enum Permiso: string
 
     // Finanzas
     case FinanzasVer = 'finanzas.ver';
+    case FinanzasExportar = 'finanzas.exportar';
     case CuotasEmitir = 'cuotas.emitir';
     case CuentaPropia = 'cuenta.propia';
     case PagosAprobar = 'pagos.aprobar';
@@ -63,6 +64,7 @@ enum Permiso: string
             self::CondominioEditar => 'Editar datos y cobro del condominio',
             self::GaritaDirectorio => 'Consultar el directorio de garita',
             self::FinanzasVer => 'Ver finanzas y reportes',
+            self::FinanzasExportar => 'Exportar reportes a Excel',
             self::CuotasEmitir => 'Emitir las cuotas del mes',
             self::CuentaPropia => 'Ver y pagar la cuenta de su unidad',
             self::PagosAprobar => 'Aprobar pagos de residentes',

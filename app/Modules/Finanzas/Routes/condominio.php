@@ -15,6 +15,8 @@ use App\Modules\Finanzas\Http\Controllers\PagoController;
 use App\Modules\Finanzas\Http\Controllers\PagoProveedorController;
 use App\Modules\Finanzas\Http\Controllers\PeriodoController;
 use App\Modules\Finanzas\Http\Controllers\ProveedorController;
+use App\Modules\Finanzas\Http\Controllers\ReporteController;
+use App\Modules\Finanzas\Services\ReportesFinancieros;
 use Illuminate\Support\Facades\Route;
 
 // Rutas del módulo Finanzas en el condominio. routes/api.php las carga dentro del
@@ -222,3 +224,17 @@ Route::post('finanzas/convenios', [MorosidadController::class, 'crearConvenio'])
 Route::post('finanzas/convenios/{convenio}/cancelar', [MorosidadController::class, 'cancelarConvenio'])
     ->whereNumber('convenio')
     ->middleware('permission:'.Permiso::MorosidadGestionar->value);
+
+// Reportes financieros: verlos, exportarlos a Excel (con código único; 30 por día por persona) y su bitácora
+$reportes = implode('|', array_keys(ReportesFinancieros::REPORTES));
+
+Route::get('finanzas/reportes/{reporte}', [ReporteController::class, 'show'])
+    ->where('reporte', $reportes)
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::get('finanzas/reportes/{reporte}/excel', [ReporteController::class, 'excel'])
+    ->where('reporte', $reportes)
+    ->middleware('permission:'.Permiso::FinanzasExportar->value);
+
+Route::get('finanzas/exportaciones', [ReporteController::class, 'exportaciones'])
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
