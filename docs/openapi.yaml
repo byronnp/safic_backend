@@ -42,6 +42,8 @@ tags:
     description: Amenidades del condominio (del catálogo o propias).
   - name: Finanzas
     description: Cobro de cuotas del condominio.
+  - name: Reservas
+    description: Áreas comunes: reglas de uso, reservas, agenda y bloqueos.
   - name: Catálogos
     description: Datos compartidos que no dependen del condominio.
   - name: Plataforma
@@ -3721,6 +3723,295 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /areas-comunes/areas:
+    get:
+      tags: [Reservas]
+      operationId: listarAreasComunes
+      summary: Áreas comunes del condominio y sus reglas
+      description: |
+        Permiso: `reservas.gestionar`. Las amenidades reservables con sus reglas de uso. Un área sin reglas guardadas
+        devuelve las reglas por defecto y `configurada: false`.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Áreas comunes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AreaComun' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /areas-comunes/areas/{amenidad}:
+    get:
+      tags: [Reservas]
+      operationId: verAreaComun
+      summary: Un área común con sus reglas
+      description: Permiso `reservas.gestionar`. 404 si la amenidad no existe en el condominio o no es reservable.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: El área.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AreaComun' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /areas-comunes/areas/{amenidad}/reglas:
+    put:
+      tags: [Reservas]
+      operationId: guardarReglasArea
+      summary: Fijar las reglas de uso de un área común
+      description: |
+        Permiso: `reservas.gestionar`. Viajan todas las reglas. `requiere_aprobacion` y `restringible_por_mora` se guardan en la
+        amenidad (`restringible_por_mora` es lo contrario de `esencial`). 409 `AREA_NO_RESERVABLE` si la amenidad no es reservable.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReglasAreaEntrada' }
+      responses:
+        '200':
+          description: Reglas guardadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AreaComun' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`AREA_NO_RESERVABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /mis-reservas/areas:
+    get:
+      tags: [Reservas]
+      operationId: listarAreasReservables
+      summary: Áreas que el residente puede reservar y sus unidades
+      description: Permiso `reservas.propias`. Áreas activas con reglas guardadas y las unidades en las que vive la persona de la cuenta.
+      x-permiso: reservas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Áreas y unidades.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AreasReservables' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /mis-reservas/areas/{amenidad}/disponibilidad:
+    get:
+      tags: [Reservas]
+      operationId: disponibilidadArea
+      summary: Franjas de un área por día
+      description: |
+        Permiso `reservas.propias`. Por día, las franjas del área (seguidas, de la duración mínima) con su estado: `libre`, `ocupada`
+        o `cerrada` (día no habilitado, fuera de la ventana de anticipación o en mantenimiento). 409 `AREA_SIN_REGLAS`.
+      x-permiso: reservas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+        - { name: desde, in: query, required: false, schema: { type: string, format: date }, description: Hoy por defecto. }
+        - { name: dias, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 14, default: 7 } }
+      responses:
+        '200':
+          description: Disponibilidad por día.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/DiaDisponible' } }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`AREA_SIN_REGLAS`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /mis-reservas:
+    get:
+      tags: [Reservas]
+      operationId: listarMisReservas
+      summary: Reservas de mis unidades
+      description: Permiso `reservas.propias`. Las próximas primero (la más cercana arriba) y luego el historial.
+      x-permiso: reservas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Reservas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/MiReserva' } }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    post:
+      tags: [Reservas]
+      operationId: reservarArea
+      summary: Reservar un área común
+      description: |
+        Permiso `reservas.propias`. Con aprobación del administrador queda `pendiente`; sin ella, `confirmada`. Dos reservas vivas
+        del mismo área no se cruzan (lo garantiza la base). 403 `UNIDAD_NO_ES_SUYA`; 409 `HORARIO_OCUPADO`, `TOPE_MENSUAL`,
+        `AREA_EN_MANTENIMIENTO`, `AREA_NO_DISPONIBLE`, `AREA_SIN_REGLAS`; 422 `REGLAMENTO_NO_ACEPTADO`, `DIA_NO_HABILITADO`,
+        `HORARIO_NO_VALIDO`, `ANTICIPACION_INSUFICIENTE`, `DEMASIADO_ADELANTE`.
+      x-permiso: reservas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amenidad_id, unidad_id, fecha, inicio, horas, acepta_reglamento]
+              properties:
+                amenidad_id: { type: integer }
+                unidad_id: { type: integer }
+                fecha: { type: string, format: date }
+                inicio: { type: string, examples: ['10:00'] }
+                horas: { type: integer, minimum: 1 }
+                acepta_reglamento: { type: boolean }
+      responses:
+        '201':
+          description: Reserva creada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MiReserva' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: Conflicto de horario, tope mensual o área no disponible.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /mis-reservas/{reserva}/cancelar:
+    post:
+      tags: [Reservas]
+      operationId: cancelarMiReserva
+      summary: Cancelar una reserva futura de mi unidad
+      description: Permiso `reservas.propias`. Libera el horario. 404 si no es de mis unidades; 409 `RESERVA_NO_CANCELABLE` si ya pasó o ya no está viva.
+      x-permiso: reservas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: reserva, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                motivo: { type: [string, 'null'], maxLength: 200 }
+      responses:
+        '200':
+          description: Reserva cancelada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`RESERVA_NO_CANCELABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -7338,6 +7629,101 @@ components:
             gasto_numero: { type: string }
             monto: { type: string }
             estado: { type: string }
+    ReglasArea:
+      type: object
+      required: [abre, cierra, duracion_min_horas, duracion_max_horas, anticipacion_min_horas, anticipacion_max_dias, capacidad, reservas_por_unidad_mes, dias_semana, costo, garantia, reglamento]
+      properties:
+        abre: { type: string, examples: ['08:00'] }
+        cierra: { type: string, examples: ['23:00'] }
+        duracion_min_horas: { type: integer, minimum: 1 }
+        duracion_max_horas: { type: integer, minimum: 1 }
+        anticipacion_min_horas: { type: integer, minimum: 0 }
+        anticipacion_max_dias: { type: integer, minimum: 1 }
+        capacidad: { type: [integer, 'null'] }
+        reservas_por_unidad_mes: { type: [integer, 'null'] }
+        dias_semana: { type: array, items: { type: integer, minimum: 1, maximum: 7 }, description: '1 = lunes … 7 = domingo.' }
+        costo: { type: string, examples: ['50.00'] }
+        garantia: { type: string, examples: ['100.00'] }
+        reglamento: { type: [string, 'null'] }
+    ReglasAreaEntrada:
+      allOf:
+        - $ref: '#/components/schemas/ReglasArea'
+        - type: object
+          required: [requiere_aprobacion, restringible_por_mora]
+          properties:
+            requiere_aprobacion: { type: boolean }
+            restringible_por_mora: { type: boolean }
+    AreaComun:
+      type: object
+      required: [id, nombre, ubicacion, estado, requiere_aprobacion, restringible_por_mora, configurada, reglas]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        ubicacion: { type: [string, 'null'] }
+        estado: { type: string, enum: [disponible, mantenimiento, inactiva] }
+        requiere_aprobacion: { type: boolean }
+        restringible_por_mora: { type: boolean }
+        configurada: { type: boolean }
+        reglas: { $ref: '#/components/schemas/ReglasArea' }
+    AreasReservables:
+      type: object
+      required: [unidades, areas]
+      properties:
+        unidades:
+          type: array
+          items:
+            type: object
+            required: [unidad_id, codigo]
+            properties:
+              unidad_id: { type: integer }
+              codigo: { type: string }
+        areas:
+          type: array
+          items:
+            type: object
+            required: [id, nombre, ubicacion, estado, mantenimiento_hasta, requiere_aprobacion, capacidad, duracion_min_horas, duracion_max_horas, costo, garantia, reglamento]
+            properties:
+              id: { type: integer }
+              nombre: { type: string }
+              ubicacion: { type: [string, 'null'] }
+              estado: { type: string, enum: [disponible, mantenimiento] }
+              mantenimiento_hasta: { type: [string, 'null'], format: date }
+              requiere_aprobacion: { type: boolean }
+              capacidad: { type: [integer, 'null'] }
+              duracion_min_horas: { type: integer }
+              duracion_max_horas: { type: integer }
+              costo: { type: string }
+              garantia: { type: string }
+              reglamento: { type: [string, 'null'] }
+    DiaDisponible:
+      type: object
+      required: [fecha, franjas]
+      properties:
+        fecha: { type: string, format: date }
+        franjas:
+          type: array
+          items:
+            type: object
+            required: [inicio, fin, estado]
+            properties:
+              inicio: { type: string, examples: ['10:00'] }
+              fin: { type: string, examples: ['12:00'] }
+              estado: { type: string, enum: [libre, ocupada, cerrada] }
+    MiReserva:
+      type: object
+      required: [id, area, unidad, fecha, inicio, fin, estado, costo, garantia, proxima, puede_cancelar]
+      properties:
+        id: { type: integer }
+        area: { type: string }
+        unidad: { type: string }
+        fecha: { type: string, format: date }
+        inicio: { type: string }
+        fin: { type: string }
+        estado: { type: string, enum: [pendiente, confirmada, rechazada, cancelada, vencida] }
+        costo: { type: string }
+        garantia: { type: string }
+        proxima: { type: boolean }
+        puede_cancelar: { type: boolean }
     GastoRecurrente:
       type: object
       properties:
