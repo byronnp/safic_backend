@@ -49,6 +49,10 @@ enum Permiso: string
     case PaquetesGestionar = 'paquetes.gestionar';
     case PaquetesPropios = 'paquetes.propios';
 
+    // Comunicación · anuncios de la administración
+    case AnunciosPublicar = 'anuncios.publicar';
+    case AvisosPropios = 'avisos.propios';
+
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
     case PlataformaCondominiosEditar = 'plataforma.condominios-editar';
@@ -61,6 +65,7 @@ enum Permiso: string
         return match (true) {
             str_starts_with($this->value, 'plataforma.') => 'plataforma',
             str_starts_with($this->value, 'reservas.') => 'reservas',
+            str_starts_with($this->value, 'anuncios.'), str_starts_with($this->value, 'avisos.') => 'comunicacion',
             str_starts_with($this->value, 'visitas.'), str_starts_with($this->value, 'garita.'), str_starts_with($this->value, 'paquetes.') => 'garita',
             str_starts_with($this->value, 'finanzas.'), str_starts_with($this->value, 'cuotas.'), str_starts_with($this->value, 'cuenta.'), str_starts_with($this->value, 'pagos.'), str_starts_with($this->value, 'gastos.'), str_starts_with($this->value, 'periodos.'), str_starts_with($this->value, 'cajachica.'), str_starts_with($this->value, 'conciliacion.'), str_starts_with($this->value, 'morosidad.'), str_starts_with($this->value, 'proveedores.') => 'finanzas',
             default => 'nucleo',
@@ -101,6 +106,8 @@ enum Permiso: string
             self::GaritaBitacora => 'Consultar la bitácora de garita',
             self::PaquetesGestionar => 'Recibir y entregar los paquetes de la garita',
             self::PaquetesPropios => 'Ver los paquetes de su unidad',
+            self::AnunciosPublicar => 'Publicar anuncios y ver quién los leyó',
+            self::AvisosPropios => 'Leer y confirmar los avisos de la administración',
             self::PlataformaCondominios => 'Gestionar condominios',
             self::PlataformaCondominiosEditar => 'Editar e inactivar condominios',
             self::PlataformaRoles => 'Gestionar roles y permisos',
@@ -117,6 +124,7 @@ enum Permiso: string
             $this->modulo() === 'finanzas' => 'Finanzas',
             $this->modulo() === 'reservas' => 'Áreas comunes',
             $this->modulo() === 'garita' => 'Garita',
+            $this->modulo() === 'comunicacion' => 'Comunicación',
             $this->esDePlataforma() => 'Plataforma',
             default => 'Núcleo',
         };
@@ -136,7 +144,7 @@ enum Permiso: string
     /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
     public function esEscritura(): bool
     {
-        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar, self::ReservasGarita, self::GaritaRegistrar, self::PaquetesGestionar], true);
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar, self::ReservasGarita, self::GaritaRegistrar, self::PaquetesGestionar, self::AnunciosPublicar], true);
     }
 
     public function esDePlataforma(): bool

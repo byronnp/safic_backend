@@ -63,6 +63,7 @@ it('el administrador ve inicio, unidades con bloques y su configuración', funct
         ]],
         ['id' => 'seguridad', 'etiqueta' => 'Seguridad y comunicación', 'icono' => 'sym_r_shield_person', 'hijos' => [
             ['id' => 'seguridad.bitacora', 'etiqueta' => 'Bitácora de garita', 'icono' => 'sym_r_badge', 'ruta' => 'garita-bitacora', 'permiso' => 'garita.bitacora'],
+            ['id' => 'seguridad.anuncios', 'etiqueta' => 'Anuncios', 'icono' => 'sym_r_campaign', 'ruta' => 'comunicacion-anuncios', 'permiso' => 'anuncios.publicar'],
         ]],
         ['id' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true, 'hijos' => [
             ['id' => 'configuracion.condominio', 'etiqueta' => 'Datos del condominio', 'icono' => 'sym_r_domain', 'ruta' => 'configuracion-condominio', 'permiso' => 'condominio.editar'],
@@ -78,7 +79,7 @@ it('ninguna pantalla en vista previa llega al menú de producción', function ()
     // Solo rutas que ya tienen pantalla con API; una vista previa se suma cuando pasa a datos reales
     $rutas = MenuItem::query()->whereNotNull('ruta')->pluck('ruta')->sort()->values()->all();
 
-    expect($rutas)->toBe(['areas-agenda', 'areas-reglas', 'bloques', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-aprobaciones', 'finanzas-caja-chica', 'finanzas-cierre-mes', 'finanzas-conciliacion', 'finanzas-cuentas-por-pagar', 'finanzas-cuotas', 'finanzas-morosidad', 'finanzas-pagos-por-aprobar', 'finanzas-proveedores', 'finanzas-recurrentes', 'finanzas-reportes', 'finanzas-resumen', 'garita-bitacora', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
+    expect($rutas)->toBe(['areas-agenda', 'areas-reglas', 'bloques', 'comunicacion-anuncios', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-aprobaciones', 'finanzas-caja-chica', 'finanzas-cierre-mes', 'finanzas-conciliacion', 'finanzas-cuentas-por-pagar', 'finanzas-cuotas', 'finanzas-morosidad', 'finanzas-pagos-por-aprobar', 'finanzas-proveedores', 'finanzas-recurrentes', 'finanzas-reportes', 'finanzas-resumen', 'garita-bitacora', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
 });
 
 it('un perfil sin permisos de configuración no ve esa sección', function () {
