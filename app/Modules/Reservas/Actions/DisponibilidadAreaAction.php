@@ -7,6 +7,7 @@ use App\Core\Tenancy\Calendario;
 use App\Modules\Amenidades\Models\CondominioAmenidad;
 use App\Modules\Reservas\Models\ReglaArea;
 use App\Modules\Reservas\Models\Reserva;
+use App\Modules\Reservas\Services\BloqueosDeArea;
 use App\Modules\Reservas\Services\FranjasDeArea;
 use Carbon\CarbonImmutable;
 
@@ -18,7 +19,7 @@ final class DisponibilidadAreaAction
 {
     public const MAX_DIAS = 14;
 
-    public function __construct(private readonly Calendario $calendario, private readonly FranjasDeArea $franjas) {}
+    public function __construct(private readonly Calendario $calendario, private readonly FranjasDeArea $franjas, private readonly BloqueosDeArea $bloqueos) {}
 
     /** @return list<array{fecha: string, franjas: list<array{inicio: string, fin: string, estado: string}>}> */
     public function execute(int $amenidadId, string $desde, int $dias): array
@@ -44,9 +45,9 @@ final class DisponibilidadAreaAction
                 && $fecha <= $limite
                 && ($area->mantenimiento_hasta === null || $area->mantenimiento_hasta->toDateString() < $fecha);
 
-            $resultado[] = ['fecha' => $fecha, 'franjas' => array_map(function (array $f) use ($habilitado, $fecha, $ahora, $regla, $ocupadas, $zona): array {
+            $resultado[] = ['fecha' => $fecha, 'franjas' => array_map(function (array $f) use ($habilitado, $fecha, $ahora, $regla, $ocupadas, $zona, $area): array {
                 $empieza = CarbonImmutable::parse("{$fecha} {$f['inicio']}", $zona);
-                $cerrada = ! $habilitado || $empieza < $ahora->addHours($regla->anticipacion_min_horas);
+                $cerrada = ! $habilitado || $empieza < $ahora->addHours($regla->anticipacion_min_horas) || $this->bloqueos->bloquea($area->id, $fecha, $f['inicio'], $f['fin']);
                 $ocupada = $ocupadas->contains(fn (Reserva $r) => $r->fecha->toDateString() === $fecha && substr($r->inicio, 0, 5) < $f['fin'] && substr($r->fin, 0, 5) > $f['inicio']);
 
                 return $f + ['estado' => $cerrada ? 'cerrada' : ($ocupada ? 'ocupada' : 'libre')];

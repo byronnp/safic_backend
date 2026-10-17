@@ -49,3 +49,18 @@ Route::post('areas-comunes/reservas/{reserva}/aprobar', [SolicitudController::cl
 Route::post('areas-comunes/reservas/{reserva}/rechazar', [SolicitudController::class, 'rechazar'])
     ->whereNumber('reserva')
     ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+// Agenda de la administración: reservas de la semana, cancelar una reserva y bloquear o desbloquear un área
+Route::get('areas-comunes/agenda', [SolicitudController::class, 'agenda'])
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+Route::post('areas-comunes/reservas/{reserva}/cancelar', [SolicitudController::class, 'cancelar'])
+    ->whereNumber('reserva')
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+Route::post('areas-comunes/bloqueos', [SolicitudController::class, 'bloquear'])
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+Route::delete('areas-comunes/bloqueos/{bloqueo}', [SolicitudController::class, 'desbloquear'])
+    ->whereNumber('bloqueo')
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);

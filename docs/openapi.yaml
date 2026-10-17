@@ -4122,6 +4122,152 @@ paths:
         '422':
           $ref: '#/components/responses/Validacion'
 
+  /areas-comunes/agenda:
+    get:
+      tags: [Reservas]
+      operationId: agendaAreasComunes
+      summary: Agenda de reservas y bloqueos de un rango de días
+      description: Permiso `reservas.gestionar`. Las áreas reservables, sus reservas vivas (`pendiente` o `confirmada`) y sus bloqueos entre `desde` y `desde + dias - 1`.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: desde, in: query, required: false, schema: { type: string, format: date }, description: Hoy por defecto. }
+        - { name: dias, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 14, default: 7 } }
+      responses:
+        '200':
+          description: Agenda.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AgendaAreas' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /areas-comunes/reservas/{reserva}/cancelar:
+    post:
+      tags: [Reservas]
+      operationId: cancelarReservaAdmin
+      summary: Cancelar una reserva futura (administración)
+      description: Permiso `reservas.gestionar`. El motivo lo ve el residente y se le avisa por correo. Anula lo cobrado que nadie pagó. 409 `RESERVA_NO_CANCELABLE`.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: reserva, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 200 }
+      responses:
+        '200':
+          description: Reserva cancelada.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`RESERVA_NO_CANCELABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /areas-comunes/bloqueos:
+    post:
+      tags: [Reservas]
+      operationId: bloquearArea
+      summary: Bloquear un área un día o unas horas
+      description: |
+        Permiso `reservas.gestionar`. Sin `inicio` ni `fin` bloquea todo el día. Si ya hay reservas vivas encima responde
+        409 `HAY_RESERVAS_AFECTADAS` (`details.reservas`) y no bloquea; con `cancelar_reservas: true` las cancela y avisa a cada
+        residente. 422 `FECHA_PASADA`, `HORAS_INCOMPLETAS`, `HORAS_INVERTIDAS`.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amenidad_id, fecha, motivo]
+              properties:
+                amenidad_id: { type: integer }
+                fecha: { type: string, format: date }
+                inicio: { type: [string, 'null'], examples: ['10:00'] }
+                fin: { type: [string, 'null'], examples: ['12:00'] }
+                motivo: { type: string, minLength: 3, maxLength: 120 }
+                cancelar_reservas: { type: boolean, default: false }
+      responses:
+        '201':
+          description: Área bloqueada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id, reservas_canceladas]
+                    properties:
+                      id: { type: integer }
+                      reservas_canceladas: { type: integer }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`HAY_RESERVAS_AFECTADAS`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /areas-comunes/bloqueos/{bloqueo}:
+    delete:
+      tags: [Reservas]
+      operationId: quitarBloqueo
+      summary: Quitar un bloqueo
+      description: Permiso `reservas.gestionar`.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: bloqueo, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Bloqueo quitado.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -7858,6 +8004,51 @@ components:
       properties:
         id: { type: integer }
         estado: { type: string, enum: [confirmada, rechazada] }
+    AgendaAreas:
+      type: object
+      required: [desde, hasta, areas, reservas, bloqueos]
+      properties:
+        desde: { type: string, format: date }
+        hasta: { type: string, format: date }
+        areas:
+          type: array
+          items:
+            type: object
+            required: [id, nombre, capacidad, costo, garantia, duracion_max_horas, configurada, en_mantenimiento]
+            properties:
+              id: { type: integer }
+              nombre: { type: string }
+              capacidad: { type: [integer, 'null'] }
+              costo: { type: string }
+              garantia: { type: string }
+              duracion_max_horas: { type: [integer, 'null'] }
+              configurada: { type: boolean }
+              en_mantenimiento: { type: boolean }
+        reservas:
+          type: array
+          items:
+            type: object
+            required: [id, amenidad_id, unidad, fecha, inicio, fin, estado]
+            properties:
+              id: { type: integer }
+              amenidad_id: { type: integer }
+              unidad: { type: string }
+              fecha: { type: string, format: date }
+              inicio: { type: string }
+              fin: { type: string }
+              estado: { type: string, enum: [pendiente, confirmada] }
+        bloqueos:
+          type: array
+          items:
+            type: object
+            required: [id, amenidad_id, fecha, inicio, fin, motivo]
+            properties:
+              id: { type: integer }
+              amenidad_id: { type: integer }
+              fecha: { type: string, format: date }
+              inicio: { type: [string, 'null'] }
+              fin: { type: [string, 'null'] }
+              motivo: { type: string }
     GastoRecurrente:
       type: object
       properties:
