@@ -42,6 +42,8 @@ tags:
     description: Amenidades del condominio (del catálogo o propias).
   - name: Finanzas
     description: Cobro de cuotas del condominio.
+  - name: Reservas
+    description: 'Áreas comunes: reglas de uso, reservas, agenda y bloqueos.'
   - name: Catálogos
     description: Datos compartidos que no dependen del condominio.
   - name: Plataforma
@@ -3721,6 +3723,109 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /areas-comunes/areas:
+    get:
+      tags: [Reservas]
+      operationId: listarAreasComunes
+      summary: Áreas comunes del condominio y sus reglas
+      description: |
+        Permiso: `reservas.gestionar`. Las amenidades reservables con sus reglas de uso. Un área sin reglas guardadas
+        devuelve las reglas por defecto y `configurada: false`.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Áreas comunes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AreaComun' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /areas-comunes/areas/{amenidad}:
+    get:
+      tags: [Reservas]
+      operationId: verAreaComun
+      summary: Un área común con sus reglas
+      description: Permiso `reservas.gestionar`. 404 si la amenidad no existe en el condominio o no es reservable.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: El área.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AreaComun' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /areas-comunes/areas/{amenidad}/reglas:
+    put:
+      tags: [Reservas]
+      operationId: guardarReglasArea
+      summary: Fijar las reglas de uso de un área común
+      description: |
+        Permiso: `reservas.gestionar`. Viajan todas las reglas. `requiere_aprobacion` y `restringible_por_mora` se guardan en la
+        amenidad (`restringible_por_mora` es lo contrario de `esencial`). 409 `AREA_NO_RESERVABLE` si la amenidad no es reservable.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: amenidad, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReglasAreaEntrada' }
+      responses:
+        '200':
+          description: Reglas guardadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AreaComun' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`AREA_NO_RESERVABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -7338,6 +7443,42 @@ components:
             gasto_numero: { type: string }
             monto: { type: string }
             estado: { type: string }
+    ReglasArea:
+      type: object
+      required: [abre, cierra, duracion_min_horas, duracion_max_horas, anticipacion_min_horas, anticipacion_max_dias, capacidad, reservas_por_unidad_mes, dias_semana, costo, garantia, reglamento]
+      properties:
+        abre: { type: string, examples: ['08:00'] }
+        cierra: { type: string, examples: ['23:00'] }
+        duracion_min_horas: { type: integer, minimum: 1 }
+        duracion_max_horas: { type: integer, minimum: 1 }
+        anticipacion_min_horas: { type: integer, minimum: 0 }
+        anticipacion_max_dias: { type: integer, minimum: 1 }
+        capacidad: { type: [integer, 'null'] }
+        reservas_por_unidad_mes: { type: [integer, 'null'] }
+        dias_semana: { type: array, items: { type: integer, minimum: 1, maximum: 7 }, description: '1 = lunes … 7 = domingo.' }
+        costo: { type: string, examples: ['50.00'] }
+        garantia: { type: string, examples: ['100.00'] }
+        reglamento: { type: [string, 'null'] }
+    ReglasAreaEntrada:
+      allOf:
+        - $ref: '#/components/schemas/ReglasArea'
+        - type: object
+          required: [requiere_aprobacion, restringible_por_mora]
+          properties:
+            requiere_aprobacion: { type: boolean }
+            restringible_por_mora: { type: boolean }
+    AreaComun:
+      type: object
+      required: [id, nombre, ubicacion, estado, requiere_aprobacion, restringible_por_mora, configurada, reglas]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        ubicacion: { type: [string, 'null'] }
+        estado: { type: string, enum: [disponible, mantenimiento, inactiva] }
+        requiere_aprobacion: { type: boolean }
+        restringible_por_mora: { type: boolean }
+        configurada: { type: boolean }
+        reglas: { $ref: '#/components/schemas/ReglasArea' }
     GastoRecurrente:
       type: object
       properties:
