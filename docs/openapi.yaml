@@ -4706,6 +4706,152 @@ paths:
         '422':
           $ref: '#/components/responses/Validacion'
 
+  /garita/paquetes:
+    get:
+      tags: [Garita]
+      operationId: listarPaquetesGarita
+      summary: Paquetes en la garita y entregados hoy
+      description: |
+        Permiso `paquetes.gestionar`. Los paquetes en garita (el más antiguo primero; `atrasado` desde 7 días) con una foto de lectura
+        temporal y los ocupantes vigentes de la unidad (quiénes pueden retirar), y los entregados hoy.
+      x-permiso: paquetes.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Paquetes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PaquetesGarita' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    post:
+      tags: [Garita]
+      operationId: recibirPaquete
+      summary: Recibir un paquete
+      description: |
+        Permiso `paquetes.gestionar`. La foto (JPG o PNG, hasta 5 MB) es obligatoria. Se avisa por correo a los ocupantes vigentes de la
+        unidad. 422 `UNIDAD_NO_ENCONTRADA`.
+      x-permiso: paquetes.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [unidad_codigo, empresa, foto]
+              properties:
+                unidad_codigo: { type: string, examples: ['A-102'] }
+                empresa: { type: string, minLength: 2, maxLength: 80 }
+                descripcion: { type: string, maxLength: 60 }
+                foto: { type: string, format: binary }
+      responses:
+        '201':
+          description: Paquete recibido.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id]
+                    properties:
+                      id: { type: integer }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /garita/paquetes/{paquete}/entregar:
+    post:
+      tags: [Garita]
+      operationId: entregarPaquete
+      summary: Entregar un paquete
+      description: |
+        Permiso `paquetes.gestionar`. Indica exactamente uno: `ocupante_id` (un ocupante vigente de la unidad) o `autorizado` (nombre de una
+        persona que el residente autorizó). La firma (PNG) es obligatoria. 409 `PAQUETE_YA_ENTREGADO`; 422 `RETIRA_NO_INDICADO`,
+        `OCUPANTE_NO_VIGENTE`.
+      x-permiso: paquetes.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: paquete, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [firma]
+              properties:
+                ocupante_id: { type: integer }
+                autorizado: { type: string, minLength: 3, maxLength: 120 }
+                firma: { type: string, format: binary }
+      responses:
+        '200':
+          description: Paquete entregado.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`PAQUETE_YA_ENTREGADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /mis-paquetes:
+    get:
+      tags: [Garita]
+      operationId: listarMisPaquetes
+      summary: Paquetes de mis unidades
+      description: Permiso `paquetes.propios`. Los que esperan en la garita y los entregados en los últimos 30 días. Sin foto ni datos de quien retiró.
+      x-permiso: paquetes.propios
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Paquetes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MisPaquetes' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -8655,6 +8801,62 @@ components:
         estado: { type: string, enum: [dentro, salio] }
         entrada_en: { type: string, format: date-time }
         salida_en: { type: [string, 'null'], format: date-time }
+    PaquetesGarita:
+      type: object
+      required: [en_garita, entregados_hoy]
+      properties:
+        en_garita:
+          type: array
+          items:
+            type: object
+            required: [id, unidad, empresa, descripcion, recibido_en, dias, atrasado, foto_url, ocupantes]
+            properties:
+              id: { type: integer }
+              unidad: { type: string }
+              empresa: { type: string }
+              descripcion: { type: [string, 'null'] }
+              recibido_en: { type: string, format: date-time }
+              dias: { type: integer }
+              atrasado: { type: boolean }
+              foto_url: { type: [string, 'null'], description: 'Enlace temporal a la foto.' }
+              ocupantes:
+                type: array
+                items:
+                  type: object
+                  required: [id, nombre, relacion]
+                  properties:
+                    id: { type: integer }
+                    nombre: { type: string }
+                    relacion: { type: string }
+        entregados_hoy:
+          type: array
+          items:
+            type: object
+            required: [id, unidad, empresa, descripcion, entregado_en, retira_nombre]
+            properties:
+              id: { type: integer }
+              unidad: { type: string }
+              empresa: { type: string }
+              descripcion: { type: [string, 'null'] }
+              entregado_en: { type: [string, 'null'], format: date-time }
+              retira_nombre: { type: [string, 'null'] }
+    MiPaquete:
+      type: object
+      required: [id, unidad, empresa, descripcion, recibido_en, entregado_en, dias]
+      properties:
+        id: { type: integer }
+        unidad: { type: string }
+        empresa: { type: string }
+        descripcion: { type: [string, 'null'] }
+        recibido_en: { type: string, format: date-time }
+        entregado_en: { type: [string, 'null'], format: date-time }
+        dias: { type: integer }
+    MisPaquetes:
+      type: object
+      required: [en_garita, entregados]
+      properties:
+        en_garita: { type: array, items: { $ref: '#/components/schemas/MiPaquete' } }
+        entregados: { type: array, items: { $ref: '#/components/schemas/MiPaquete' } }
     GastoRecurrente:
       type: object
       properties:

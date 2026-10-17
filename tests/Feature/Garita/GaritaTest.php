@@ -176,7 +176,7 @@ it('a los 12 meses se anonimizan los datos del visitante y queda el hecho', func
 
     $r = enCondominio($this->condominio, fn () => app(AnonimizarGaritaAction::class)->execute());
 
-    expect($r)->toBe(['accesos' => 1, 'autorizaciones' => 1]);
+    expect($r)->toBe(['accesos' => 1, 'autorizaciones' => 1, 'paquetes' => 0]);
     $v = enCondominio($this->condominio, fn () => AccesoGarita::find($viejo->id));
     expect($v->nombre)->toBe('Visitante anonimizado')->and($v->documento)->toBeNull()->and($v->placa)->toBeNull()->and($v->unidad_id)->toBe($this->unidad->id)
         ->and(enCondominio($this->condominio, fn () => AccesoGarita::find($reciente->id)->nombre))->toBe('Persona Reciente');
