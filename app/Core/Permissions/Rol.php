@@ -132,7 +132,7 @@ enum Rol: string
             self::Secretario => [Permiso::UnidadesVer],
             self::Guardia => [Permiso::UnidadesVer, Permiso::GaritaDirectorio, Permiso::ReservasGarita],
             self::Contador => [Permiso::FinanzasVer, Permiso::FinanzasExportar],
-            self::Residente => [Permiso::CuentaPropia, Permiso::ReservasPropias],
+            self::Residente => [Permiso::CuentaPropia, Permiso::ReservasPropias, Permiso::VisitasPropias],
             // Quien queda a cargo del fondo de caja chica suele ser de mantenimiento
             self::Mantenimiento => [Permiso::CajaChicaRegistrar],
         };

@@ -45,6 +45,9 @@ class CoreServiceProvider extends ServiceProvider
         // El directorio muestra teléfonos sin enmascarar: se limita para que no sirva para volcar la lista completa
         RateLimiter::for('directorio', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->getAuthIdentifier() ?? $request->ip()));
 
+        // Página pública del QR de una visita: el token es largo y aleatorio, igual se frena el sondeo
+        RateLimiter::for('visita-publica', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+
         RateLimiter::for('marca', fn (Request $request) => Limit::perMinute(120)->by($request->ip()));
 
         // Pedidos a la plataforma: pocos por hora y por persona

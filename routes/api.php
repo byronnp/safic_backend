@@ -5,6 +5,7 @@ use App\Core\Auth\Http\Controllers\DobleFactorController;
 use App\Core\Auth\Http\Controllers\InvitacionController;
 use App\Core\Marca\Http\Controllers\LogoPublicoController;
 use App\Core\Menu\Http\Controllers\MenuController;
+use App\Modules\Garita\Http\Controllers\VisitaPublicaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -55,6 +56,9 @@ Route::prefix('auth')->group(function () {
 
 // Logo del condominio (público: aparece en el login, recibos y correos)
 Route::get('marca/{codigo}/logo/{variante}', [LogoPublicoController::class, 'show'])->middleware('throttle:marca');
+
+// Página pública del QR de una visita: el visitante la abre desde el enlace que le comparte el residente
+Route::get('publico/visitas/{token}', [VisitaPublicaController::class, 'show'])->middleware('throttle:visita-publica');
 
 // Con sesión y sin condominio: catálogos compartidos
 Route::middleware(['auth:api', 'throttle:api'])->group(function () use ($rutasDeModulos) {

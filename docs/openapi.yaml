@@ -42,6 +42,8 @@ tags:
     description: Amenidades del condominio (del catálogo o propias).
   - name: Finanzas
     description: Cobro de cuotas del condominio.
+  - name: Garita
+    description: 'Visitas autorizadas, ingresos, paquetes y bitácora de la garita.'
   - name: Reservas
     description: 'Áreas comunes: reglas de uso, reservas, agenda y bloqueos.'
   - name: Catálogos
@@ -4385,6 +4387,136 @@ paths:
         '422':
           $ref: '#/components/responses/Validacion'
 
+  /mis-visitas:
+    get:
+      tags: [Garita]
+      operationId: listarMisVisitas
+      summary: Visitas autorizadas de mis unidades
+      description: |
+        Permiso `visitas.propias`. Las autorizaciones activas (no revocadas ni vencidas), la más próxima primero, con el `token` del QR,
+        y las unidades desde las que se puede autorizar.
+      x-permiso: visitas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Visitas y unidades.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MisVisitas' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    post:
+      tags: [Garita]
+      operationId: autorizarVisita
+      summary: Autorizar una visita
+      description: |
+        Permiso `visitas.propias`. `unica` vale un solo ingreso en `fecha_desde`; `recurrente` vale los `dias_semana` (1 = lunes … 7 = domingo)
+        hasta `fecha_hasta` (máximo un año). La cédula es opcional y se guarda cifrada. 403 `UNIDAD_NO_ES_SUYA`; 409 `LIMITE_AUTORIZACIONES`;
+        422 `FECHA_PASADA`, `HORARIO_PASADO`, `HORAS_INVERTIDAS`, `FECHAS_INVERTIDAS`, `SIN_DIAS`, `VIGENCIA_MUY_LARGA`.
+      x-permiso: visitas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [unidad_id, visitante, tipo, fecha_desde, hora_desde, hora_hasta]
+              properties:
+                unidad_id: { type: integer }
+                visitante: { type: string, minLength: 3, maxLength: 120 }
+                documento: { type: [string, 'null'], pattern: '^[A-Za-z0-9]{5,20}$' }
+                placa: { type: [string, 'null'], examples: ['PDQ-3321'] }
+                tipo: { type: string, enum: [unica, recurrente] }
+                fecha_desde: { type: string, format: date }
+                fecha_hasta: { type: [string, 'null'], format: date }
+                hora_desde: { type: string, examples: ['15:00'] }
+                hora_hasta: { type: string, examples: ['20:00'] }
+                dias_semana: { type: [array, 'null'], items: { type: integer, minimum: 1, maximum: 7 } }
+      responses:
+        '201':
+          description: Visita autorizada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/VisitaAutorizada' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`LIMITE_AUTORIZACIONES`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /mis-visitas/{visita}/revocar:
+    post:
+      tags: [Garita]
+      operationId: revocarVisita
+      summary: Revocar una autorización de visita
+      description: Permiso `visitas.propias`. El QR deja de servir al instante. 404 si la autorización no es de mis unidades.
+      x-permiso: visitas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: visita, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Autorización revocada.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
+  /publico/visitas/{token}:
+    get:
+      tags: [Garita]
+      operationId: verVisitaPublica
+      summary: Página pública del QR de una visita
+      description: |
+        Sin sesión: el visitante abre el enlace que le comparte el residente. El token lleva el id del condominio. Solo devuelve lo mínimo
+        (nombre de pila, unidad, vigencia y la dirección del condominio); nunca cédula, placa ni datos del residente. `estado` puede ser
+        `activa`, `revocada` o `vencida`. 404 si el token no existe.
+      security: []
+      parameters:
+        - { name: token, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: La visita.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/VisitaPublica' }
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -8184,6 +8316,58 @@ components:
         costo: { type: string }
         garantia: { type: string }
         restringida: { type: boolean }
+    VisitaAutorizada:
+      type: object
+      required: [id, unidad, visitante, placa, tipo, fecha_desde, fecha_hasta, hora_desde, hora_hasta, dias_semana, token]
+      properties:
+        id: { type: integer }
+        unidad: { type: string }
+        visitante: { type: string }
+        placa: { type: [string, 'null'] }
+        tipo: { type: string, enum: [unica, recurrente] }
+        fecha_desde: { type: string, format: date }
+        fecha_hasta: { type: string, format: date }
+        hora_desde: { type: string }
+        hora_hasta: { type: string }
+        dias_semana: { type: [array, 'null'], items: { type: integer } }
+        token: { type: string, description: 'Es el QR. Opaco, sin datos personales; lleva el id del condominio.' }
+    MisVisitas:
+      type: object
+      required: [unidades, visitas]
+      properties:
+        unidades:
+          type: array
+          items:
+            type: object
+            required: [unidad_id, codigo]
+            properties:
+              unidad_id: { type: integer }
+              codigo: { type: string }
+        visitas:
+          type: array
+          items: { $ref: '#/components/schemas/VisitaAutorizada' }
+    VisitaPublica:
+      type: object
+      required: [token, estado, visitante, tipo, unidad, fecha_desde, fecha_hasta, hora_desde, hora_hasta, dias_semana, condominio]
+      properties:
+        token: { type: string }
+        estado: { type: string, enum: [activa, revocada, vencida] }
+        visitante: { type: string, description: 'Solo el nombre de pila.' }
+        tipo: { type: string, enum: [unica, recurrente] }
+        unidad: { type: [string, 'null'] }
+        fecha_desde: { type: string, format: date }
+        fecha_hasta: { type: string, format: date }
+        hora_desde: { type: string }
+        hora_hasta: { type: string }
+        dias_semana: { type: [array, 'null'], items: { type: integer } }
+        condominio:
+          type: object
+          required: [nombre, direccion, latitud, longitud]
+          properties:
+            nombre: { type: string }
+            direccion: { type: [string, 'null'] }
+            latitud: { type: [string, 'null'] }
+            longitud: { type: [string, 'null'] }
     GastoRecurrente:
       type: object
       properties:
