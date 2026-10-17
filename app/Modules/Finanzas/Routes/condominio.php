@@ -10,6 +10,7 @@ use App\Modules\Finanzas\Http\Controllers\CuotaController;
 use App\Modules\Finanzas\Http\Controllers\EstadoCuentaController;
 use App\Modules\Finanzas\Http\Controllers\GastoController;
 use App\Modules\Finanzas\Http\Controllers\MiCuentaController;
+use App\Modules\Finanzas\Http\Controllers\MorosidadController;
 use App\Modules\Finanzas\Http\Controllers\PagoController;
 use App\Modules\Finanzas\Http\Controllers\PagoProveedorController;
 use App\Modules\Finanzas\Http\Controllers\PeriodoController;
@@ -200,3 +201,24 @@ Route::post('conciliacion/movimientos/{movimiento}/clasificar', [ConciliacionCon
 Route::post('conciliacion/movimientos/{movimiento}/deshacer', [ConciliacionController::class, 'deshacer'])
     ->whereNumber('movimiento')
     ->middleware('permission:'.Permiso::ConciliacionGestionar->value);
+
+// Morosidad: cartera vencida, recordatorios, convenios de pago y restricción de áreas comunes (Decreto 462)
+Route::get('finanzas/morosidad', [MorosidadController::class, 'index'])
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('finanzas/morosidad/recordatorios', [MorosidadController::class, 'recordar'])
+    ->middleware(['permission:'.Permiso::MorosidadGestionar->value, 'throttle:pagos']);
+
+Route::post('finanzas/morosidad/restricciones/{unidad}/levantar', [MorosidadController::class, 'levantar'])
+    ->whereNumber('unidad')
+    ->middleware('permission:'.Permiso::MorosidadGestionar->value);
+
+Route::get('finanzas/convenios', [MorosidadController::class, 'convenios'])
+    ->middleware('permission:'.Permiso::FinanzasVer->value);
+
+Route::post('finanzas/convenios', [MorosidadController::class, 'crearConvenio'])
+    ->middleware('permission:'.Permiso::MorosidadGestionar->value);
+
+Route::post('finanzas/convenios/{convenio}/cancelar', [MorosidadController::class, 'cancelarConvenio'])
+    ->whereNumber('convenio')
+    ->middleware('permission:'.Permiso::MorosidadGestionar->value);

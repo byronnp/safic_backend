@@ -7,3 +7,5 @@ use Illuminate\Support\Facades\Schedule;
 // Schedule::job(new GenerarCuotasDelMes)->dailyAt('02:00')->withoutOverlapping()->onOneServer();
 
 Schedule::command('finanzas:activar-cambios-de-cuenta')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();
+Schedule::command('finanzas:recordatorios-de-mora')->dailyAt('07:00')->withoutOverlapping()->onOneServer();
+Schedule::command('finanzas:actualizar-morosidad')->hourly()->withoutOverlapping()->onOneServer();

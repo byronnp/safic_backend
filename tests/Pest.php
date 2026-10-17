@@ -86,7 +86,8 @@ function cuotaDe(Condominio $condominio, Unidad $unidad, int $mesesAtras, string
 
         return Cuota::create([
             'unidad_id' => $unidad->id, 'periodo' => $periodo->toDateString(), 'concepto' => 'ordinaria', 'monto' => $monto,
-            'pagado' => $pagado, 'vence_el' => $periodo->day(10)->toDateString(),
+            // La del mes en curso vence a fin de mes: así no depende del día en que se corran las pruebas
+            'pagado' => $pagado, 'vence_el' => ($mesesAtras === 0 ? $periodo->endOfMonth() : $periodo->day(10))->toDateString(),
         ]);
     });
 }

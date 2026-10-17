@@ -8,6 +8,7 @@ use App\Core\Subscriptions\LimiteUsuarios;
 use App\Core\Tenancy\Calendario;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
+use App\Modules\Finanzas\Actions\PersonaEnMoraAction;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Unidades\Actions\PropietariosVigentesAction;
 use App\Modules\Usuarios\Models\CargoDirectiva;
@@ -31,6 +32,7 @@ final class AsignarCargoAction
         private readonly PerfilesUsuario $perfiles,
         private readonly LimiteUsuarios $limite,
         private readonly CuentasDePersonas $cuentas,
+        private readonly PersonaEnMoraAction $enMora,
     ) {}
 
     public function execute(Rol $cargo, int $personaId, string $acta, string $periodoHasta, User $actor): CargoDirectiva
@@ -41,6 +43,11 @@ final class AsignarCargoAction
 
             $persona = $this->propietarios->execute([$personaId])[0]
                 ?? throw new ApiException('NO_ES_PROPIETARIO', 'Solo los propietarios pueden ocupar un cargo de la directiva.', 422);
+
+            // Decreto 462: quien está en mora no puede ocupar un cargo de la directiva
+            if ($this->enMora->execute($personaId)) {
+                throw new ApiException('PERSONA_EN_MORA', 'Esa persona está en mora con el condominio: no puede ocupar un cargo de la directiva hasta ponerse al día o firmar un convenio.', 422);
+            }
 
             if ($persona['email'] === null || $persona['email'] === '') {
                 throw new ApiException('PERSONA_SIN_CORREO', 'Esta persona no tiene correo registrado: lo necesita para entrar al sistema. Agrégalo en su ficha.', 422);
