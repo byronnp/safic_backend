@@ -5,6 +5,7 @@ namespace App\Modules\Reservas\Actions;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Amenidades\Models\CondominioAmenidad;
+use App\Modules\Finanzas\Actions\EstadoDeUnidadParaAreasAction;
 use App\Modules\Reservas\Models\ReglaArea;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 
@@ -14,9 +15,13 @@ use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
  */
 final class ListarAreasReservablesAction
 {
-    public function __construct(private readonly UnidadesDeCuentaAction $unidades, private readonly Calendario $calendario) {}
+    public function __construct(
+        private readonly UnidadesDeCuentaAction $unidades,
+        private readonly Calendario $calendario,
+        private readonly EstadoDeUnidadParaAreasAction $mora,
+    ) {}
 
-    /** @return array{unidades: list<array{unidad_id: int, codigo: string}>, areas: list<array<string, mixed>>} */
+    /** @return array{unidades: list<array{unidad_id: int, codigo: string, restringida: bool}>, areas: list<array<string, mixed>>} */
     public function execute(User $user): array
     {
         $hoy = $this->calendario->hoy();
@@ -24,7 +29,7 @@ final class ListarAreasReservablesAction
         $areas = CondominioAmenidad::query()->where('reservable', true)->where('activa', true)->whereIn('id', $reglas->keys())->orderBy('nombre')->get();
 
         return [
-            'unidades' => array_map(fn (array $u): array => ['unidad_id' => $u['unidad_id'], 'codigo' => $u['codigo']], $this->unidades->execute($user->id)),
+            'unidades' => array_map(fn (array $u): array => ['unidad_id' => $u['unidad_id'], 'codigo' => $u['codigo'], 'restringida' => $this->mora->restringida($u['unidad_id'])], $this->unidades->execute($user->id)),
             'areas' => $areas->map(function (CondominioAmenidad $a) use ($reglas, $hoy): array {
                 /** @var ReglaArea $r */
                 $r = $reglas->get($a->id);
@@ -36,6 +41,7 @@ final class ListarAreasReservablesAction
                     'estado' => $a->mantenimiento_hasta !== null && $a->mantenimiento_hasta->toDateString() >= $hoy ? 'mantenimiento' : 'disponible',
                     'mantenimiento_hasta' => $a->mantenimiento_hasta !== null && $a->mantenimiento_hasta->toDateString() >= $hoy ? $a->mantenimiento_hasta->toDateString() : null,
                     'requiere_aprobacion' => (bool) $a->requiere_aprobacion,
+                    'restringible_por_mora' => ! $a->esencial,
                     'capacidad' => $r->capacidad,
                     'duracion_min_horas' => $r->duracion_min_horas,
                     'duracion_max_horas' => $r->duracion_max_horas,

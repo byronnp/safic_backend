@@ -40,7 +40,7 @@ final class ListarMisReservasAction
                 'id' => $r->id, 'area' => $areas->get($r->amenidad_id)->nombre ?? 'Área', 'unidad' => $unidades->get($r->unidad_id)['codigo'] ?? '',
                 'fecha' => $r->fecha->toDateString(), 'inicio' => substr($r->inicio, 0, 5), 'fin' => substr($r->fin, 0, 5),
                 'estado' => $r->estado, 'costo' => (string) $r->costo, 'garantia' => (string) $r->garantia,
-                'proxima' => $viva && $empieza >= $ahora, 'puede_cancelar' => $viva && $empieza > $ahora,
+                'proxima' => $viva && ($empieza >= $ahora || $r->estado === Reserva::EN_USO), 'puede_cancelar' => $viva && $empieza > $ahora,
                 'por_pagar' => Dinero::texto($saldo),
                 'pagar_antes_de' => $saldo > 0 ? $r->limite_pago_en?->setTimezone($ahora->getTimezone())->format('Y-m-d\TH:i') : null,
                 'motivo' => $r->motivo_rechazo ?? $r->motivo_cancelacion,

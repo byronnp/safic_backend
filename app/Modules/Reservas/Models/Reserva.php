@@ -18,7 +18,7 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property Carbon $fecha
  * @property string $inicio HH:MM:SS
  * @property string $fin HH:MM:SS
- * @property string $estado pendiente|confirmada|rechazada|cancelada|vencida
+ * @property string $estado pendiente|confirmada|en_uso|finalizada|rechazada|cancelada|vencida
  * @property string $costo
  * @property string $garantia
  * @property int|null $cuota_uso_id
@@ -40,8 +40,12 @@ class Reserva extends Model implements AuditableContract
 
     public const VENCIDA = 'vencida';
 
+    public const EN_USO = 'en_uso';
+
+    public const FINALIZADA = 'finalizada';
+
     /** Las que ocupan el horario. */
-    public const VIVAS = [self::PENDIENTE, self::CONFIRMADA];
+    public const VIVAS = [self::PENDIENTE, self::CONFIRMADA, self::EN_USO];
 
     protected $table = 'reservas';
 
@@ -60,7 +64,7 @@ class Reserva extends Model implements AuditableContract
     protected $fillable = [
         'amenidad_id', 'unidad_id', 'solicitante_id', 'fecha', 'inicio', 'fin', 'estado', 'costo', 'garantia',
         'reglamento_aceptado_en', 'cancelada_en', 'motivo_cancelacion', 'cuota_uso_id', 'cuota_garantia_id', 'limite_pago_en',
-        'resuelta_por', 'resuelta_en', 'motivo_rechazo',
+        'resuelta_por', 'resuelta_en', 'motivo_rechazo', 'ingreso_en', 'ingreso_por', 'entrega_en', 'entrega_por', 'danos',
     ];
 
     protected function casts(): array
@@ -73,6 +77,8 @@ class Reserva extends Model implements AuditableContract
             'cancelada_en' => 'datetime',
             'limite_pago_en' => 'datetime',
             'resuelta_en' => 'datetime',
+            'ingreso_en' => 'datetime',
+            'entrega_en' => 'datetime',
         ];
     }
 }

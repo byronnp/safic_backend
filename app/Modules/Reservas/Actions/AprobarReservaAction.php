@@ -5,6 +5,8 @@ namespace App\Modules\Reservas\Actions;
 use App\Core\Http\Exceptions\ApiException;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
+use App\Modules\Amenidades\Models\CondominioAmenidad;
+use App\Modules\Finanzas\Actions\EstadoDeUnidadParaAreasAction;
 use App\Modules\Reservas\Models\Reserva;
 use App\Modules\Reservas\Services\AvisosDeReserva;
 use App\Modules\Reservas\Services\CobroDeReserva;
@@ -21,6 +23,7 @@ final class AprobarReservaAction
         private readonly Calendario $calendario,
         private readonly CobroDeReserva $cobro,
         private readonly AvisosDeReserva $avisos,
+        private readonly EstadoDeUnidadParaAreasAction $mora,
     ) {}
 
     public function execute(User $admin, int $reservaId): Reserva
@@ -33,6 +36,11 @@ final class AprobarReservaAction
             $empieza = CarbonImmutable::parse($reserva->fecha->toDateString().' '.$reserva->inicio, $this->calendario->zonaHoraria());
             if ($empieza <= CarbonImmutable::now($this->calendario->zonaHoraria())) {
                 throw new ApiException('RESERVA_YA_EMPEZO', 'El horario de esta solicitud ya empezó. Recházala.', 409);
+            }
+
+            $restringible = CondominioAmenidad::query()->whereKey($reserva->amenidad_id)->value('esencial') === false;
+            if ($restringible && $this->mora->restringida($reserva->unidad_id)) {
+                throw new ApiException('UNIDAD_RESTRINGIDA', 'La unidad tiene restringido el uso de áreas comunes por mora (Decreto 462). Recházala o espera a que se levante.', 409);
             }
 
             $reserva->forceFill(['estado' => Reserva::CONFIRMADA, 'resuelta_por' => $admin->id, 'resuelta_en' => now()])->save();
