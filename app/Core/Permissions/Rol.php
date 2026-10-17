@@ -127,13 +127,14 @@ enum Rol: string
             self::Cobranza, self::ContadorPlataforma => [Permiso::PlataformaCobranza],
             // El 2.º nivel de aprobación es de la directiva (presidente o vicepresidente), no de la administración
             self::Administrador => array_values(array_filter(Permiso::cases(), fn (Permiso $p) => ! $p->esDePlataforma() && $p !== Permiso::GastosAprobarN2)),
-            self::Tesorero => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::PagosAprobar, Permiso::GastosRegistrar, Permiso::ProveedoresEditar, Permiso::GastosPagar, Permiso::PeriodosCerrar, Permiso::ConciliacionGestionar, Permiso::MorosidadGestionar, Permiso::FinanzasExportar],
+            self::Tesorero => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::PagosAprobar, Permiso::GastosRegistrar, Permiso::ProveedoresEditar, Permiso::GastosPagar, Permiso::CajaChicaRegistrar, Permiso::PeriodosCerrar, Permiso::ConciliacionGestionar, Permiso::MorosidadGestionar, Permiso::FinanzasExportar],
             self::Presidente, self::Vicepresidente => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::GastosAprobarN2],
             self::Secretario => [Permiso::UnidadesVer],
             self::Guardia => [Permiso::UnidadesVer, Permiso::GaritaDirectorio],
             self::Contador => [Permiso::FinanzasVer, Permiso::FinanzasExportar],
             self::Residente => [Permiso::CuentaPropia],
-            self::Mantenimiento => [],
+            // Quien queda a cargo del fondo de caja chica suele ser de mantenimiento
+            self::Mantenimiento => [Permiso::CajaChicaRegistrar],
         };
     }
 }

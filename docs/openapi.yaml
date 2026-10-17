@@ -3566,6 +3566,161 @@ paths:
         '422':
           $ref: '#/components/responses/Validacion'
 
+  /finanzas/caja-chica:
+    get:
+      tags: [Finanzas]
+      operationId: verCajaChica
+      summary: Estado de la caja chica
+      description: |
+        Permiso: `finanzas.ver` o `cajachica.registrar`. El fondo, lo gastado desde la última reposición, lo disponible,
+        los movimientos abiertos (con un enlace temporal a su respaldo) y la última reposición.
+      x-permiso: finanzas.ver|cajachica.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Estado de la caja chica.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CajaChica' }
+                  meta: { type: object }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    put:
+      tags: [Finanzas]
+      operationId: guardarCajaChica
+      summary: Fijar el fondo y el responsable de la caja chica
+      description: |
+        Permiso: `gastos.registrar`. 422 `FONDO_MENOR_AL_GASTO` si el fondo queda por debajo de lo ya gastado desde la última reposición.
+      x-permiso: gastos.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fondo, responsable_nombre]
+              properties:
+                fondo: { type: string, examples: ['200.00'] }
+                responsable_nombre: { type: string, minLength: 3, maxLength: 80 }
+      responses:
+        '200':
+          description: Caja chica guardada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CajaChica' }
+                  meta: { type: object }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /finanzas/caja-chica/movimientos:
+    post:
+      tags: [Finanzas]
+      operationId: registrarGastoCajaChica
+      summary: Registrar un gasto menor de la caja chica
+      description: |
+        Permiso: `cajachica.registrar`. El respaldo (foto jpg/png o PDF, hasta 5 MB) es obligatorio. 409 `CAJA_SIN_CONFIGURAR`,
+        `PERIODO_CERRADO`; 422 `FONDO_INSUFICIENTE` (el monto supera lo disponible), `FECHA_FUTURA`.
+      x-permiso: cajachica.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [concepto, monto, fecha, respaldo]
+              properties:
+                concepto: { type: string, minLength: 3, maxLength: 120 }
+                comercio: { type: string, maxLength: 80 }
+                monto: { type: string, examples: ['12.50'] }
+                fecha: { type: string, format: date }
+                respaldo: { type: string, format: binary }
+      responses:
+        '201':
+          description: Gasto registrado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CajaChica' }
+                  meta: { type: object }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`CAJA_SIN_CONFIGURAR` o `PERIODO_CERRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /finanzas/caja-chica/reponer:
+    post:
+      tags: [Finanzas]
+      operationId: reponerCajaChica
+      summary: Reponer el fondo de la caja chica
+      description: |
+        Permiso: `gastos.registrar`. Agrupa los movimientos abiertos en un gasto `CC-aaaa-nnn` a nombre del proveedor interno
+        «Caja chica · responsable» (RUC 9999999999999) que sigue el flujo normal: aprobación, pago y conciliación.
+        `meta.gasto_id` y `meta.gasto_numero`. 409 `CAJA_SIN_CONFIGURAR`, `SIN_MOVIMIENTOS`, `PERIODO_CERRADO`.
+      x-permiso: gastos.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '201':
+          description: Reposición registrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CajaChica' }
+                  meta: { type: object }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`CAJA_SIN_CONFIGURAR`, `SIN_MOVIMIENTOS` o `PERIODO_CERRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -7154,6 +7309,35 @@ components:
         user_rol: { type: [string, 'null'] }
         en: { type: string, format: date-time }
 
+    CajaChica:
+      type: object
+      required: [configurada, fondo, responsable, gastado, disponible, movimientos, ultima_reposicion]
+      properties:
+        configurada: { type: boolean }
+        fondo: { type: string, examples: ['200.00'] }
+        responsable: { type: [string, 'null'] }
+        gastado: { type: string }
+        disponible: { type: string }
+        movimientos:
+          type: array
+          items:
+            type: object
+            required: [id, fecha, concepto, comercio, monto, respaldo_url]
+            properties:
+              id: { type: integer }
+              fecha: { type: string, format: date }
+              concepto: { type: string }
+              comercio: { type: [string, 'null'] }
+              monto: { type: string }
+              respaldo_url: { type: [string, 'null'], description: Enlace temporal al respaldo. }
+        ultima_reposicion:
+          type: [object, 'null']
+          properties:
+            fecha: { type: string, format: date }
+            gasto_id: { type: integer }
+            gasto_numero: { type: string }
+            monto: { type: string }
+            estado: { type: string }
     GastoRecurrente:
       type: object
       properties:

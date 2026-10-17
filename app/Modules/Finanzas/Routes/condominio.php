@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Permissions\Permiso;
+use App\Modules\Finanzas\Http\Controllers\CajaChicaController;
 use App\Modules\Finanzas\Http\Controllers\CierreMesController;
 use App\Modules\Finanzas\Http\Controllers\CobroController;
 use App\Modules\Finanzas\Http\Controllers\ConciliacionController;
@@ -258,3 +259,16 @@ Route::get('finanzas/recurrentes/{recurrente}/facturas', [GastoRecurrenteControl
 Route::post('finanzas/recurrentes/{recurrente}/factura', [GastoRecurrenteController::class, 'vincular'])
     ->whereNumber('recurrente')
     ->middleware('permission:'.Permiso::GastosRegistrar->value);
+
+// Caja chica: fondo fijo con gastos menores respaldados con foto; al reponer sigue el flujo normal de un gasto
+Route::get('finanzas/caja-chica', [CajaChicaController::class, 'show'])
+    ->middleware('permission:'.Permiso::FinanzasVer->value.'|'.Permiso::CajaChicaRegistrar->value);
+
+Route::put('finanzas/caja-chica', [CajaChicaController::class, 'update'])
+    ->middleware('permission:'.Permiso::GastosRegistrar->value);
+
+Route::post('finanzas/caja-chica/movimientos', [CajaChicaController::class, 'registrar'])
+    ->middleware(['permission:'.Permiso::CajaChicaRegistrar->value, 'throttle:pagos']);
+
+Route::post('finanzas/caja-chica/reponer', [CajaChicaController::class, 'reponer'])
+    ->middleware(['permission:'.Permiso::GastosRegistrar->value, 'throttle:pagos']);
