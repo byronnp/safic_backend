@@ -29,7 +29,7 @@ final class ListarPaquetesGaritaAction
         $unidades = Unidad::query()->withTrashed()->get(['id', 'codigo'])->pluck('codigo', 'id');
 
         $enGarita = Paquete::query()->where('estado', Paquete::EN_GARITA)->orderBy('recibido_en')->get();
-        $entregados = Paquete::query()->where('estado', Paquete::ENTREGADO)->where('entregado_en', '>=', $ahora->startOfDay())->orderByDesc('entregado_en')->get();
+        $entregados = Paquete::query()->where('estado', Paquete::ENTREGADO)->where('entregado_en', '>=', $ahora->startOfDay()->setTimezone((string) config('app.timezone')))->orderByDesc('entregado_en')->get();
 
         $porUnidad = [];
         foreach ($enGarita->pluck('unidad_id')->unique() as $id) {
