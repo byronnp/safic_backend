@@ -7,8 +7,10 @@ use App\Core\Http\Responses\ApiResponse;
 use App\Models\User;
 use App\Modules\Garita\Actions\BitacoraGaritaAction;
 use App\Modules\Garita\Actions\PanelGaritaAction;
+use App\Modules\Garita\Actions\QrVigentesAction;
 use App\Modules\Garita\Actions\RegistrarAccesoAction;
 use App\Modules\Garita\Actions\RegistrarSalidaAction;
+use App\Modules\Garita\Actions\SincronizarAccesosAction;
 use App\Modules\Garita\Actions\ValidarQrAction;
 use App\Modules\Garita\Models\AccesoGarita;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +24,37 @@ class GaritaController
     public function panel(PanelGaritaAction $panel): JsonResponse
     {
         return ApiResponse::ok($panel->execute());
+    }
+
+    public function qrVigentes(QrVigentesAction $vigentes): JsonResponse
+    {
+        return ApiResponse::ok($vigentes->execute());
+    }
+
+    public function sincronizar(Request $request, SincronizarAccesosAction $sincronizar): JsonResponse
+    {
+        $d = $request->validate([
+            'ingresos' => ['present', 'array', 'max:'.SincronizarAccesosAction::MAXIMO],
+            'ingresos.*.uuid' => ['required', 'uuid'],
+            'ingresos.*.token' => ['sometimes', 'nullable', 'string', 'max:64'],
+            'ingresos.*.tipo' => ['required', 'in:'.implode(',', AccesoGarita::TIPOS)],
+            'ingresos.*.nombre' => ['required', 'string', 'min:3', 'max:120'],
+            'ingresos.*.documento' => ['sometimes', 'nullable', 'string', 'regex:/^[A-Za-z0-9]{5,20}$/'],
+            'ingresos.*.placa' => ['sometimes', 'nullable', 'string', 'regex:/^[A-Za-z]{2,3}-?[0-9]{3,4}$/'],
+            'ingresos.*.unidad_codigo' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'ingresos.*.destino' => ['sometimes', 'nullable', 'string', 'max:80'],
+            'ingresos.*.autorizado_por' => ['required', 'in:'.implode(',', AccesoGarita::AUTORIZADO_POR)],
+            'ingresos.*.entrada_en' => ['required', 'date'],
+            'ingresos.*.salida_en' => ['sometimes', 'nullable', 'date'],
+            'salidas' => ['sometimes', 'array', 'max:'.SincronizarAccesosAction::MAXIMO],
+            'salidas.*.acceso_id' => ['required', 'integer'],
+            'salidas.*.salida_en' => ['required', 'date'],
+        ], [
+            'ingresos.max' => 'Se pueden sincronizar hasta '.SincronizarAccesosAction::MAXIMO.' ingresos por vez.',
+            'ingresos.*.uuid.uuid' => 'Un ingreso no tiene un identificador válido.',
+        ]);
+
+        return ApiResponse::ok($sincronizar->execute($this->usuario($request), $d['ingresos'], $d['salidas'] ?? []));
     }
 
     public function validarQr(Request $request, ValidarQrAction $validar): JsonResponse

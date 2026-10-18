@@ -42,7 +42,7 @@ class AccesoGarita extends Model implements AuditableContract
 
     protected $fillable = [
         'autorizacion_id', 'unidad_id', 'tipo', 'nombre', 'documento', 'placa', 'destino', 'autorizado_por', 'estado',
-        'entrada_en', 'salida_en', 'registrado_por', 'salida_por', 'anonimizado_en',
+        'entrada_en', 'salida_en', 'registrado_por', 'salida_por', 'anonimizado_en', 'uuid', 'sin_conexion', 'sincronizado_en', 'nota',
     ];
 
     protected $hidden = ['documento'];
@@ -52,6 +52,6 @@ class AccesoGarita extends Model implements AuditableContract
 
     protected function casts(): array
     {
-        return ['documento' => 'encrypted', 'entrada_en' => 'datetime', 'salida_en' => 'datetime', 'anonimizado_en' => 'datetime'];
+        return ['documento' => 'encrypted', 'entrada_en' => 'datetime', 'salida_en' => 'datetime', 'anonimizado_en' => 'datetime', 'sin_conexion' => 'boolean', 'sincronizado_en' => 'datetime'];
     }
 }

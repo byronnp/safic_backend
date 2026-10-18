@@ -5656,6 +5656,106 @@ paths:
         '422':
           $ref: '#/components/responses/Validacion'
 
+  /garita/qr/vigentes:
+    get:
+      tags: [Garita]
+      operationId: copiaQrVigentes
+      summary: Copia de los QR que sirven hoy y mañana
+      description: |
+        Permiso `garita.registrar`. Para validar en el teléfono cuando no hay red. Trae lo mínimo para validar y mostrar quién es (nunca la cédula)
+        y la zona horaria del condominio. Incluye las autorizaciones no revocadas cuya vigencia toca hoy o mañana, y las de un solo ingreso que aún
+        no se usaron.
+      x-permiso: garita.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: La copia.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/CopiaQr' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+
+  /garita/accesos/sincronizar:
+    post:
+      tags: [Garita]
+      operationId: sincronizarAccesos
+      summary: Enviar lo registrado sin conexión
+      description: |
+        Permiso `garita.registrar`. Hasta 200 ingresos y 200 salidas por envío. Es idempotente por el `uuid` que genera el teléfono. Un ingreso que ya
+        ocurrió se guarda aunque su QR ya no sirviera (otro guardia lo usó, lo revocaron): queda con una `nota` y el resultado es `conflicto` con el
+        `motivo`. Resultados por ingreso o salida son `ok`, `duplicado`, `conflicto` o `rechazado`; `rechazado` no se guarda (`FECHA_INVALIDA`
+        si la entrada es del futuro o de hace más de 7 días, `ACCESO_NO_ENCONTRADO` en una salida).
+      x-permiso: garita.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ingresos]
+              properties:
+                ingresos:
+                  type: array
+                  maxItems: 200
+                  items:
+                    type: object
+                    required: [uuid, tipo, nombre, autorizado_por, entrada_en]
+                    properties:
+                      uuid: { type: string, format: uuid }
+                      token: { type: [string, 'null'], maxLength: 64 }
+                      tipo: { type: string, enum: [visita, proveedor, delivery] }
+                      nombre: { type: string, minLength: 3, maxLength: 120 }
+                      documento: { type: [string, 'null'] }
+                      placa: { type: [string, 'null'] }
+                      unidad_codigo: { type: [string, 'null'] }
+                      destino: { type: [string, 'null'] }
+                      autorizado_por: { type: string, enum: [qr, llamada, app_residente, administracion] }
+                      entrada_en: { type: string, format: date-time }
+                      salida_en: { type: [string, 'null'], format: date-time }
+                salidas:
+                  type: array
+                  maxItems: 200
+                  items:
+                    type: object
+                    required: [acceso_id, salida_en]
+                    properties:
+                      acceso_id: { type: integer }
+                      salida_en: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Resultado por ingreso y por salida.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ResultadoSincronizacion' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -9578,8 +9678,9 @@ components:
             dias_semana: { type: [array, 'null'], items: { type: integer } }
     BitacoraGarita:
       type: object
-      required: [desde, hasta, hay_mas, indicadores, accesos]
+      required: [desde, hasta, hay_mas, ultima_sincronizacion, indicadores, accesos]
       properties:
+        ultima_sincronizacion: { type: [string, 'null'], format: date-time, description: 'Cuándo se sincronizó por última vez lo registrado sin conexión.' }
         desde: { type: string, format: date }
         hasta: { type: string, format: date }
         hay_mas: { type: boolean }
@@ -9592,13 +9693,15 @@ components:
             ingresos_hoy: { type: integer }
             con_qr_hoy: { type: integer }
             sin_anunciar_hoy: { type: integer }
-            sin_conexion: { type: integer, description: 'Accesos registrados sin conexión y aún no sincronizados.' }
+            sin_conexion: { type: integer, description: 'Accesos de hoy que se registraron sin conexión y ya se sincronizaron.' }
         accesos:
           type: array
           items:
             type: object
-            required: [id, nombre, tipo, unidad, destino, autorizado_por, estado, entrada_en, salida_en, registrado_por]
+            required: [id, nombre, tipo, unidad, destino, autorizado_por, estado, sin_conexion, nota, entrada_en, salida_en, registrado_por]
             properties:
+              sin_conexion: { type: boolean }
+              nota: { type: [string, 'null'], description: 'Si se registró sin conexión y al sincronizar había un conflicto.' }
               id: { type: integer }
               nombre: { type: string }
               tipo: { type: string, enum: [visita, proveedor, delivery] }
@@ -9782,6 +9885,53 @@ components:
         unidad: { type: string }
         creada_en: { type: string, format: date-time }
         segundos_restantes: { type: integer }
+    CopiaQr:
+      type: object
+      required: [generado_en, zona, qrs]
+      properties:
+        generado_en: { type: string, format: date-time }
+        zona: { type: string, examples: ['America/Guayaquil'] }
+        qrs:
+          type: array
+          items:
+            type: object
+            required: [token, visitante, placa, unidad, autorizo, tipo, fecha_desde, fecha_hasta, hora_desde, hora_hasta, dias_semana, ya_dentro]
+            properties:
+              token: { type: string }
+              visitante: { type: string }
+              placa: { type: [string, 'null'] }
+              unidad: { type: [string, 'null'] }
+              autorizo: { type: [string, 'null'] }
+              tipo: { type: string, enum: [unica, recurrente] }
+              fecha_desde: { type: string, format: date }
+              fecha_hasta: { type: string, format: date }
+              hora_desde: { type: string }
+              hora_hasta: { type: string }
+              dias_semana: { type: [array, 'null'], items: { type: integer } }
+              ya_dentro: { type: boolean }
+    ResultadoSincronizacion:
+      type: object
+      required: [ingresos, salidas]
+      properties:
+        ingresos:
+          type: array
+          items:
+            type: object
+            required: [uuid, resultado]
+            properties:
+              uuid: { type: string, format: uuid }
+              resultado: { type: string, enum: [ok, duplicado, conflicto, rechazado] }
+              motivo: { type: string }
+              acceso_id: { type: integer }
+        salidas:
+          type: array
+          items:
+            type: object
+            required: [acceso_id, resultado]
+            properties:
+              acceso_id: { type: integer }
+              resultado: { type: string, enum: [ok, duplicado, rechazado] }
+              motivo: { type: string }
     GastoRecurrente:
       type: object
       properties:

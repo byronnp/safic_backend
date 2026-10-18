@@ -70,3 +70,10 @@ Route::get('mis-solicitudes-ingreso', [SolicitudesIngresoController::class, 'mia
 Route::post('mis-solicitudes-ingreso/{solicitud}/responder', [SolicitudesIngresoController::class, 'responder'])
     ->whereNumber('solicitud')
     ->middleware('permission:'.Permiso::VisitasPropias->value);
+
+// Garita sin conexión: la copia de los QR del día y el envío de lo registrado sin red
+Route::get('garita/qr/vigentes', [GaritaController::class, 'qrVigentes'])
+    ->middleware(['permission:'.Permiso::GaritaRegistrar->value, 'throttle:garita']);
+
+Route::post('garita/accesos/sincronizar', [GaritaController::class, 'sincronizar'])
+    ->middleware(['permission:'.Permiso::GaritaRegistrar->value, 'throttle:garita']);
