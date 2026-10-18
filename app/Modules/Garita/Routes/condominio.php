@@ -4,6 +4,7 @@ use App\Core\Permissions\Permiso;
 use App\Modules\Garita\Http\Controllers\GaritaController;
 use App\Modules\Garita\Http\Controllers\MisVisitasController;
 use App\Modules\Garita\Http\Controllers\PaquetesController;
+use App\Modules\Garita\Http\Controllers\SolicitudesIngresoController;
 use Illuminate\Support\Facades\Route;
 
 // Rutas del módulo Garita en el condominio activo. routes/api.php las carga dentro del
@@ -50,3 +51,22 @@ Route::post('garita/paquetes/{paquete}/entregar', [PaquetesController::class, 'e
 
 Route::get('mis-paquetes', [PaquetesController::class, 'mios'])
     ->middleware('permission:'.Permiso::PaquetesPropios->value);
+
+// «¿Lo dejo pasar?»: el guardia le pregunta al residente desde la app y el residente responde
+Route::post('garita/solicitudes', [SolicitudesIngresoController::class, 'pedir'])
+    ->middleware(['permission:'.Permiso::GaritaRegistrar->value, 'throttle:garita']);
+
+Route::post('garita/solicitudes/{solicitud}/ingreso', [SolicitudesIngresoController::class, 'ingreso'])
+    ->whereNumber('solicitud')
+    ->middleware('permission:'.Permiso::GaritaRegistrar->value);
+
+Route::post('garita/solicitudes/{solicitud}/cancelar', [SolicitudesIngresoController::class, 'cancelar'])
+    ->whereNumber('solicitud')
+    ->middleware('permission:'.Permiso::GaritaRegistrar->value);
+
+Route::get('mis-solicitudes-ingreso', [SolicitudesIngresoController::class, 'mias'])
+    ->middleware('permission:'.Permiso::VisitasPropias->value);
+
+Route::post('mis-solicitudes-ingreso/{solicitud}/responder', [SolicitudesIngresoController::class, 'responder'])
+    ->whereNumber('solicitud')
+    ->middleware('permission:'.Permiso::VisitasPropias->value);
