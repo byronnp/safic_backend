@@ -10,7 +10,17 @@ use App\Modules\Unidades\Models\Ocupante;
  */
 final class OcupantesVigentesAction
 {
-    /** @return list<array{id: int, nombre: string, relacion: string, email: string|null}> */
+    /**
+     * Solo los que tienen cuenta en la app (a ellos se les puede preguntar desde ahí).
+     *
+     * @return list<array{id: int, nombre: string, relacion: string, email: string|null, tiene_cuenta: bool}>
+     */
+    public function conCuenta(int $unidadId): array
+    {
+        return array_values(array_filter($this->execute($unidadId), fn (array $o): bool => $o['tiene_cuenta']));
+    }
+
+    /** @return list<array{id: int, nombre: string, relacion: string, email: string|null, tiene_cuenta: bool}> */
     public function execute(int $unidadId): array
     {
         $resultado = [];
@@ -20,7 +30,7 @@ final class OcupantesVigentesAction
                 continue;
             }
             $vistas[$o->persona_id] = true;
-            $resultado[] = ['id' => $o->id, 'nombre' => $o->persona->nombreCompleto(), 'relacion' => $o->relacion, 'email' => $o->persona->email];
+            $resultado[] = ['id' => $o->id, 'nombre' => $o->persona->nombreCompleto(), 'relacion' => $o->relacion, 'email' => $o->persona->email, 'tiene_cuenta' => $o->persona->user_id !== null];
         }
 
         return $resultado;

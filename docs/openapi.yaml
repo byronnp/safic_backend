@@ -5465,6 +5465,197 @@ paths:
         '422':
           $ref: '#/components/responses/Validacion'
 
+  /garita/solicitudes:
+    post:
+      tags: [Garita]
+      operationId: pedirPermisoIngreso
+      summary: Preguntarle al residente si deja pasar a quien llegó
+      description: |
+        Permiso `garita.registrar`. Crea una solicitud que la unidad ve en su app y puede permitir o rechazar durante 3 minutos. Solo si alguien
+        de la unidad usa la app. 409 `SOLICITUD_ABIERTA` (ya se le preguntó por esa persona). 422 `UNIDAD_NO_ENCONTRADA`, `SIN_RESIDENTES_CON_CUENTA`.
+      x-permiso: garita.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [unidad_codigo, nombre, tipo]
+              properties:
+                unidad_codigo: { type: string, examples: ['A-102'] }
+                nombre: { type: string, minLength: 3, maxLength: 120 }
+                tipo: { type: string, enum: [visita, delivery, proveedor] }
+                placa: { type: [string, 'null'], examples: ['PDQ-3321'] }
+      responses:
+        '201':
+          description: Pregunta enviada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id]
+                    properties:
+                      id: { type: integer }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '409':
+          description: '`SOLICITUD_ABIERTA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /garita/solicitudes/{solicitud}/ingreso:
+    post:
+      tags: [Garita]
+      operationId: registrarIngresoDeSolicitud
+      summary: Registrar el ingreso que el residente permitió
+      description: |
+        Permiso `garita.registrar`. Crea el ingreso autorizado por `app_residente` y cierra la solicitud. La autorización vale 15 minutos desde la
+        respuesta del residente. 409 `SOLICITUD_NO_PERMITIDA`, `SOLICITUD_VENCIDA`.
+      x-permiso: garita.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: solicitud, in: path, required: true, schema: { type: integer } }
+      responses:
+        '201':
+          description: Ingreso registrado.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`SOLICITUD_NO_PERMITIDA` o `SOLICITUD_VENCIDA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /garita/solicitudes/{solicitud}/cancelar:
+    post:
+      tags: [Garita]
+      operationId: cancelarSolicitudIngreso
+      summary: Retirar la pregunta al residente
+      description: Permiso `garita.registrar`. También quita de la lista una solicitud rechazada o vencida. 409 `SOLICITUD_YA_USADA`.
+      x-permiso: garita.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: solicitud, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Solicitud retirada.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`SOLICITUD_YA_USADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /mis-solicitudes-ingreso:
+    get:
+      tags: [Garita]
+      operationId: listarMisSolicitudesIngreso
+      summary: Quién espera en la garita por mi unidad
+      description: Permiso `visitas.propias`. Las solicitudes pendientes y vigentes de mis unidades, con los segundos que quedan para responder.
+      x-permiso: visitas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Solicitudes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/SolicitudIngresoResidente' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /mis-solicitudes-ingreso/{solicitud}/responder:
+    post:
+      tags: [Garita]
+      operationId: responderSolicitudIngreso
+      summary: Permitir o rechazar el ingreso
+      description: |
+        Permiso `visitas.propias`. Gana la primera respuesta de la unidad. 404 si no es de mis unidades. 409 `SOLICITUD_VENCIDA` (pasaron los
+        3 minutos) o `SOLICITUD_YA_RESPONDIDA`.
+      x-permiso: visitas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: solicitud, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permitir]
+              properties:
+                permitir: { type: boolean }
+      responses:
+        '200':
+          description: Respondida.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [id, estado]
+                    properties:
+                      id: { type: integer }
+                      estado: { type: string, enum: [permitida, rechazada] }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`SOLICITUD_VENCIDA` o `SOLICITUD_YA_RESPONDIDA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -9322,8 +9513,23 @@ components:
             longitud: { type: [string, 'null'] }
     PanelGarita:
       type: object
-      required: [dentro, esperadas]
+      required: [dentro, esperadas, solicitudes]
       properties:
+        solicitudes:
+          type: array
+          description: Las preguntas a residentes de la última media hora que siguen abiertas para el guardia.
+          items:
+            type: object
+            required: [id, nombre, tipo, unidad, placa, estado, segundos_restantes, puede_ingresar]
+            properties:
+              id: { type: integer }
+              nombre: { type: string }
+              tipo: { type: string, enum: [visita, delivery, proveedor] }
+              unidad: { type: [string, 'null'] }
+              placa: { type: [string, 'null'] }
+              estado: { type: string, enum: [pendiente, permitida, rechazada, vencida] }
+              segundos_restantes: { type: integer }
+              puede_ingresar: { type: boolean }
         dentro:
           type: array
           items:
@@ -9565,6 +9771,17 @@ components:
               estado: { type: string, enum: [abierto, en_proceso, resuelto, cerrado] }
               unidad: { type: [string, 'null'] }
               creada_en: { type: string, format: date-time }
+    SolicitudIngresoResidente:
+      type: object
+      required: [id, nombre, tipo, placa, unidad, creada_en, segundos_restantes]
+      properties:
+        id: { type: integer }
+        nombre: { type: string }
+        tipo: { type: string, enum: [visita, delivery, proveedor] }
+        placa: { type: [string, 'null'] }
+        unidad: { type: string }
+        creada_en: { type: string, format: date-time }
+        segundos_restantes: { type: integer }
     GastoRecurrente:
       type: object
       properties:
