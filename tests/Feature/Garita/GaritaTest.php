@@ -191,3 +191,14 @@ it('solo el guardia registra y solo la administración ve la bitácora', functio
     ($this->tesorero)()->getJson('/api/v1/garita/bitacora')->assertForbidden();
     ($this->admin)()->getJson('/api/v1/garita/panel')->assertOk();
 });
+
+it('exporta la bitácora a Excel solo con garita.bitacora', function () {
+    ($this->admin)()->postJson('/api/v1/garita/accesos', ['tipo' => 'proveedor', 'nombre' => '=HYPERLINK("x")', 'destino' => 'Torre B', 'autorizado_por' => 'administracion'])->assertCreated();
+
+    $r = ($this->admin)()->get('/api/v1/garita/bitacora/exportar');
+    $r->assertOk();
+    expect($r->headers->get('content-disposition'))->toContain('bitacora-garita-')->toContain('.xlsx');
+
+    ($this->guardia)()->getJson('/api/v1/garita/bitacora/exportar')->assertForbidden();
+    ($this->admin)()->getJson('/api/v1/garita/bitacora/exportar?desde=2026-01-01&hasta=2026-06-01')->assertStatus(422)->assertJsonPath('error.code', 'RANGO_MUY_LARGO');
+});

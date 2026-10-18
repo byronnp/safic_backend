@@ -16,10 +16,13 @@ final class BitacoraGaritaAction
 {
     public const MAXIMO = 200;
 
+    /** Tope de la exportación a Excel. */
+    public const MAXIMO_EXPORTACION = 5000;
+
     public function __construct(private readonly Calendario $calendario) {}
 
     /** @return array<string, mixed> */
-    public function execute(?string $desde, ?string $hasta, ?string $tipo, ?string $buscar): array
+    public function execute(?string $desde, ?string $hasta, ?string $tipo, ?string $buscar, int $maximo = self::MAXIMO): array
     {
         $zona = $this->calendario->zonaHoraria();
         $hoy = $this->calendario->hoy();
@@ -36,12 +39,12 @@ final class BitacoraGaritaAction
         if ($tipo !== null) {
             $consulta->where('tipo', $tipo);
         }
-        $filas = $consulta->limit(self::MAXIMO + 1)->get();
+        $filas = $consulta->limit($maximo + 1)->get();
         if ($buscar !== null && trim($buscar) !== '') {
             $q = mb_strtolower(trim($buscar));
             $filas = $filas->filter(fn (AccesoGarita $a): bool => str_contains(mb_strtolower($a->nombre), $q) || str_contains(mb_strtolower((string) ($unidades[$a->unidad_id] ?? $a->destino ?? '')), $q))->values();
         }
-        $hayMas = $filas->count() > self::MAXIMO;
+        $hayMas = $filas->count() > $maximo;
 
         $delDia = AccesoGarita::query()->whereBetween('entrada_en', [CarbonImmutable::parse($hoy, $zona)->startOfDay()->setTimezone($utc), CarbonImmutable::parse($hoy, $zona)->endOfDay()->setTimezone($utc)])->get();
         $dentro = AccesoGarita::query()->where('estado', AccesoGarita::DENTRO)->get();
@@ -60,7 +63,7 @@ final class BitacoraGaritaAction
                 'sin_anunciar_hoy' => $delDia->where('tipo', 'visita')->where('autorizado_por', '!=', 'qr')->count(),
                 'sin_conexion' => $delDia->where('sin_conexion', true)->count(),
             ],
-            'accesos' => $filas->take(self::MAXIMO)->map(fn (AccesoGarita $a): array => [
+            'accesos' => $filas->take($maximo)->map(fn (AccesoGarita $a): array => [
                 'id' => $a->id, 'nombre' => $a->nombre, 'tipo' => $a->tipo,
                 'unidad' => $unidades[$a->unidad_id] ?? null, 'destino' => $a->destino, 'autorizado_por' => $a->autorizado_por, 'estado' => $a->estado, 'sin_conexion' => $a->sin_conexion, 'nota' => $a->nota,
                 'entrada_en' => $a->entrada_en->setTimezone($zona)->toIso8601String(),

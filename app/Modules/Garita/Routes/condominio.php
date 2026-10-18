@@ -38,6 +38,9 @@ Route::post('garita/accesos/{acceso}/salida', [GaritaController::class, 'salida'
 Route::get('garita/bitacora', [GaritaController::class, 'bitacora'])
     ->middleware('permission:'.Permiso::GaritaBitacora->value);
 
+Route::get('garita/bitacora/exportar', [GaritaController::class, 'exportarBitacora'])
+    ->middleware(['permission:'.Permiso::GaritaBitacora->value, 'throttle:10,1']);
+
 // Paquetería: el guardia recibe (con foto) y entrega (con firma); el residente ve los de su unidad
 Route::get('garita/paquetes', [PaquetesController::class, 'index'])
     ->middleware('permission:'.Permiso::PaquetesGestionar->value);

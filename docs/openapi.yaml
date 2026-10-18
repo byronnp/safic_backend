@@ -4674,6 +4674,39 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /garita/bitacora/exportar:
+    get:
+      tags: [Garita]
+      operationId: exportarBitacoraGarita
+      summary: Exportar la bitácora de garita a Excel
+      description: |
+        Permiso `garita.bitacora`. Mismos filtros que la bitácora (rango de hasta 31 días; hoy por defecto). Hasta 5000 filas.
+        Limitado a 10 descargas por minuto. 422 `RANGO_MUY_LARGO`.
+      x-permiso: garita.bitacora
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: desde, in: query, required: false, schema: { type: string, format: date } }
+        - { name: hasta, in: query, required: false, schema: { type: string, format: date } }
+        - { name: tipo, in: query, required: false, schema: { type: string, enum: [visita, proveedor, delivery] } }
+        - { name: q, in: query, required: false, schema: { type: string, maxLength: 80 } }
+      responses:
+        '200':
+          description: Archivo .xlsx.
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '422':
+          description: Rango inválido o muy largo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /garita/bitacora:
     get:
       tags: [Garita]
