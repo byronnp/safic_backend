@@ -5,6 +5,7 @@ namespace App\Modules\Garita\Actions;
 use App\Core\Http\Exceptions\ApiException;
 use App\Models\User;
 use App\Modules\Garita\Models\SolicitudIngreso;
+use App\Modules\Garita\Services\AvisosEnVivoDeGarita;
 use App\Modules\Unidades\Actions\OcupantesVigentesAction;
 use App\Modules\Unidades\Models\Unidad;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class PedirPermisoIngresoAction
 {
-    public function __construct(private readonly OcupantesVigentesAction $ocupantes) {}
+    public function __construct(private readonly OcupantesVigentesAction $ocupantes, private readonly AvisosEnVivoDeGarita $enVivo) {}
 
     public function execute(User $guardia, string $unidadCodigo, string $nombre, string $tipo, ?string $placa): SolicitudIngreso
     {
@@ -34,10 +35,13 @@ final class PedirPermisoIngresoAction
                 throw new ApiException('SOLICITUD_ABIERTA', 'Ya le preguntaste a esa unidad por esta persona. Espera su respuesta.', 409);
             }
 
-            return SolicitudIngreso::create([
+            $solicitud = SolicitudIngreso::create([
                 'unidad_id' => $unidad->id, 'visitante_nombre' => $nombre, 'tipo' => $tipo, 'placa' => $placa === null || $placa === '' ? null : strtoupper($placa),
                 'creada_por' => $guardia->id, 'estado' => SolicitudIngreso::PENDIENTE, 'expira_en' => now()->addMinutes(SolicitudIngreso::MINUTOS_PARA_RESPONDER),
             ]);
+            $this->enVivo->aLaUnidad($solicitud->condominio_id, $unidad->id, AvisosEnVivoDeGarita::SOLICITUDES, $solicitud->id);
+
+            return $solicitud;
         });
     }
 }

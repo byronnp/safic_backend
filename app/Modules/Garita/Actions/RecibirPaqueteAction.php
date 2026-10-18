@@ -7,6 +7,7 @@ use App\Core\Storage\ArchivosCondominio;
 use App\Models\User;
 use App\Modules\Garita\Mail\PaqueteEnGaritaMail;
 use App\Modules\Garita\Models\Paquete;
+use App\Modules\Garita\Services\AvisosEnVivoDeGarita;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Unidades\Actions\OcupantesVigentesAction;
 use App\Modules\Unidades\Models\Unidad;
@@ -19,7 +20,7 @@ use Illuminate\Support\Facades\Mail;
  */
 final class RecibirPaqueteAction
 {
-    public function __construct(private readonly ArchivosCondominio $archivos, private readonly OcupantesVigentesAction $ocupantes) {}
+    public function __construct(private readonly ArchivosCondominio $archivos, private readonly OcupantesVigentesAction $ocupantes, private readonly AvisosEnVivoDeGarita $enVivo) {}
 
     public function execute(User $guardia, string $unidadCodigo, string $empresa, ?string $descripcion, UploadedFile $foto): Paquete
     {
@@ -39,6 +40,7 @@ final class RecibirPaqueteAction
             throw $e;
         }
 
+        $this->enVivo->aLaUnidad($paquete->condominio_id, $paquete->unidad_id, AvisosEnVivoDeGarita::PAQUETES, $paquete->id);
         $this->avisar($paquete, $unidad->codigo, false);
 
         return $paquete;

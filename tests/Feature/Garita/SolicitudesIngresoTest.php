@@ -1,6 +1,8 @@
 <?php
 
 use App\Core\Permissions\Rol;
+use App\Core\Realtime\ActualizacionEnVivo;
+use App\Core\Realtime\EnVivo;
 use App\Models\User;
 use App\Modules\Garita\Models\AccesoGarita;
 use App\Modules\Garita\Models\SolicitudIngreso;
@@ -8,6 +10,7 @@ use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Unidades\Models\Ocupante;
 use App\Modules\Unidades\Models\Persona;
 use App\Modules\Unidades\Models\Unidad;
+use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
     $this->condominio = Condominio::factory()->create();
@@ -134,4 +137,21 @@ it('un residente no ve ni responde las solicitudes de otra unidad, y los permiso
     ($this->tesorero)()->getJson('/api/v1/mis-solicitudes-ingreso')->assertForbidden();
     ($this->guardia)()->getJson('/api/v1/mis-solicitudes-ingreso')->assertForbidden();
     ($this->resA)()->postJson("/api/v1/garita/solicitudes/{$id}/ingreso")->assertForbidden();
+});
+
+it('en vivo: pedir avisa a la unidad, responder avisa a la garita y a la unidad, y cancelar avisa a la unidad', function () {
+    $canalResidente = 'private-'.EnVivo::canalDeUsuario($this->condominio->id, $this->userA->id);
+    $canalGarita = 'private-'.EnVivo::canalDeGarita($this->condominio->id);
+    $canales = fn (): array => Event::dispatched(ActualizacionEnVivo::class)
+        ->flatMap(fn (array $args) => array_map(fn ($c) => $c->name, $args[0]->broadcastOn()))->all();
+
+    $id = ($this->pedir)()->json('data.id');
+    expect($canales())->toBe([$canalResidente]);
+
+    ($this->resA)()->postJson("/api/v1/mis-solicitudes-ingreso/{$id}/responder", ['permitir' => true])->assertOk();
+    expect($canales())->toContain($canalGarita)->and($canales())->toHaveCount(3);
+
+    $otra = ($this->pedir)(['nombre' => 'Ana Mora'])->json('data.id');
+    ($this->guardia)()->postJson("/api/v1/garita/solicitudes/{$otra}/cancelar")->assertSuccessful();
+    expect($canales())->toHaveCount(5);
 });

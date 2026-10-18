@@ -400,6 +400,50 @@ paths:
         '429':
           $ref: '#/components/responses/DemasiadosIntentos'
 
+  /broadcasting/auth:
+    post:
+      tags: [Sesión]
+      operationId: autorizarCanalEnVivo
+      summary: Autorizar un canal privado de tiempo real
+      description: |
+        Lo llama el cliente de WebSocket (Laravel Echo con Reverb) al suscribirse a un canal privado, con el mismo
+        access token de la API. Devuelve la firma que el servidor de tiempo real exige para aceptar la suscripción.
+        No usa el header `X-Condominio-Id`: el condominio va en el nombre del canal.
+
+        Canales:
+        - `private-condominio.{condominioId}.usuario.{usuarioId}`: solo la propia cuenta, con membresía activa en el condominio.
+        - `private-condominio.{condominioId}.garita`: cuentas con el permiso `garita.registrar` en el condominio.
+
+        El evento publicado se llama `.actualizacion` y solo trae `recurso` (`solicitudes-ingreso`, `paquetes`, `accesos`)
+        e `id`: nunca datos de negocio ni personales. El cliente vuelve a consultar la API normal.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [socket_id, channel_name]
+              properties:
+                socket_id: { type: string, example: '1234.5678' }
+                channel_name: { type: string, example: private-condominio.1.garita }
+      responses:
+        '200':
+          description: Firma del canal.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [auth]
+                properties:
+                  auth: { type: string }
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          description: La cuenta no puede escuchar ese canal.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /me/menu:
     get:
       tags: [Sesión]

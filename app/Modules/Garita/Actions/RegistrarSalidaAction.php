@@ -5,6 +5,7 @@ namespace App\Modules\Garita\Actions;
 use App\Core\Http\Exceptions\ApiException;
 use App\Models\User;
 use App\Modules\Garita\Models\AccesoGarita;
+use App\Modules\Garita\Services\AvisosEnVivoDeGarita;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class RegistrarSalidaAction
 {
+    public function __construct(private readonly AvisosEnVivoDeGarita $enVivo) {}
+
     public function execute(User $guardia, int $id): AccesoGarita
     {
         return DB::transaction(function () use ($guardia, $id): AccesoGarita {
@@ -20,6 +23,7 @@ final class RegistrarSalidaAction
                 throw new ApiException('YA_SALIO', 'Esta persona ya tiene su salida registrada.', 409);
             }
             $a->forceFill(['estado' => AccesoGarita::SALIO, 'salida_en' => now(), 'salida_por' => $guardia->id])->save();
+            $this->enVivo->aLaUnidad($a->condominio_id, $a->unidad_id, AvisosEnVivoDeGarita::ACCESOS, $a->id);
 
             return $a;
         });

@@ -51,6 +51,13 @@ services:
     restart: unless-stopped
     command: php artisan queue:work redis --sleep=1 --tries=3 --max-time=3600
 
+  # Tiempo real: servidor WebSocket de Reverb. Sin puerto publicado: el navegador entra por el mismo origen del frontend
+  # (el servidor de Vite reenvía /app a reverb:8080) y la API le publica por la red interna.
+  reverb:
+    <<: *api
+    restart: unless-stopped
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+
   scheduler:
     <<: *api
     restart: unless-stopped

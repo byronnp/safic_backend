@@ -4,6 +4,7 @@ namespace App\Modules\Garita\Actions;
 
 use App\Core\Http\Exceptions\ApiException;
 use App\Modules\Garita\Models\SolicitudIngreso;
+use App\Modules\Garita\Services\AvisosEnVivoDeGarita;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class CancelarSolicitudIngresoAction
 {
+    public function __construct(private readonly AvisosEnVivoDeGarita $enVivo) {}
+
     public function execute(int $id): void
     {
         DB::transaction(function () use ($id): void {
@@ -20,6 +23,7 @@ final class CancelarSolicitudIngresoAction
                 throw new ApiException('SOLICITUD_YA_USADA', 'Este ingreso ya se registró.', 409);
             }
             $s->forceFill(['estado' => SolicitudIngreso::CANCELADA])->save();
+            $this->enVivo->aLaUnidad($s->condominio_id, $s->unidad_id, AvisosEnVivoDeGarita::SOLICITUDES, $s->id);
         });
     }
 }

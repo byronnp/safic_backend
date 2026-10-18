@@ -6,6 +6,7 @@ use App\Core\Http\Exceptions\ApiException;
 use App\Core\Storage\ArchivosCondominio;
 use App\Models\User;
 use App\Modules\Garita\Models\Paquete;
+use App\Modules\Garita\Services\AvisosEnVivoDeGarita;
 use App\Modules\Unidades\Actions\OcupantesVigentesAction;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class EntregarPaqueteAction
 {
-    public function __construct(private readonly ArchivosCondominio $archivos, private readonly OcupantesVigentesAction $ocupantes) {}
+    public function __construct(private readonly ArchivosCondominio $archivos, private readonly OcupantesVigentesAction $ocupantes, private readonly AvisosEnVivoDeGarita $enVivo) {}
 
     public function execute(User $guardia, int $paqueteId, ?int $ocupanteId, ?string $autorizado, UploadedFile $firma): Paquete
     {
@@ -48,6 +49,7 @@ final class EntregarPaqueteAction
                     'estado' => Paquete::ENTREGADO, 'entregado_en' => now(), 'entregado_por' => $guardia->id,
                     'retira_tipo' => $tipo, 'retira_nombre' => $nombre, 'firma_ruta' => $ruta,
                 ])->save();
+                $this->enVivo->aLaUnidad($p->condominio_id, $p->unidad_id, AvisosEnVivoDeGarita::PAQUETES, $p->id);
 
                 return $p;
             });

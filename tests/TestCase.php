@@ -2,10 +2,12 @@
 
 namespace Tests;
 
+use App\Core\Realtime\ActualizacionEnVivo;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 
 /**
  * Base de las pruebas Feature. Usa RefreshDatabase aquí (y no desde Pest.php) para
@@ -29,6 +31,9 @@ abstract class TestCase extends BaseTestCase
                 'jwt.keys.public' => file_get_contents(storage_path('jwt/public.pem')),
             ]);
         }
+
+        // Los avisos en vivo no salen a ningún servidor: cada prueba que los necesita usa Event::assertDispatched
+        Event::fake([ActualizacionEnVivo::class]);
 
         // Catálogo de roles y permisos en cada prueba
         $this->seed(RolesYPermisosSeeder::class);

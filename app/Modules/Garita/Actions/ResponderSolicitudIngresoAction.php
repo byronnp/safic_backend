@@ -5,6 +5,7 @@ namespace App\Modules\Garita\Actions;
 use App\Core\Http\Exceptions\ApiException;
 use App\Models\User;
 use App\Modules\Garita\Models\SolicitudIngreso;
+use App\Modules\Garita\Services\AvisosEnVivoDeGarita;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 use Illuminate\Support\Facades\DB;
 
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  */
 final class ResponderSolicitudIngresoAction
 {
-    public function __construct(private readonly UnidadesDeCuentaAction $unidades) {}
+    public function __construct(private readonly UnidadesDeCuentaAction $unidades, private readonly AvisosEnVivoDeGarita $enVivo) {}
 
     public function execute(User $user, int $id, bool $permitir): SolicitudIngreso
     {
@@ -34,6 +35,10 @@ final class ResponderSolicitudIngresoAction
             $s->forceFill([
                 'estado' => $permitir ? SolicitudIngreso::PERMITIDA : SolicitudIngreso::RECHAZADA, 'respondida_por' => $user->id, 'respondida_en' => now(),
             ])->save();
+
+            // El guardia ve la respuesta y los demás de la unidad ven que ya la respondió alguien
+            $this->enVivo->aLaGarita($s->condominio_id, AvisosEnVivoDeGarita::SOLICITUDES, $s->id);
+            $this->enVivo->aLaUnidad($s->condominio_id, $s->unidad_id, AvisosEnVivoDeGarita::SOLICITUDES, $s->id);
 
             return $s;
         });
