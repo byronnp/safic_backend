@@ -26,8 +26,10 @@ final class BitacoraGaritaAction
         $desde ??= $hoy;
         $hasta ??= $hoy;
 
-        $inicio = CarbonImmutable::parse($desde, $zona)->startOfDay();
-        $fin = CarbonImmutable::parse($hasta, $zona)->endOfDay();
+        // Los límites del día son locales, pero la base guarda los instantes en UTC: se convierten para no correr el día 5 horas
+        $utc = (string) config('app.timezone');
+        $inicio = CarbonImmutable::parse($desde, $zona)->startOfDay()->setTimezone($utc);
+        $fin = CarbonImmutable::parse($hasta, $zona)->endOfDay()->setTimezone($utc);
         $unidades = Unidad::query()->get(['id', 'codigo'])->pluck('codigo', 'id');
 
         $consulta = AccesoGarita::query()->whereBetween('entrada_en', [$inicio, $fin])->orderByDesc('entrada_en')->orderByDesc('id');
@@ -41,7 +43,7 @@ final class BitacoraGaritaAction
         }
         $hayMas = $filas->count() > self::MAXIMO;
 
-        $delDia = AccesoGarita::query()->whereBetween('entrada_en', [CarbonImmutable::parse($hoy, $zona)->startOfDay(), CarbonImmutable::parse($hoy, $zona)->endOfDay()])->get();
+        $delDia = AccesoGarita::query()->whereBetween('entrada_en', [CarbonImmutable::parse($hoy, $zona)->startOfDay()->setTimezone($utc), CarbonImmutable::parse($hoy, $zona)->endOfDay()->setTimezone($utc)])->get();
         $dentro = AccesoGarita::query()->where('estado', AccesoGarita::DENTRO)->get();
         $usuarios = User::query()->whereIn('id', $filas->pluck('registrado_por')->filter())->get()->keyBy('id');
 
