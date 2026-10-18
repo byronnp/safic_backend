@@ -13,8 +13,10 @@ use App\Modules\Garita\Actions\RegistrarSalidaAction;
 use App\Modules\Garita\Actions\SincronizarAccesosAction;
 use App\Modules\Garita\Actions\ValidarQrAction;
 use App\Modules\Garita\Models\AccesoGarita;
+use App\Modules\Garita\Services\ExcelBitacoraGarita;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Garita: validar el QR, registrar ingresos y salidas, ver quién está dentro y la bitácora de la administración.
@@ -110,6 +112,27 @@ class GaritaController
         }
 
         return ApiResponse::ok($bitacora->execute($d['desde'] ?? null, $d['hasta'] ?? null, $d['tipo'] ?? null, $d['q'] ?? null));
+    }
+
+    /** Excel con la bitácora del rango (hasta 5000 filas): mismos filtros que la pantalla. */
+    public function exportarBitacora(Request $request, BitacoraGaritaAction $bitacora, ExcelBitacoraGarita $excel): BinaryFileResponse
+    {
+        $d = $request->validate([
+            'desde' => ['sometimes', 'date_format:Y-m-d'],
+            'hasta' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:desde'],
+            'tipo' => ['sometimes', 'in:'.implode(',', AccesoGarita::TIPOS)],
+            'q' => ['sometimes', 'nullable', 'string', 'max:80'],
+        ], ['hasta.after_or_equal' => 'La fecha final no puede ser anterior a la inicial.']);
+
+        if (isset($d['desde'], $d['hasta']) && (strtotime($d['hasta']) - strtotime($d['desde'])) > 31 * 86400) {
+            throw new ApiException('RANGO_MUY_LARGO', 'Elige un rango de hasta 31 días.', 422);
+        }
+
+        $datos = $bitacora->execute($d['desde'] ?? null, $d['hasta'] ?? null, $d['tipo'] ?? null, $d['q'] ?? null, BitacoraGaritaAction::MAXIMO_EXPORTACION);
+        $ruta = tempnam(sys_get_temp_dir(), 'bitacora-garita-').'.xlsx';
+        $excel->generar($ruta, $datos['accesos']);
+
+        return response()->download($ruta, "bitacora-garita-{$datos['desde']}-{$datos['hasta']}.xlsx")->deleteFileAfterSend();
     }
 
     private function usuario(Request $request): User
