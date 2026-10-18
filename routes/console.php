@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schedule;
 Schedule::command('finanzas:activar-cambios-de-cuenta')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();
 Schedule::command('finanzas:recordatorios-de-mora')->dailyAt('07:00')->withoutOverlapping()->onOneServer();
 Schedule::command('finanzas:actualizar-morosidad')->hourly()->withoutOverlapping()->onOneServer();
+Schedule::command('comunicacion:cerrar-incidencias')->dailyAt('04:00')->withoutOverlapping()->onOneServer();
 Schedule::command('garita:recordar-paquetes')->dailyAt('09:00')->withoutOverlapping()->onOneServer();
 Schedule::command('garita:anonimizar')->dailyAt('03:00')->withoutOverlapping()->onOneServer();
 Schedule::command('reservas:vencer')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();

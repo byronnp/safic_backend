@@ -5113,6 +5113,358 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /mis-incidencias:
+    get:
+      tags: [Comunicación]
+      operationId: listarMisIncidencias
+      summary: Incidencias que reporté o de mis unidades
+      description: Permiso `incidencias.reportar`. Las abiertas primero. Los comentarios son los visibles al residente (sin notas internas).
+      x-permiso: incidencias.reportar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Incidencias.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/IncidenciaDetalle' } }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+    post:
+      tags: [Comunicación]
+      operationId: reportarIncidencia
+      summary: Reportar una incidencia
+      description: |
+        Permiso `incidencias.reportar` (residente y guardia). Hasta 3 fotos JPG/PNG de 5 MB. `unidad_id` es opcional (sin ella es un problema de
+        las áreas comunes) y debe ser una unidad en la que vive quien reporta. Queda `abierto`, prioridad `media`, con número consecutivo.
+        403 `UNIDAD_NO_ES_SUYA`; 422 `DEMASIADAS_FOTOS`.
+      x-permiso: incidencias.reportar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [titulo, descripcion, categoria]
+              properties:
+                titulo: { type: string, minLength: 3, maxLength: 120 }
+                descripcion: { type: string, minLength: 3, maxLength: 2000 }
+                categoria: { type: string, enum: [mantenimiento, convivencia, seguridad, areas_verdes, otro] }
+                unidad_id: { type: integer }
+                fotos: { type: array, items: { type: string, format: binary }, maxItems: 3 }
+      responses:
+        '201':
+          description: Incidencia reportada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: object, required: [id, numero], properties: { id: { type: integer }, numero: { type: integer } } }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '429':
+          $ref: '#/components/responses/DemasiadosIntentos'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /mis-incidencias/{incidencia}/comentarios:
+    post:
+      tags: [Comunicación]
+      operationId: comentarMiIncidencia
+      summary: Escribir a la administración sobre mi incidencia
+      description: Permiso `incidencias.reportar`. 404 si no es mía ni de mi unidad; 409 `INCIDENCIA_CERRADA`.
+      x-permiso: incidencias.reportar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: incidencia, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [texto]
+              properties:
+                texto: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '201':
+          description: Mensaje enviado.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`INCIDENCIA_CERRADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /mis-incidencias/{incidencia}/reabrir:
+    post:
+      tags: [Comunicación]
+      operationId: reabrirMiIncidencia
+      summary: '«No se solucionó»: reabrir una incidencia resuelta'
+      description: Permiso `incidencias.reportar`. Vuelve a `en_proceso`, con un comentario opcional. 409 `INCIDENCIA_NO_RESUELTA`.
+      x-permiso: incidencias.reportar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: incidencia, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                texto: { type: [string, 'null'], maxLength: 1000 }
+      responses:
+        '200':
+          description: Reabierta.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`INCIDENCIA_NO_RESUELTA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /mis-incidencias/{incidencia}/confirmar:
+    post:
+      tags: [Comunicación]
+      operationId: confirmarMiIncidencia
+      summary: '«Sí, se solucionó»: cerrar una incidencia resuelta'
+      description: 'Permiso `incidencias.reportar`. Queda `cerrado` con `cierre: residente`. Si no responde en 7 días, se cierra sola (`cierre: automatico`). 409 `INCIDENCIA_NO_RESUELTA`.'
+      x-permiso: incidencias.reportar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: incidencia, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Cerrada.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`INCIDENCIA_NO_RESUELTA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /comunicacion/incidencias:
+    get:
+      tags: [Comunicación]
+      operationId: tableroIncidencias
+      summary: Tablero de incidencias
+      description: |
+        Permiso `incidencias.gestionar`. Las no cerradas y las cerradas en los últimos 30 días, y el tiempo promedio (horas) hasta la primera
+        respuesta de la administración en los últimos 30 días (`null` si no hay).
+      x-permiso: incidencias.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Tablero.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/TableroIncidencias' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /comunicacion/incidencias/{incidencia}:
+    get:
+      tags: [Comunicación]
+      operationId: verIncidencia
+      summary: Detalle de una incidencia
+      description: Permiso `incidencias.gestionar`. Con fotos (enlaces temporales) y todos los comentarios, también las notas internas.
+      x-permiso: incidencias.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: incidencia, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: La incidencia.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/IncidenciaDetalle' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+    patch:
+      tags: [Comunicación]
+      operationId: ajustarIncidencia
+      summary: Cambiar la prioridad o la categoría
+      description: Permiso `incidencias.gestionar`.
+      x-permiso: incidencias.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: incidencia, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prioridad: { type: string, enum: [alta, media, baja] }
+                categoria: { type: string, enum: [mantenimiento, convivencia, seguridad, areas_verdes, otro] }
+      responses:
+        '200':
+          description: Actualizada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: object, properties: { id: { type: integer }, prioridad: { type: string }, categoria: { type: string } } }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /comunicacion/incidencias/{incidencia}/comentarios:
+    post:
+      tags: [Comunicación]
+      operationId: comentarIncidencia
+      summary: Comentar al residente o dejar una nota interna
+      description: Permiso `incidencias.gestionar`. Un comentario público marca la primera respuesta (tiempo de respuesta) y avisa por correo a quien reportó; una nota `interna` no.
+      x-permiso: incidencias.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: incidencia, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [texto]
+              properties:
+                texto: { type: string, minLength: 1, maxLength: 1000 }
+                interna: { type: boolean, default: false }
+      responses:
+        '201':
+          description: Comentario guardado.
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /comunicacion/incidencias/{incidencia}/estado:
+    post:
+      tags: [Comunicación]
+      operationId: cambiarEstadoIncidencia
+      summary: Cambiar el estado de una incidencia
+      description: |
+        Permiso `incidencias.gestionar`. Cambios permitidos: `abierto` → `en_proceso` o `resuelto`; `en_proceso` → `resuelto`;
+        `resuelto` → `en_proceso` o `cerrado`. Avisa por correo a quien reportó. 409 `TRANSICION_NO_PERMITIDA`.
+      x-permiso: incidencias.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: incidencia, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [estado]
+              properties:
+                estado: { type: string, enum: [abierto, en_proceso, resuelto, cerrado] }
+      responses:
+        '200':
+          description: Actualizada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { type: object, properties: { id: { type: integer }, estado: { type: string } } }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`TRANSICION_NO_PERMITIDA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
   /cobro:
     get:
       tags: [Finanzas]
@@ -9158,6 +9510,61 @@ components:
               confirmado: { type: boolean }
               adjunto_nombre: { type: [string, 'null'] }
               adjunto_url: { type: [string, 'null'], description: 'Enlace temporal al adjunto.' }
+    IncidenciaDetalle:
+      type: object
+      required: [id, numero, titulo, descripcion, categoria, prioridad, estado, unidad, autor, creada_en, resuelta_en, cierre, fotos, comentarios]
+      properties:
+        id: { type: integer }
+        numero: { type: integer }
+        titulo: { type: string }
+        descripcion: { type: string }
+        categoria: { type: string, enum: [mantenimiento, convivencia, seguridad, areas_verdes, otro] }
+        prioridad: { type: string, enum: [alta, media, baja] }
+        estado: { type: string, enum: [abierto, en_proceso, resuelto, cerrado] }
+        unidad: { type: [string, 'null'], description: 'null = áreas comunes.' }
+        autor: { type: [string, 'null'] }
+        creada_en: { type: string, format: date-time }
+        resuelta_en: { type: [string, 'null'], format: date-time }
+        cierre: { type: [string, 'null'], enum: [residente, automatico, administracion, null] }
+        fotos:
+          type: array
+          items:
+            type: object
+            required: [id, url]
+            properties:
+              id: { type: integer }
+              url: { type: [string, 'null'], description: 'Enlace temporal.' }
+        comentarios:
+          type: array
+          items:
+            type: object
+            required: [id, autor, de_administracion, interna, texto, creado_en]
+            properties:
+              id: { type: integer }
+              autor: { type: string }
+              de_administracion: { type: boolean }
+              interna: { type: boolean }
+              texto: { type: string }
+              creado_en: { type: string, format: date-time }
+    TableroIncidencias:
+      type: object
+      required: [tiempo_promedio_horas, incidencias]
+      properties:
+        tiempo_promedio_horas: { type: [number, 'null'] }
+        incidencias:
+          type: array
+          items:
+            type: object
+            required: [id, numero, titulo, categoria, prioridad, estado, unidad, creada_en]
+            properties:
+              id: { type: integer }
+              numero: { type: integer }
+              titulo: { type: string }
+              categoria: { type: string }
+              prioridad: { type: string, enum: [alta, media, baja] }
+              estado: { type: string, enum: [abierto, en_proceso, resuelto, cerrado] }
+              unidad: { type: [string, 'null'] }
+              creada_en: { type: string, format: date-time }
     GastoRecurrente:
       type: object
       properties:

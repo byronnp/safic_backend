@@ -122,6 +122,7 @@ class MenuSeeder extends Seeder
                 'hijos' => [
                     ['clave' => 'seguridad.bitacora', 'etiqueta' => 'Bitácora de garita', 'icono' => 'sym_r_badge', 'ruta' => 'garita-bitacora', 'permiso' => Permiso::GaritaBitacora],
                     ['clave' => 'seguridad.anuncios', 'etiqueta' => 'Anuncios', 'icono' => 'sym_r_campaign', 'ruta' => 'comunicacion-anuncios', 'permiso' => Permiso::AnunciosPublicar],
+                    ['clave' => 'seguridad.incidencias', 'etiqueta' => 'Incidencias', 'icono' => 'sym_r_support_agent', 'ruta' => 'comunicacion-incidencias', 'permiso' => Permiso::IncidenciasGestionar],
                 ],
             ],
             [
