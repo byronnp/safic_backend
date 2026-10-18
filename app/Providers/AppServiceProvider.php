@@ -19,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Canales privados de tiempo real (Reverb); la ruta de autorización está en routes/api.php
+        require base_path('routes/channels.php');
     }
 }

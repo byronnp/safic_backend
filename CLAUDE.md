@@ -142,6 +142,15 @@ Reglas:
 - Roles y permisos (super admin, `/plataforma/roles`, permiso `plataforma.roles`): edita las plantillas globales de los roles de condominio (`Role` con `condominio_id` nulo) y crea roles adicionales; rige en todos los condominios al instante. Las reglas fijas viven en `Rol::motivoBloqueo` (contador solo lectura; residente y guardia sin permisos administrativos) y `Rol::exige` (el administrador conserva `usuarios.gestionar`): no se saltan. Cada cambio se registra en el log (`roles.permisos`). Los pedidos de rol pendientes se leen recorriendo cada condominio (`ListarSolicitudesRolPendientesAction`).
 - «Desactivar» es `activa = false` (no se borra: otras fases, como Reservas, referenciarán la amenidad). El mantenimiento termina solo al pasar `mantenimiento_hasta`.
 
+## Tiempo real (Reverb)
+
+- Los avisos **no llevan datos**: `ActualizacionEnVivo` solo dice `recurso` (`solicitudes-ingreso`, `paquetes`, `accesos`) e `id`. El cliente vuelve a consultar la API normal, así RLS, permisos y enmascarado de datos personales siguen decidiendo qué ve cada quien. Nunca pongas nombres, documentos ni montos en un aviso.
+- Se publican con `EnVivo::aUsuarios()` / `EnVivo::aGarita()` (o con un servicio del módulo, como `AvisosEnVivoDeGarita`). Salen **después de confirmar** la transacción y son de mejor esfuerzo: si Reverb no responde, la operación de negocio sigue y el cliente se entera con su consulta periódica.
+- Canales siempre **privados y con el condominio en el nombre**: `condominio.{id}.usuario.{userId}` (solo esa cuenta) y `condominio.{id}.garita` (permiso `garita.registrar`). Toda regla parte de la membresía activa (`AutorizaCanales`). Un canal nuevo se declara en `routes/channels.php` con su prueba en `tests/Feature/TiempoReal`.
+- Autorización: `POST /api/v1/broadcasting/auth` con el mismo JWT (sin `X-Condominio-Id`: el condominio va en el nombre del canal).
+- Local: el servicio `reverb` del compose (puerto interno 8080, sin puerto publicado; el frontend lo alcanza por `/app`). Variables `REVERB_*` en `.env.example`; `REVERB_ALLOWED_ORIGINS` limita los hosts desde los que se conecta el navegador (solo el nombre, p. ej. `localhost` o `app.safic.ec`; Reverb no mira esquema ni puerto). Producción: un proceso `reverb:start` por réplica con `REVERB_SCALING_ENABLED=true` (usa Redis) y el balanceador debe permitir WebSocket en `/app`.
+- Las pruebas usan `Event::fake([ActualizacionEnVivo::class])` (ya en `TestCase`): para verificar un aviso usa `Event::dispatched(...)`.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.

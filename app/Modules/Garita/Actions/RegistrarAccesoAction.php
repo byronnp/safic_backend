@@ -7,6 +7,7 @@ use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Garita\Models\AccesoGarita;
 use App\Modules\Garita\Models\AutorizacionVisita;
+use App\Modules\Garita\Services\AvisosEnVivoDeGarita;
 use App\Modules\Garita\Services\ValidadorDeVisita;
 use App\Modules\Unidades\Models\Unidad;
 use Carbon\CarbonImmutable;
@@ -22,14 +23,18 @@ final class RegistrarAccesoAction
         private readonly Calendario $calendario,
         private readonly ValidadorDeVisita $validador,
         private readonly ValidarQrAction $qr,
+        private readonly AvisosEnVivoDeGarita $enVivo,
     ) {}
 
     /** @param array<string, mixed> $d */
     public function execute(User $guardia, array $d): AccesoGarita
     {
-        return DB::transaction(fn (): AccesoGarita => isset($d['token'])
-            ? $this->conQr($guardia, (string) $d['token'])
-            : $this->sinQr($guardia, $d));
+        return DB::transaction(function () use ($guardia, $d): AccesoGarita {
+            $acceso = isset($d['token']) ? $this->conQr($guardia, (string) $d['token']) : $this->sinQr($guardia, $d);
+            $this->enVivo->aLaUnidad($acceso->condominio_id, $acceso->unidad_id, AvisosEnVivoDeGarita::ACCESOS, $acceso->id);
+
+            return $acceso;
+        });
     }
 
     private function conQr(User $guardia, string $token): AccesoGarita

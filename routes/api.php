@@ -6,6 +6,7 @@ use App\Core\Auth\Http\Controllers\InvitacionController;
 use App\Core\Marca\Http\Controllers\LogoPublicoController;
 use App\Core\Menu\Http\Controllers\MenuController;
 use App\Modules\Garita\Http\Controllers\VisitaPublicaController;
+use Illuminate\Broadcasting\BroadcastController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -53,6 +54,10 @@ Route::prefix('auth')->group(function () {
         Route::post('2fa/desactivar', [DobleFactorController::class, 'desactivar'])->middleware('throttle:doble-factor');
     });
 });
+
+// Tiempo real: el cliente de WebSocket (Reverb) pide la firma de un canal privado con el mismo JWT de la API.
+// Sin X-Condominio-Id: el condominio va en el nombre del canal y lo valida AutorizaCanales.
+Route::post('broadcasting/auth', [BroadcastController::class, 'authenticate'])->middleware(['auth:api', 'throttle:120,1']);
 
 // Logo del condominio (público: aparece en el login, recibos y correos)
 Route::get('marca/{codigo}/logo/{variante}', [LogoPublicoController::class, 'show'])->middleware('throttle:marca');
