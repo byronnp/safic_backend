@@ -47,19 +47,22 @@ final class BitacoraGaritaAction
         $dentro = AccesoGarita::query()->where('estado', AccesoGarita::DENTRO)->get();
         $usuarios = User::query()->whereIn('id', $filas->pluck('registrado_por')->filter())->get()->keyBy('id');
 
+        $ultimaSincronizacion = AccesoGarita::query()->where('sin_conexion', true)->max('sincronizado_en');
+
         return [
             'desde' => $desde, 'hasta' => $hasta, 'hay_mas' => $hayMas,
+            'ultima_sincronizacion' => $ultimaSincronizacion === null ? null : CarbonImmutable::parse((string) $ultimaSincronizacion)->setTimezone($zona)->toIso8601String(),
             'indicadores' => [
                 'dentro_ahora' => $dentro->count(),
                 'proveedores_dentro' => $dentro->where('tipo', 'proveedor')->count(),
                 'ingresos_hoy' => $delDia->count(),
                 'con_qr_hoy' => $delDia->where('autorizado_por', 'qr')->count(),
                 'sin_anunciar_hoy' => $delDia->where('tipo', 'visita')->where('autorizado_por', '!=', 'qr')->count(),
-                'sin_conexion' => 0,
+                'sin_conexion' => $delDia->where('sin_conexion', true)->count(),
             ],
             'accesos' => $filas->take(self::MAXIMO)->map(fn (AccesoGarita $a): array => [
                 'id' => $a->id, 'nombre' => $a->nombre, 'tipo' => $a->tipo,
-                'unidad' => $unidades[$a->unidad_id] ?? null, 'destino' => $a->destino, 'autorizado_por' => $a->autorizado_por, 'estado' => $a->estado,
+                'unidad' => $unidades[$a->unidad_id] ?? null, 'destino' => $a->destino, 'autorizado_por' => $a->autorizado_por, 'estado' => $a->estado, 'sin_conexion' => $a->sin_conexion, 'nota' => $a->nota,
                 'entrada_en' => $a->entrada_en->setTimezone($zona)->toIso8601String(),
                 'salida_en' => $a->salida_en?->setTimezone($zona)->toIso8601String(),
                 'registrado_por' => $usuarios->get($a->registrado_por)->name ?? null,
