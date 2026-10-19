@@ -10,7 +10,7 @@ use OpenSpout\Reader\CSV\Reader as LectorCsv;
 use OpenSpout\Reader\XLSX\Reader as LectorXlsx;
 
 /**
- * Lee el estado de cuenta que baja el banco (Excel .xlsx o .csv). Los bancos del país exportan
+ * Lee el estado de cuenta que baja el banco (Excel .xlsx, .csv o el PDF del Banco del Pichincha). Los bancos del país exportan
  * columnas parecidas con nombres distintos: se busca la fila de encabezados y se reconocen las
  * columnas por su nombre (fecha, descripción, referencia, débito, crédito o monto, saldo).
  * No depende de un banco: un banco nuevo con otros nombres se agrega a `ALIAS`.
@@ -33,6 +33,10 @@ final class LectorEstadoCuenta
 
     public function leer(string $ruta, string $extension): EstadoCuentaLeido
     {
+        if (strtolower($extension) === 'pdf') {
+            return (new LectorPdfEstadoCuenta)->leer($ruta);
+        }
+
         $filas = $this->filas($ruta, strtolower($extension));
 
         [$indiceEncabezado, $columnas] = $this->encabezados($filas);
@@ -65,7 +69,7 @@ final class LectorEstadoCuenta
         $lector = match ($extension) {
             'xlsx' => new LectorXlsx,
             'csv', 'txt' => $this->lectorCsv($ruta),
-            default => throw new ApiException('ARCHIVO_NO_SOPORTADO', 'El estado de cuenta debe ser un archivo Excel (.xlsx) o CSV.', 422),
+            default => throw new ApiException('ARCHIVO_NO_SOPORTADO', 'El estado de cuenta debe ser un archivo Excel (.xlsx), CSV o el PDF del Banco del Pichincha.', 422),
         };
 
         $filas = [];

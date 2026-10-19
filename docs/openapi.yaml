@@ -2785,10 +2785,13 @@ paths:
       summary: Importar el estado de cuenta de un mes
       description: |
         Permiso: `conciliacion.gestionar` (administrador y tesorero). Excel (.xlsx) o CSV con fecha, descripción,
-        débito y crédito (o monto) y, de preferencia, saldo; se reconocen las columnas por su nombre. Solo se importan
+        débito y crédito (o monto) y, de preferencia, saldo; se reconocen las columnas por su nombre. También se lee el PDF del
+        estado de cuenta del Banco del Pichincha (con texto, no escaneado): se une cada movimiento y, como es dinero, **no se
+        importa si los saldos de las líneas o el cuadre del resumen no cierran** (422 `PDF_NO_CUADRA`; otros: `PDF_SIN_TEXTO`,
+        `ARCHIVO_ILEGIBLE`). El PDF trae el ciclo del banco: solo se importan las líneas del mes elegido. Solo se importan
         las líneas del mes; las que ya estaban se descartan, así que volver a subir el archivo no duplica nada (`meta.duplicados`).
         Cada línea se clasifica: automática (monto exacto más código de la unidad o referencia, o una regla guardada),
-        sugerida o sin identificar. 422 `ESTADO_FORMATO_DESCONOCIDO`, `ESTADO_FUERA_DEL_MES`, `CUENTA_INVALIDA`;
+        sugerida o sin identificar. 422 `ESTADO_FORMATO_DESCONOCIDO`, `ESTADO_FUERA_DEL_MES`, `CUENTA_INVALIDA`, `PDF_NO_CUADRA`;
         409 `PERIODO_CERRADO`. Límite de peticiones compartido con los pagos (429).
       x-permiso: conciliacion.gestionar
       parameters:
