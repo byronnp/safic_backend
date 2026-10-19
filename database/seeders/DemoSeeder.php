@@ -58,6 +58,15 @@ class DemoSeeder extends Seeder
         $this->membresia($diego, $jardines, principal: true);
         $this->asignar($diego, $jardines->id, Rol::Residente);
 
+        // Guardias de garita (app del guardia): uno por condominio, para probar las pantallas de ese perfil
+        $marco = User::updateOrCreate(['email' => 'guardia@jardinesdelvalle.ec'], ['name' => 'Marco Salazar', 'password' => $password, 'activo' => true]);
+        $this->membresia($marco, $jardines, principal: true);
+        $this->asignar($marco, $jardines->id, Rol::Guardia);
+
+        $luis = User::updateOrCreate(['email' => 'guardia@losarupos.ec'], ['name' => 'Luis Cevallos', 'password' => $password, 'activo' => true]);
+        $this->membresia($luis, $arupos, principal: true);
+        $this->asignar($luis, $arupos->id, Rol::Guardia);
+
         // Ambos cobran un valor general (como el condominio piloto)
         foreach ([$jardines, $arupos] as $condominio) {
             $tenant->run($condominio->id, fn () => app(GuardarConfiguracionCobroAction::class)->execute([

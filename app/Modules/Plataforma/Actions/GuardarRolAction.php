@@ -4,6 +4,7 @@ namespace App\Modules\Plataforma\Actions;
 
 use App\Core\Audit\BitacoraPlataforma;
 use App\Core\Http\Exceptions\ApiException;
+use App\Core\Menu\Models\MenuItem;
 use App\Core\Permissions\Permiso;
 use App\Core\Permissions\Rol;
 use Illuminate\Support\Facades\DB;
@@ -35,9 +36,31 @@ final class GuardarRolAction
                 $rol = Role::create(['name' => $clave, 'guard_name' => 'api', 'condominio_id' => null]);
             });
 
-            /** @var Role $rol */
-            return $this->asignar($rol, null, $permisos, $actorId, 'creado');
+            /** @var Role $nuevo */
+            $nuevo = $rol;
+            $creado = $this->asignar($nuevo, null, $permisos, $actorId, 'creado');
+            $this->asignarMenuInicial($creado, array_values(array_unique($permisos)));
+
+            return $creado;
         });
+    }
+
+    /**
+     * Menú web inicial de un rol nuevo: las pantallas que no piden permiso (inicio) y las de los permisos que se le dieron, la misma
+     * regla con la que MenuSeeder reparte las pantallas a los roles del sistema. Sin esto el rol quedaba sin ninguna pantalla hasta
+     * que el super admin lo asignara a mano en «Menú del sistema» (donde sigue pudiendo ajustarlo). Las pestañas de las apps del
+     * residente y del guardia no hacen falta: salen solas de los permisos.
+     *
+     * @param  list<string>  $permisos
+     */
+    private function asignarMenuInicial(Role $rol, array $permisos): void
+    {
+        $hojas = MenuItem::query()
+            ->where('ambito', MenuItem::AMBITO_CONDOMINIO)->where('activo', true)->whereNotNull('ruta')
+            ->where(fn ($q) => $q->whereNull('permiso')->orWhereIn('permiso', $permisos))
+            ->pluck('id');
+
+        DB::table('menu_item_rol')->insertOrIgnore($hojas->map(fn (int $id): array => ['menu_item_id' => $id, 'role_id' => $rol->id])->all());
     }
 
     /**

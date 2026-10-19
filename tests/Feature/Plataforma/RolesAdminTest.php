@@ -1,10 +1,13 @@
 <?php
 
+use App\Core\Menu\Models\MenuItem;
 use App\Core\Permissions\Rol;
 use App\Models\User;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Usuarios\Models\SolicitudRol;
+use Database\Seeders\MenuSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 
 function tokenRolesPlataforma(Rol $rol = Rol::SuperAdmin): string
@@ -96,6 +99,33 @@ it('crea un rol adicional con sus permisos y no repite nombres', function () {
 
     ($this->api)()->postJson('/api/v1/plataforma/roles', ['nombre' => 'Asist contable', 'permisos' => []])->assertStatus(409);
     ($this->api)()->postJson('/api/v1/plataforma/roles', ['nombre' => 'Guardia', 'permisos' => []])->assertStatus(409);
+});
+
+it('un rol nuevo nace con las pantallas web de sus permisos y las que no piden permiso, no con un menú vacío', function () {
+    $this->seed(MenuSeeder::class);
+
+    ($this->api)()->postJson('/api/v1/plataforma/roles', ['nombre' => 'Asistente de unidades', 'permisos' => ['unidades.ver']])->assertCreated();
+
+    $rol = Role::query()->whereNull('condominio_id')->where('name', 'asistente_de_unidades')->firstOrFail();
+    $permisosDelRol = $rol->permissions->pluck('name')->all();
+    $hojas = MenuItem::query()->whereIn('id', DB::table('menu_item_rol')->where('role_id', $rol->id)->pluck('menu_item_id'))->get();
+
+    expect($hojas->pluck('ruta')->all())->toContain('inicio', 'unidades', 'bloques')
+        // Nada que pida un permiso que el rol no tiene, ni pantallas de plataforma
+        ->and($hojas->every(fn (MenuItem $h): bool => $h->permiso === null || in_array($h->permiso, $permisosDelRol, true)))->toBeTrue()
+        ->and($hojas->every(fn (MenuItem $h): bool => $h->ambito === MenuItem::AMBITO_CONDOMINIO))->toBeTrue()
+        ->and($hojas->pluck('ruta')->all())->not->toContain('finanzas-resumen');
+});
+
+it('un rol nuevo sin permisos solo recibe las pantallas que no piden permiso', function () {
+    $this->seed(MenuSeeder::class);
+
+    ($this->api)()->postJson('/api/v1/plataforma/roles', ['nombre' => 'Visitante', 'permisos' => []])->assertCreated();
+
+    $rol = Role::query()->whereNull('condominio_id')->where('name', 'visitante')->firstOrFail();
+    $hojas = MenuItem::query()->whereIn('id', DB::table('menu_item_rol')->where('role_id', $rol->id)->pluck('menu_item_id'))->get();
+
+    expect($hojas->pluck('permiso')->unique()->all())->toBe([null])->and($hojas->pluck('ruta')->all())->toContain('inicio');
 });
 
 it('un rol adicional aparece en la matriz y se edita sin bloqueos', function () {
