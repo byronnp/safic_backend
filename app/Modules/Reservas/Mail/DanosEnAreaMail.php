@@ -22,6 +22,7 @@ class DanosEnAreaMail extends Mailable implements ShouldQueue
         public readonly string $unidad,
         public readonly string $cuando,
         public readonly string $danos,
+        public readonly int $fotos = 0,
     ) {
         $this->afterCommit();
     }

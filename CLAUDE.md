@@ -151,6 +151,14 @@ Reglas:
 - Local: el servicio `reverb` del compose (puerto interno 8080, sin puerto publicado; el frontend lo alcanza por `/app`). Variables `REVERB_*` en `.env.example`; `REVERB_ALLOWED_ORIGINS` limita los hosts desde los que se conecta el navegador (solo el nombre, p. ej. `localhost` o `app.safic.ec`; Reverb no mira esquema ni puerto). Producción: un proceso `reverb:start` por réplica con `REVERB_SCALING_ENABLED=true` (usa Redis) y el balanceador debe permitir WebSocket en `/app`.
 - Las pruebas usan `Event::fake([ActualizacionEnVivo::class])` (ya en `TestCase`): para verificar un aviso usa `Event::dispatched(...)`.
 
+## Daños y garantía de reservas
+
+- El guardia reporta daños al recibir el área, con hasta 5 fotos (`reserva_danos_fotos`, JPG/PNG de 5 MB, enlaces temporales); las fotos solo acompañan a un reporte con descripción.
+- La administración decide **una sola vez** (`ResolverDanosDeReservaAction`): `sin_cargo`, `descontar_garantia` (hasta la garantía) o `cobrar_cuenta`. **El único movimiento de dinero que crea el sistema es la cuota extraordinaria de `cobrar_cuenta`** (vía `CargosDeReservaAction`, vence en 10 días, no sirve en mes cerrado).
+- **La garantía** (`GarantiaDeReserva`): solo cuenta si su cuota está **pagada** y la reserva **recibida**. Sin daños se devuelve completa; con daños depende de la decisión (`sin_cargo` y `cobrar_cuenta` la devuelven completa, `descontar_garantia` devuelve el resto; mientras no se decida no se sabe cuánto). Estados: `esperando_decision`, `por_devolver`, `sin_devolucion` (el daño la consumió), `devuelta`.
+- **El sistema no mueve el dinero de la devolución**: `RegistrarDevolucionGarantiaAction` solo **registra** que se devolvió (forma efectivo/transferencia, día, referencia y quién). El monto lo calcula el sistema, nunca se escribe, y se registra una sola vez. La salida del banco se concilia a mano como «otro». No se deshacen aplicaciones de pagos aprobados ni se edita el saldo a favor (es calculado: pagos − aplicaciones).
+- El residente ve en «Mis reservas» qué pasó con su garantía (`garantia_estado`, `garantia_monto`, `garantia_devuelta_en`).
+
 ## Estado de cuenta en PDF (Banco del Pichincha)
 
 - `LectorEstadoCuenta` delega la extensión `.pdf` en `LectorPdfEstadoCuenta` (`smalot/pdfparser`, fijado en 2.13.0). Formato en `docs/referencias/estado-cuenta-banco-pichincha.md`.
