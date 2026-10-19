@@ -9,6 +9,7 @@ use App\Modules\Finanzas\Models\PeriodoFinanciero;
 use App\Modules\Finanzas\Models\Proveedor;
 use App\Modules\Finanzas\Models\ReglaConciliacion;
 use App\Modules\Plataforma\Models\Condominio;
+use Dompdf\Dompdf;
 use Illuminate\Http\UploadedFile;
 
 beforeEach(function () {
@@ -198,4 +199,26 @@ it('cada condominio ve solo sus estados de cuenta', function () {
     cambiarDeUsuario();
 
     $this->withToken(auth('api')->tokenById($ajeno->id))->withHeader('X-Condominio-Id', (string) $otro->id)->getJson('/api/v1/conciliacion/estados')->assertOk()->assertJsonPath('data', []);
+});
+
+it('importa el PDF del banco y rechaza uno cuyos saldos no cuadran', function () {
+    $pdf = function (array $lineas): UploadedFile {
+        $html = implode('', array_map(fn (string $l): string => '<div>'.htmlspecialchars($l).'</div>', $lineas));
+        $dompdf = new Dompdf;
+        $dompdf->loadHtml('<html><body style="font-family: DejaVu Sans">'.$html.'</body></html>');
+        $dompdf->render();
+
+        return UploadedFile::fake()->createWithContent('estado.pdf', $dompdf->output());
+    };
+    $corte = $this->mes->endOfMonth()->format('d-m-Y');
+    $dia = $this->mes->day(5)->format('d-M');
+    $resumen = fn (string $actual) => ["FECHA ESTE CORTE (FACTURA) {$corte}", 'SALDO ANTERIOR 1000.00', "SALDO ACTUAL {$actual}"];
+
+    $r = ($this->importar)($pdf([$dia.'05 10000001TRANSF RECIBIDA A-201 0.00 80.00 1080.00', ...$resumen('1080.00')]))->assertCreated();
+    expect($r->json('meta'))->toMatchArray(['nuevos' => 1, 'duplicados' => 0])
+        ->and($r->json('data.cuadre'))->toMatchArray(['saldo_inicial' => '1000.00', 'saldo_banco' => '1080.00', 'archivo_cuadra' => true]);
+    expect(enCondominio($this->condominio, fn () => MovimientoBancario::where('monto', '80.00')->count()))->toBe(1);
+
+    ($this->importar)($pdf([$dia.'05 10000001TRANSF RECIBIDA A-201 0.00 80.00 1080.00', ...$resumen('9999.00')]))
+        ->assertStatus(422)->assertJsonPath('error.code', 'PDF_NO_CUADRA');
 });

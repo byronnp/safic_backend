@@ -151,6 +151,11 @@ Reglas:
 - Local: el servicio `reverb` del compose (puerto interno 8080, sin puerto publicado; el frontend lo alcanza por `/app`). Variables `REVERB_*` en `.env.example`; `REVERB_ALLOWED_ORIGINS` limita los hosts desde los que se conecta el navegador (solo el nombre, p. ej. `localhost` o `app.safic.ec`; Reverb no mira esquema ni puerto). Producción: un proceso `reverb:start` por réplica con `REVERB_SCALING_ENABLED=true` (usa Redis) y el balanceador debe permitir WebSocket en `/app`.
 - Las pruebas usan `Event::fake([ActualizacionEnVivo::class])` (ya en `TestCase`): para verificar un aviso usa `Event::dispatched(...)`.
 
+## Estado de cuenta en PDF (Banco del Pichincha)
+
+- `LectorEstadoCuenta` delega la extensión `.pdf` en `LectorPdfEstadoCuenta` (`smalot/pdfparser`, fijado en 2.13.0). Formato en `docs/referencias/estado-cuenta-banco-pichincha.md`.
+- Es dinero: **no se importa** si el saldo de alguna línea o el cuadre del resumen no cierran (422 `PDF_NO_CUADRA`). Las pruebas usan texto inventado; el PDF real nunca se guarda en el repo.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.

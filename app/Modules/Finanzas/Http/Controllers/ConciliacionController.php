@@ -39,14 +39,14 @@ class ConciliacionController
         $d = $request->validate([
             'cuenta_bancaria_id' => ['required', 'integer'],
             'periodo' => ['required', 'string', 'date_format:Y-m'],
-            'archivo' => ['required', 'file', 'max:5120', 'extensions:xlsx,csv,txt'],
+            'archivo' => ['required', 'file', 'max:5120', 'extensions:xlsx,csv,txt,pdf'],
             'saldo_inicial' => ['sometimes', 'nullable', 'decimal:0,2'],
             'saldo_final' => ['sometimes', 'nullable', 'decimal:0,2'],
         ], [
             'cuenta_bancaria_id.required' => 'Elige la cuenta del banco.',
             'periodo.required' => 'Elige el mes del estado de cuenta.',
             'archivo.required' => 'Sube el estado de cuenta del banco.',
-            'archivo.extensions' => 'El archivo debe ser Excel (.xlsx) o CSV.',
+            'archivo.extensions' => 'El archivo debe ser Excel (.xlsx), CSV o el PDF del Banco del Pichincha.',
             'archivo.max' => 'El archivo pesa más de 5 MB.',
             'saldo_inicial.decimal' => 'El saldo tiene hasta dos decimales.',
             'saldo_final.decimal' => 'El saldo tiene hasta dos decimales.',
