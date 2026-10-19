@@ -4390,6 +4390,222 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /areas-comunes/garantias:
+    get:
+      tags: [Reservas]
+      operationId: listarGarantiasDeReservas
+      summary: Garantías de reservas por devolver
+      description: |
+        Permiso `reservas.gestionar`. Las garantías de las reservas ya recibidas que piden atención: las que esperan la decisión
+        de los daños (`esperando_decision`), las que hay que devolver (`por_devolver`) y las ya devueltas (`devuelta`), hasta 200.
+        Solo cuenta la garantía **pagada**; lo consumido por el daño o sin pagar no aparece. `monto` es lo que se devuelve
+        (lo ya devuelto en `devuelta`); `total_por_devolver` suma las `por_devolver`.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Garantías.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [por_devolver, total_por_devolver, garantias]
+                    properties:
+                      por_devolver: { type: integer }
+                      total_por_devolver: { type: string, example: '129.50' }
+                      garantias:
+                        type: array
+                        items: { $ref: '#/components/schemas/GarantiaDeReserva' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /areas-comunes/reservas/{reserva}/garantia/devolver:
+    post:
+      tags: [Reservas]
+      operationId: registrarDevolucionGarantia
+      summary: Registrar que se devolvió la garantía
+      description: |
+        Permiso `reservas.gestionar`. El **monto lo calcula el sistema** (garantía menos lo descontado por daños) y no se envía.
+        El sistema no mueve el dinero: esto deja el registro (forma, día, referencia y quién lo anotó) para no devolver dos veces
+        y para conciliar la salida del banco o de caja como «otro». La `fecha` no puede ser futura ni anterior al uso del área.
+        409: `GARANTIA_NO_APLICA`, `GARANTIA_YA_DEVUELTA`, `DANOS_SIN_DECIDIR`. 422: `REFERENCIA_REQUERIDA` (transferencia sin
+        número), `FECHA_FUTURA`, `FECHA_ANTERIOR`.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: reserva, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [forma, fecha]
+              properties:
+                forma: { type: string, enum: [efectivo, transferencia] }
+                fecha: { type: string, format: date, description: Día en que se entregó el dinero. }
+                referencia: { type: [string, 'null'], maxLength: 40, description: Obligatoria si es transferencia. }
+      responses:
+        '200':
+          description: Devolución registrada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [reserva_id, monto]
+                    properties:
+                      reserva_id: { type: integer }
+                      monto: { type: string, example: '29.50' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`GARANTIA_NO_APLICA`, `GARANTIA_YA_DEVUELTA`, `DANOS_SIN_DECIDIR`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /areas-comunes/danos:
+    get:
+      tags: [Reservas]
+      operationId: listarDanosDeReservas
+      summary: Reservas con daños reportados
+      description: |
+        Permiso `reservas.gestionar`. Las reservas recibidas con daños: primero las que esperan decisión de la administración y
+        luego las ya resueltas (hasta 100). `por_devolver` es lo que habría que devolver a mano de la garantía según la decisión.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Lista de daños.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [pendientes, danos]
+                    properties:
+                      pendientes: { type: integer }
+                      danos:
+                        type: array
+                        items: { $ref: '#/components/schemas/ResumenDanosDeReserva' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+
+  /areas-comunes/reservas/{reserva}/danos/resolver:
+    post:
+      tags: [Reservas]
+      operationId: resolverDanosDeReserva
+      summary: Decidir qué hacer con los daños de una reserva
+      description: |
+        Permiso `reservas.gestionar`. Se decide **una sola vez** (409 `DANOS_YA_RESUELTOS`):
+        - `sin_cargo`: no se cobra y la garantía queda completa por devolver.
+        - `descontar_garantia` con `monto` (hasta la garantía; 422 `MONTO_SUPERA_GARANTIA`): el daño se queda de la garantía y el resto queda por devolver.
+        - `cobrar_cuenta` con `monto`: crea una cuota extraordinaria en la cuenta de la unidad (vence en 10 días); no sirve en un mes cerrado (409 `PERIODO_CERRADO`) y la garantía sigue completa por devolver.
+
+        El sistema **no mueve dinero de vuelta**: devolver o descontar la garantía queda registrado como «por devolver» para hacerlo aparte.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: reserva, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [sin_cargo, descontar_garantia, cobrar_cuenta] }
+                monto: { type: [string, number], description: Obligatorio salvo `sin_cargo`. Hasta dos decimales. }
+                nota: { type: [string, 'null'], maxLength: 300 }
+      responses:
+        '200':
+          description: Decisión guardada; devuelve el detalle de los daños.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/DanosDeReserva' }
+                  message: { type: string }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '409':
+          description: '`DANOS_YA_RESUELTOS`, `PERIODO_CERRADO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422':
+          $ref: '#/components/responses/Validacion'
+
+  /areas-comunes/reservas/{reserva}/danos:
+    get:
+      tags: [Reservas]
+      operationId: danosDeReserva
+      summary: Daños reportados al recibir el área
+      description: |
+        Permiso `reservas.gestionar`. El reporte del guardia (texto y fotos con enlace temporal de 10 minutos) y la garantía
+        de la reserva, para decidir si se descuenta o se cobra. 404 `RESERVA_SIN_DANOS` si se recibió sin novedades.
+      x-permiso: reservas.gestionar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: reserva, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Reporte de daños.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/DanosDeReserva' }
+        '400':
+          $ref: '#/components/responses/CondominioRequerido'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermisoOCondominio'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+
   /garita/reservas/{reserva}/entrega:
     post:
       tags: [Reservas]
@@ -4397,7 +4613,9 @@ paths:
       summary: Recibir el área al terminar el uso
       description: |
         Permiso `reservas.garita`. Pasa la reserva a `finalizada`. Con `danos` se guarda el reporte y se avisa por correo a la
-        administración, que decide si descuenta de la garantía o cobra a la cuenta de la unidad. 409 `RESERVA_NO_EN_USO`.
+        administración, que decide si descuenta de la garantía o cobra a la cuenta de la unidad. Con el reporte se pueden
+        adjuntar hasta 5 fotos (JPG o PNG, 5 MB cada una) enviando el cuerpo como `multipart/form-data`; sin `danos` no se
+        aceptan fotos (422 `FOTOS_SIN_DANOS`). 409 `RESERVA_NO_EN_USO`.
       x-permiso: reservas.garita
       parameters:
         - $ref: '#/components/parameters/CondominioId'
@@ -4410,6 +4628,15 @@ paths:
               type: object
               properties:
                 danos: { type: [string, 'null'], minLength: 3, maxLength: 500 }
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                danos: { type: string, minLength: 3, maxLength: 500 }
+                fotos:
+                  type: array
+                  maxItems: 5
+                  items: { type: string, format: binary }
       responses:
         '200':
           description: Área recibida.
@@ -9537,7 +9764,7 @@ components:
               estado: { type: string, enum: [libre, ocupada, cerrada] }
     MiReserva:
       type: object
-      required: [id, area, unidad, fecha, inicio, fin, estado, costo, garantia, proxima, puede_cancelar, por_pagar, pagar_antes_de, motivo]
+      required: [id, area, unidad, fecha, inicio, fin, estado, costo, garantia, proxima, puede_cancelar, por_pagar, pagar_antes_de, motivo, garantia_estado, garantia_monto, garantia_devuelta_en]
       properties:
         id: { type: integer }
         area: { type: string }
@@ -9552,6 +9779,9 @@ components:
         puede_cancelar: { type: boolean }
         por_pagar: { type: string, description: 'Lo que falta pagar del cobro de la reserva (0.00 si no hay).' }
         pagar_antes_de: { type: [string, 'null'], description: 'Fecha y hora local (YYYY-MM-DDTHH:MM) límite para pagar; si no se paga la reserva se cancela sola.' }
+        garantia_estado: { type: [string, 'null'], enum: [esperando_decision, por_devolver, sin_devolucion, devuelta, null], description: Qué pasó con la garantía una vez recibida el área (null si no aplica). }
+        garantia_monto: { type: [string, 'null'], description: 'Lo que se devuelve o ya se devolvió.' }
+        garantia_devuelta_en: { type: [string, 'null'], format: date }
         motivo: { type: [string, 'null'], description: 'Motivo del rechazo o de la cancelación.' }
     SolicitudReserva:
       type: object
@@ -9570,6 +9800,75 @@ components:
         unidad_restringida: { type: boolean }
         solicitada_en: { type: string, format: date-time }
         vence_en: { type: string, format: date-time }
+    GarantiaDeReserva:
+      type: object
+      required: [reserva_id, area, unidad, fecha, garantia, estado, monto]
+      properties:
+        reserva_id: { type: integer }
+        area: { type: string }
+        unidad: { type: string }
+        fecha: { type: string, format: date }
+        garantia: { type: string }
+        estado: { type: string, enum: [esperando_decision, por_devolver, devuelta] }
+        monto: { type: string, description: 'Lo que se devuelve (lo ya devuelto si `devuelta`; 0.00 si espera la decisión).' }
+        devolucion:
+          oneOf:
+            - type: 'null'
+            - type: object
+              properties:
+                forma: { type: [string, 'null'], enum: [efectivo, transferencia, null] }
+                fecha: { type: [string, 'null'], format: date }
+                referencia: { type: [string, 'null'] }
+    ResolucionDeDanos:
+      type: object
+      required: [decision, por_devolver, cobrada_en_cuota]
+      properties:
+        decision: { type: string, enum: [sin_cargo, descontar_garantia, cobrar_cuenta] }
+        monto: { type: [string, 'null'], example: '20.50' }
+        nota: { type: [string, 'null'] }
+        garantia_estado: { type: [string, 'null'], enum: [esperando_decision, por_devolver, sin_devolucion, devuelta, null] }
+        por_devolver: { type: [string, 'null'], description: 'Lo que queda por devolver de la garantía (null si no hay nada por devolver).' }
+        cobrada_en_cuota: { type: boolean }
+        resuelta_en: { type: [string, 'null'], format: date-time }
+    ResumenDanosDeReserva:
+      type: object
+      required: [reserva_id, area, unidad, fecha, danos, garantia]
+      properties:
+        reserva_id: { type: integer }
+        area: { type: string }
+        unidad: { type: string }
+        fecha: { type: string, format: date }
+        danos: { type: string }
+        garantia: { type: string }
+        decision: { type: [string, 'null'], enum: [sin_cargo, descontar_garantia, cobrar_cuenta, null] }
+        garantia_estado: { type: [string, 'null'], enum: [esperando_decision, por_devolver, sin_devolucion, devuelta, null] }
+        por_devolver: { type: [string, 'null'] }
+    DanosDeReserva:
+      type: object
+      required: [reserva_id, area, unidad, fecha, inicio, fin, garantia, danos, fotos]
+      properties:
+        reserva_id: { type: integer }
+        area: { type: string }
+        unidad: { type: string }
+        fecha: { type: string, format: date }
+        inicio: { type: string, example: '14:00' }
+        fin: { type: string, example: '18:00' }
+        garantia: { type: string, example: '50.00' }
+        danos: { type: string }
+        recibida_en: { type: [string, 'null'], format: date-time }
+        recibida_por: { type: [string, 'null'] }
+        resolucion:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/ResolucionDeDanos'
+        fotos:
+          type: array
+          items:
+            type: object
+            required: [id, url]
+            properties:
+              id: { type: integer }
+              url: { type: [string, 'null'], description: Enlace temporal (10 minutos). }
     ResolucionReserva:
       type: object
       required: [id, estado]

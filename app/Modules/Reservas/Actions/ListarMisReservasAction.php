@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Amenidades\Models\CondominioAmenidad;
 use App\Modules\Finanzas\Actions\CargosDeReservaAction;
 use App\Modules\Reservas\Models\Reserva;
+use App\Modules\Reservas\Services\GarantiaDeReserva;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 use Carbon\CarbonImmutable;
 
@@ -21,6 +22,7 @@ final class ListarMisReservasAction
         private readonly Calendario $calendario,
         private readonly UnidadesDeCuentaAction $unidades,
         private readonly CargosDeReservaAction $cargos,
+        private readonly GarantiaDeReserva $garantias,
     ) {}
 
     /** @return list<array<string, mixed>> */
@@ -30,8 +32,10 @@ final class ListarMisReservasAction
         $reservas = Reserva::query()->whereIn('unidad_id', $unidades->keys())->orderBy('fecha')->orderBy('inicio')->get();
         $areas = CondominioAmenidad::query()->whereIn('id', $reservas->pluck('amenidad_id'))->get()->keyBy('id');
         $ahora = CarbonImmutable::now($this->calendario->zonaHoraria());
+        $pagadas = $this->garantias->pagadas($reservas);
 
-        $filas = $reservas->map(function (Reserva $r) use ($areas, $unidades, $ahora): array {
+        $filas = $reservas->map(function (Reserva $r) use ($areas, $unidades, $ahora, $pagadas): array {
+            $g = $this->garantias->de($r, $pagadas[$r->id]);
             $empieza = CarbonImmutable::parse($r->fecha->toDateString().' '.$r->inicio, $ahora->getTimezone());
             $viva = in_array($r->estado, Reserva::VIVAS, true);
             $saldo = $r->estado === Reserva::CONFIRMADA ? $this->cargos->saldoCentavos($r->cuotaIds()) : 0;
@@ -44,6 +48,10 @@ final class ListarMisReservasAction
                 'por_pagar' => Dinero::texto($saldo),
                 'pagar_antes_de' => $saldo > 0 ? $r->limite_pago_en?->setTimezone($ahora->getTimezone())->format('Y-m-d\TH:i') : null,
                 'motivo' => $r->motivo_rechazo ?? $r->motivo_cancelacion,
+                // Qué pasó con su garantía una vez recibida el área (null si no aplica): ver GarantiaDeReserva
+                'garantia_estado' => $g['estado'] ?? null,
+                'garantia_monto' => $g === null ? null : Dinero::texto($g['monto']),
+                'garantia_devuelta_en' => $r->garantia_devuelta_en?->toDateString(),
             ];
         });
 

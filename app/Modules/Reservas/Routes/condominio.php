@@ -55,6 +55,26 @@ Route::post('areas-comunes/reservas/{reserva}/rechazar', [SolicitudController::c
 Route::get('areas-comunes/agenda', [SolicitudController::class, 'agenda'])
     ->middleware('permission:'.Permiso::ReservasGestionar->value);
 
+// Garantías de las reservas recibidas: lo que hay que devolver y el registro de la devolución
+Route::get('areas-comunes/garantias', [SolicitudController::class, 'garantias'])
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+Route::post('areas-comunes/reservas/{reserva}/garantia/devolver', [SolicitudController::class, 'devolverGarantia'])
+    ->whereNumber('reserva')
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+// Daños reportados por el guardia al recibir el área (texto y fotos), para decidir qué hacer con la garantía
+Route::get('areas-comunes/danos', [SolicitudController::class, 'listaDanos'])
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+Route::get('areas-comunes/reservas/{reserva}/danos', [SolicitudController::class, 'danos'])
+    ->whereNumber('reserva')
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
+Route::post('areas-comunes/reservas/{reserva}/danos/resolver', [SolicitudController::class, 'resolverDanos'])
+    ->whereNumber('reserva')
+    ->middleware('permission:'.Permiso::ReservasGestionar->value);
+
 Route::post('areas-comunes/reservas/{reserva}/cancelar', [SolicitudController::class, 'cancelar'])
     ->whereNumber('reserva')
     ->middleware('permission:'.Permiso::ReservasGestionar->value);
