@@ -6,6 +6,9 @@ use App\Core\Http\Responses\ApiResponse;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Asambleas\Actions\AdjuntoDePuntoAction;
+use App\Modules\Asambleas\Actions\CancelarAsambleaAction;
+use App\Modules\Asambleas\Actions\ConstanciaDeConvocatoriaAction;
+use App\Modules\Asambleas\Actions\ConvocarAsambleaAction;
 use App\Modules\Asambleas\Actions\EliminarAsambleaAction;
 use App\Modules\Asambleas\Actions\EliminarPuntoAction;
 use App\Modules\Asambleas\Actions\GuardarAsambleaAction;
@@ -14,7 +17,9 @@ use App\Modules\Asambleas\Actions\GuardarPuntoAction;
 use App\Modules\Asambleas\Actions\ListarAsambleasAction;
 use App\Modules\Asambleas\Actions\MoverPuntoAction;
 use App\Modules\Asambleas\Actions\ObtenerConfiguracionAction;
+use App\Modules\Asambleas\Actions\ReenviarConvocatoriaAction;
 use App\Modules\Asambleas\Actions\VerAsambleaAction;
+use App\Modules\Asambleas\Actions\VerConvocatoriaAction;
 use App\Modules\Asambleas\Actions\VerPadronAction;
 use App\Modules\Asambleas\Models\Asamblea;
 use App\Modules\Asambleas\Models\AsambleaPunto;
@@ -22,6 +27,7 @@ use App\Modules\Asambleas\Services\AnticipacionDeConvocatoria;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
 
 /**
@@ -192,5 +198,49 @@ class AsambleasController
         $user = $request->user();
 
         return $user;
+    }
+
+    public function convocar(Request $request, ConvocarAsambleaAction $convocar, VerAsambleaAction $ver, int $asamblea): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $convocar->execute($user, $asamblea);
+
+        return ApiResponse::ok($ver->execute($asamblea), message: 'Asamblea convocada. Se avisó a los residentes.');
+    }
+
+    public function cancelar(Request $request, CancelarAsambleaAction $cancelar, VerAsambleaAction $ver, int $asamblea): JsonResponse
+    {
+        $d = $request->validate(['motivo' => ['required', 'string', 'min:3', 'max:300']], [
+            'motivo.required' => 'Indica el motivo.', 'motivo.min' => 'Explica el motivo con un poco más de detalle.', 'motivo.max' => 'El motivo no puede pasar de 300 caracteres.',
+        ]);
+        /** @var User $user */
+        $user = $request->user();
+        $cancelar->execute($user, $asamblea, trim($d['motivo']));
+
+        return ApiResponse::ok($ver->execute($asamblea), message: 'Asamblea cancelada. Se avisó a los residentes.');
+    }
+
+    public function convocatoria(VerConvocatoriaAction $ver, int $asamblea): JsonResponse
+    {
+        return ApiResponse::ok($ver->execute($asamblea));
+    }
+
+    public function reenviarConvocatoria(ReenviarConvocatoriaAction $reenviar, int $asamblea): JsonResponse
+    {
+        $n = $reenviar->execute($asamblea);
+
+        return ApiResponse::ok(['unidades' => $n], message: $n === 0 ? 'No hay unidades pendientes.' : "Convocatoria reenviada a {$n} unidades pendientes.");
+    }
+
+    public function constancia(ConstanciaDeConvocatoriaAction $constancia, int $asamblea): Response
+    {
+        $r = $constancia->execute($asamblea);
+
+        return response($r['contenido'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$r['nombre'].'"',
+            'Cache-Control' => 'private, no-store',
+        ]);
     }
 }

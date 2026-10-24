@@ -35,6 +35,9 @@ final class VerAsambleaAction
             'padron' => $this->padron->execute(),
             'falta_para_convocar' => $faltan,
             'puede_convocar' => $a->esBorrador() && $faltan === [],
+            'puede_cancelar' => $a->estaConvocada(),
+            'convocada_en' => $a->convocada_en?->setTimezone($this->calendario->zonaHoraria())->toIso8601String(),
+            'motivo_cancelacion' => $a->motivo_cancelacion,
         ];
     }
 

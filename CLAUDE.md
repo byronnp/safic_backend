@@ -172,6 +172,7 @@ Reglas:
 - **Segunda convocatoria** a los 60 minutos de la primera, con los presentes (Art. 39). Quórum de primera convocatoria: más del 50 % de las alícuotas.
 - **Lo que no se inventa**: el porcentaje para reformar el reglamento (puntos `reforma_reglamento`: calificada sobre el total de alícuotas) sale del punto o de `configuracion_asambleas.porcentaje_reforma`; sin él, 422 `UMBRAL_REQUERIDO`. Las asambleas virtuales o mixtas solo se permiten si `permite_virtual` (el reglamento interno del condominio lo permite).
 - **Padrón** (`PadronDeAsambleaAction` de Unidades + mora de Finanzas): unidades con propietario vigente y alícuota; el inquilino no vota (Art. 41) salvo con poder. La foto definitiva se congela al **instalar** (entrega siguiente), no antes.
+- **Convocar** (`ConvocarAsambleaAction`): publica un anuncio fijado y con confirmación de lectura (Fase 4) a todo el condominio; su constancia por unidad (PDF) es el respaldo legal. Exige orden del día y los 8 días hábiles. `asambleas:recordar` (cada 15 min) reenvía 3 días antes a quienes no confirmaron y 2 horas antes a todos, una vez cada uno. Cancelar una convocada retira la convocatoria y publica un anuncio con el motivo.
 - Permiso `asambleas.preparar` (administrador, presidente, vicepresidente). Los demás permisos de la fase llegan con su entrega.
 
 ## Contrato OpenAPI
