@@ -2,8 +2,9 @@
 
 namespace App\Modules\Asambleas\Actions;
 
+use App\Core\Access\Catalogo;
+use App\Core\Access\RolInfo;
 use App\Core\Http\Exceptions\ApiException;
-use App\Core\Permissions\Rol;
 use App\Core\Realtime\EnVivo;
 use App\Core\Tenancy\Calendario;
 use App\Core\Tenancy\TenantContext;
@@ -66,17 +67,17 @@ final class CerrarEleccionAction
             $votaciones = Votacion::query()->where('punto_id', $punto->id)->whereNotNull('cargo')->get()->keyBy('cargo');
             $faltan = $cargosConCandidatos->filter(fn (string $c): bool => ! $votaciones->has($c) || $votaciones[$c]->estaAbierta())->values();
             if ($faltan->isNotEmpty()) {
-                throw new ApiException('ELECCION_INCOMPLETA', 'Falta votar y cerrar: '.$faltan->map(fn (string $c): string => Rol::from($c)->etiqueta())->implode(', ').'.', 409, ['cargos' => $faltan->all()]);
+                throw new ApiException('ELECCION_INCOMPLETA', 'Falta votar y cerrar: '.$faltan->map(fn (string $c): string => app(Catalogo::class)->etiquetaDeRol($c))->implode(', ').'.', 409, ['cargos' => $faltan->all()]);
             }
 
             // Ganador de cada cargo (persona)
             $ganadores = [];
             foreach (CargoDirectiva::cargos() as $rol) {
-                $v = $votaciones->get($rol->value);
+                $v = $votaciones->get($rol->clave);
                 if ($v === null || $v->ganador_candidato_id === null) {
                     continue;
                 }
-                $ganadores[$rol->value] = $candidatos->firstWhere('id', $v->ganador_candidato_id)?->persona_id;
+                $ganadores[$rol->clave] = $candidatos->firstWhere('id', $v->ganador_candidato_id)?->persona_id;
             }
             $ganadores = array_filter($ganadores);
 
@@ -129,7 +130,7 @@ final class CerrarEleccionAction
         for ($ronda = 0; $ronda < count($ganadores) + 1 && $pendientes !== []; $ronda++) {
             foreach ($pendientes as $cargo => $personaId) {
                 try {
-                    $this->asignar->execute(Rol::from($cargo), $personaId, $acta, $periodoHasta, $user);
+                    $this->asignar->execute(app(Catalogo::class)->rol($cargo) ?? throw new ApiException('ROL_NO_VALIDO', 'Ese cargo no existe.', 422), $personaId, $acta, $periodoHasta, $user);
                     $resultado[$cargo] = ['estado' => 'nombrado', 'motivo' => null];
                     unset($pendientes[$cargo]);
                 } catch (ApiException $e) {
@@ -142,11 +143,11 @@ final class CerrarEleccionAction
             }
         }
 
-        $cargos = array_map(function (Rol $rol) use ($votaciones, $candidatos, $ganadores, $resultado, $nombres): array {
-            $v = $votaciones->get($rol->value);
-            $personaId = $ganadores[$rol->value] ?? null;
+        $cargos = array_map(function (RolInfo $rol) use ($votaciones, $candidatos, $ganadores, $resultado, $nombres): array {
+            $v = $votaciones->get($rol->clave);
+            $personaId = $ganadores[$rol->clave] ?? null;
             $ganoOtro = $v?->ganador_candidato_id !== null && $personaId === null;
-            $base = ['cargo' => $rol->value, 'etiqueta' => $rol->etiqueta(), 'persona_id' => $personaId, 'nombre' => $personaId === null ? null : ($nombres[$personaId]['nombre'] ?? null)];
+            $base = ['cargo' => $rol->clave, 'etiqueta' => $rol->etiqueta, 'persona_id' => $personaId, 'nombre' => $personaId === null ? null : ($nombres[$personaId]['nombre'] ?? null)];
 
             if ($v === null) {
                 return $base + ['estado' => 'sin_votacion', 'motivo' => null];
@@ -161,7 +162,7 @@ final class CerrarEleccionAction
                     'estado' => 'vacante', 'motivo' => 'Quien ganó este cargo aceptó otro: queda vacante y se vuelve a convocar.'];
             }
 
-            return $base + ($resultado[$rol->value] ?? ['estado' => 'vacante', 'motivo' => null]);
+            return $base + ($resultado[$rol->clave] ?? ['estado' => 'vacante', 'motivo' => null]);
         }, CargoDirectiva::cargos());
         $cargos = array_values(array_filter($cargos, fn (array $c): bool => $c['estado'] !== 'sin_votacion'));
 

@@ -2,7 +2,8 @@
 
 namespace App\Modules\Usuarios\Models;
 
-use App\Core\Permissions\Rol;
+use App\Core\Access\Catalogo;
+use App\Core\Access\RolInfo;
 use App\Core\Tenancy\BelongsToCondominio;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -40,12 +41,12 @@ class CargoDirectiva extends Model implements AuditableContract
     }
 
     /**
-     * Los cuatro cargos de la directiva, en el orden en que se muestran.
+     * Los cargos de la directiva (roles marcados `es_cargo` en el catálogo), en el orden en que se muestran.
      *
-     * @return list<Rol>
+     * @return list<RolInfo>
      */
     public static function cargos(): array
     {
-        return [Rol::Presidente, Rol::Vicepresidente, Rol::Secretario, Rol::Tesorero];
+        return app(Catalogo::class)->cargos();
     }
 }

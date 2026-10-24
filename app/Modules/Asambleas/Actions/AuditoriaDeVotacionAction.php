@@ -2,8 +2,8 @@
 
 namespace App\Modules\Asambleas\Actions;
 
+use App\Core\Access\Catalogo;
 use App\Core\Http\Exceptions\ApiException;
-use App\Core\Permissions\Rol;
 use App\Core\Tenancy\Calendario;
 use App\Core\Tenancy\TenantContext;
 use App\Modules\Asambleas\Models\Asamblea;
@@ -66,7 +66,7 @@ final class AuditoriaDeVotacionAction
         $pdf = Pdf::loadView('asambleas.auditoria', [
             'condominio' => ['nombre' => $condominio->nombre, 'ruc' => $condominio->ruc],
             'asamblea' => ['titulo' => $asamblea->titulo, 'fecha' => $asamblea->fecha_hora->setTimezone($zona)->format('d/m/Y H:i')],
-            'punto' => ['orden' => $punto->orden, 'titulo' => $punto->titulo.($v->esEleccion() ? ' · '.Rol::from($v->cargo)->etiqueta() : '')],
+            'punto' => ['orden' => $punto->orden, 'titulo' => $punto->titulo.($v->esEleccion() ? ' · '.app(Catalogo::class)->etiquetaDeRol($v->cargo) : '')],
             'votacion' => [
                 'abierta' => $v->abierta_en->setTimezone($zona)->format('d/m/Y H:i'), 'cerrada' => $v->cerrada_en?->setTimezone($zona)->format('d/m/Y H:i'),
                 'mayoria' => $v->mayoria === 'calificada' ? "Mayoría calificada ({$v->umbral_pct} %)" : 'Mayoría simple', 'base' => $v->base === 'total' ? 'total de alícuotas' : 'alícuotas presentes con derecho a voto',

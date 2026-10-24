@@ -2,7 +2,8 @@
 
 namespace App\Modules\Usuarios\Actions;
 
-use App\Core\Permissions\Rol;
+use App\Core\Access\Catalogo;
+use App\Core\Access\RolInfo;
 use App\Core\Subscriptions\LimiteUsuarios;
 use App\Core\Tenancy\Calendario;
 use App\Core\Tenancy\TenantContext;
@@ -43,7 +44,7 @@ final class ListarUsuariosAction
             $user = $m->user;
             $nombres = $roles[$user->id] ?? [];
             $vencido = $m->acceso_hasta !== null && $m->acceso_hasta->toDateString() < $hoy;
-            $perfil = collect(Rol::asignables())->first(fn (Rol $r) => in_array($r->value, $nombres, true));
+            $perfil = collect(app(Catalogo::class)->asignables())->first(fn (RolInfo $r) => in_array($r->clave, $nombres, true));
 
             return [
                 'id' => $user->id,
@@ -51,7 +52,7 @@ final class ListarUsuariosAction
                 'email' => $user->email,
                 'celular' => $user->celular,
                 'roles' => $nombres,
-                'perfil' => $perfil?->value,
+                'perfil' => $perfil?->clave,
                 'cuenta_cupo' => $m->activo && ! $vencido && $this->consumeCupo($nombres),
                 'estado' => match (true) {
                     ! $m->activo => 'desactivado',
@@ -76,6 +77,6 @@ final class ListarUsuariosAction
     /** @param  list<string>  $nombres */
     private function consumeCupo(array $nombres): bool
     {
-        return array_intersect($nombres, Rol::nombresQueCuentanParaCupo()) !== [];
+        return array_intersect($nombres, app(Catalogo::class)->nombresQueCuentanParaCupo()) !== [];
     }
 }

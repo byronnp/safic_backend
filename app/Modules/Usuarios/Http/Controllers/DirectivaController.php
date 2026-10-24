@@ -2,8 +2,9 @@
 
 namespace App\Modules\Usuarios\Http\Controllers;
 
+use App\Core\Access\Catalogo;
+use App\Core\Access\RolInfo;
 use App\Core\Http\Responses\ApiResponse;
-use App\Core\Permissions\Rol;
 use App\Models\User;
 use App\Modules\Usuarios\Actions\AsignarCargoAction;
 use App\Modules\Usuarios\Actions\ListarCandidatosDirectivaAction;
@@ -41,10 +42,10 @@ class DirectivaController
     }
 
     /** Solo los cuatro cargos de la directiva; cualquier otro nombre responde 404. */
-    private function cargo(string $cargo): Rol
+    private function cargo(string $cargo): RolInfo
     {
-        $rol = Rol::tryFrom($cargo);
-        abort_unless($rol !== null && $rol->esCargo(), 404);
+        $rol = app(Catalogo::class)->rol($cargo);
+        abort_unless($rol !== null && $rol->esCargo, 404);
 
         return $rol;
     }

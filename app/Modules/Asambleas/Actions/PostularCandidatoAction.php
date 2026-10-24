@@ -2,8 +2,8 @@
 
 namespace App\Modules\Asambleas\Actions;
 
+use App\Core\Access\RolInfo;
 use App\Core\Http\Exceptions\ApiException;
-use App\Core\Permissions\Rol;
 use App\Models\User;
 use App\Modules\Asambleas\Models\Asamblea;
 use App\Modules\Asambleas\Models\AsambleaPunto;
@@ -27,7 +27,7 @@ final class PostularCandidatoAction
     {
         return DB::transaction(function () use ($user, $puntoId, $personaId, $cargo): Candidato {
             $punto = $this->punto($puntoId);
-            if (! in_array($cargo, array_map(fn (Rol $r): string => $r->value, CargoDirectiva::cargos()), true)) {
+            if (! in_array($cargo, array_map(fn (RolInfo $r): string => $r->clave, CargoDirectiva::cargos()), true)) {
                 throw new ApiException('CARGO_NO_VALIDO', 'Ese cargo no existe en la directiva.', 422);
             }
             $this->exigirSinVotacion($punto, $cargo);

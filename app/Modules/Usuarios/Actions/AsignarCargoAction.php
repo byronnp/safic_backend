@@ -2,8 +2,9 @@
 
 namespace App\Modules\Usuarios\Actions;
 
+use App\Core\Access\Catalogo;
+use App\Core\Access\RolInfo;
 use App\Core\Http\Exceptions\ApiException;
-use App\Core\Permissions\Rol;
 use App\Core\Subscriptions\LimiteUsuarios;
 use App\Core\Tenancy\Calendario;
 use App\Core\Tenancy\TenantContext;
@@ -35,7 +36,7 @@ final class AsignarCargoAction
         private readonly PersonaEnMoraAction $enMora,
     ) {}
 
-    public function execute(Rol $cargo, int $personaId, string $acta, string $periodoHasta, User $actor): CargoDirectiva
+    public function execute(RolInfo $cargo, int $personaId, string $acta, string $periodoHasta, User $actor): CargoDirectiva
     {
         return DB::transaction(function () use ($cargo, $personaId, $acta, $periodoHasta, $actor): CargoDirectiva {
             $condominio = Condominio::query()->lockForUpdate()->findOrFail($this->tenant->require());
@@ -57,16 +58,16 @@ final class AsignarCargoAction
 
             $suyo = $abiertos->firstWhere('persona_id', $personaId);
             if ($suyo !== null) {
-                $mismo = $suyo->cargo === $cargo->value;
+                $mismo = $suyo->cargo === $cargo->clave;
                 throw new ApiException(
                     $mismo ? 'YA_ES_TITULAR' : 'PERSONA_CON_CARGO',
-                    $mismo ? 'Esa persona ya ocupa este cargo.' : 'Esa persona ya es '.Rol::from($suyo->cargo)->etiqueta().': una persona ocupa un solo cargo.',
+                    $mismo ? 'Esa persona ya ocupa este cargo.' : 'Esa persona ya es '.app(Catalogo::class)->etiquetaDeRol($suyo->cargo).': una persona ocupa un solo cargo.',
                     409,
                 );
             }
 
             // Cierra el periodo del titular actual y le quita el cargo (no sus demás perfiles)
-            $actual = $abiertos->firstWhere('cargo', $cargo->value);
+            $actual = $abiertos->firstWhere('cargo', $cargo->clave);
             if ($actual !== null) {
                 $actual->update(['cerrado_en' => $hoy]);
                 $anterior = $actual->user_id === null ? null : User::query()->find($actual->user_id);
@@ -77,16 +78,16 @@ final class AsignarCargoAction
 
             $user = $this->cuentas->cuenta($persona, $condominio);
 
-            if ($cargo->cuentaParaCupo() && ! $this->limite->consume($user->id)) {
+            if ($cargo->cuentaCupo === true && ! $this->limite->consume($user->id)) {
                 $this->limite->asegurarCupo();
             }
 
             $this->perfiles->agregar($user, $cargo);
 
-            $this->cuentas->invitarSiHaceFalta($user, $condominio, $cargo->etiqueta(), $actor);
+            $this->cuentas->invitarSiHaceFalta($user, $condominio, $cargo->etiqueta, $actor);
 
             return CargoDirectiva::create([
-                'cargo' => $cargo->value,
+                'cargo' => $cargo->clave,
                 'persona_id' => $personaId,
                 'user_id' => $user->id,
                 'periodo_inicio' => $hoy,

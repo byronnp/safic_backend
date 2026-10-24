@@ -2,6 +2,8 @@
 
 namespace App\Modules\Usuarios\Actions;
 
+use App\Core\Access\Catalogo;
+use App\Core\Access\RolInfo;
 use App\Core\Http\Exceptions\ApiException;
 use App\Core\Permissions\Rol;
 use App\Core\Subscriptions\LimiteUsuarios;
@@ -50,7 +52,7 @@ final class ActualizarUsuarioAction
 
             $antes = $this->estado($membresia, $user);
 
-            $rolNuevo = isset($datos['rol']) ? Rol::from($datos['rol']) : null;
+            $rolNuevo = isset($datos['rol']) ? (app(Catalogo::class)->rol($datos['rol']) ?? throw new ApiException('ROL_NO_VALIDO', 'Ese perfil no existe.', 422)) : null;
             if (array_key_exists('acceso_hasta', $datos)) {
                 $membresia->acceso_hasta = $datos['acceso_hasta'] === null ? null : Carbon::parse($datos['acceso_hasta']);
             }
@@ -59,7 +61,7 @@ final class ActualizarUsuarioAction
             }
 
             $perfilFinal = $rolNuevo ?? $this->perfiles->perfilAsignable($user);
-            if ($perfilFinal?->requiereVigencia() && $membresia->acceso_hasta === null) {
+            if ($perfilFinal?->requiereVigencia && $membresia->acceso_hasta === null) {
                 throw ValidationException::withMessages(['acceso_hasta' => 'El contador necesita una fecha de vencimiento del acceso.']);
             }
 
@@ -85,19 +87,19 @@ final class ActualizarUsuarioAction
     /**
      * @return array{consume_cupo: bool, administrador_vigente: bool}
      */
-    private function estado(Membresia $membresia, User $user, ?Rol $rolNuevo = null): array
+    private function estado(Membresia $membresia, User $user, ?RolInfo $rolNuevo = null): array
     {
         $nombres = $this->perfiles->de([$user->id])[$user->id] ?? [];
         if ($rolNuevo !== null) {
-            $asignables = array_map(fn (Rol $r) => $r->value, Rol::asignables());
-            $nombres = [...array_diff($nombres, $asignables), $rolNuevo->value];
+            $asignables = array_map(fn (RolInfo $r) => $r->clave, app(Catalogo::class)->asignables());
+            $nombres = [...array_diff($nombres, $asignables), $rolNuevo->clave];
         }
 
         $vigente = $membresia->activo
             && ($membresia->acceso_hasta === null || $membresia->acceso_hasta->toDateString() >= $this->calendario->hoy());
 
         return [
-            'consume_cupo' => $vigente && array_intersect($nombres, Rol::nombresQueCuentanParaCupo()) !== [],
+            'consume_cupo' => $vigente && array_intersect($nombres, app(Catalogo::class)->nombresQueCuentanParaCupo()) !== [],
             'administrador_vigente' => $vigente && in_array(Rol::Administrador->value, $nombres, true),
         ];
     }

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Usuarios\Actions;
 
+use App\Core\Access\Catalogo;
 use App\Core\Http\Exceptions\ApiException;
 use App\Core\Permissions\Rol;
 use App\Core\Tenancy\TenantContext;
@@ -50,11 +51,11 @@ final class DarAccesoResidenteAction
 
             $user = $this->cuentas->cuenta($persona, $condominio);
             $this->vincular->execute($personaId, $user->id);
-            $this->perfiles->agregar($user, Rol::Residente);
+            $this->perfiles->agregar($user, app(Catalogo::class)->rol(Rol::Residente->value) ?? throw new ApiException('ROL_NO_VALIDO', 'El perfil residente no existe.', 500));
 
             return [
                 'persona_id' => $personaId,
-                'invitacion_enviada' => $this->cuentas->invitarSiHaceFalta($user, $condominio, Rol::Residente->etiqueta(), $actor),
+                'invitacion_enviada' => $this->cuentas->invitarSiHaceFalta($user, $condominio, app(Catalogo::class)->etiquetaDeRol(Rol::Residente->value), $actor),
             ];
         });
     }

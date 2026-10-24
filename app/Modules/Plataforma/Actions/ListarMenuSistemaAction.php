@@ -2,9 +2,10 @@
 
 namespace App\Modules\Plataforma\Actions;
 
+use App\Core\Access\Catalogo;
+use App\Core\Access\PermisoInfo;
+use App\Core\Access\RolInfo;
 use App\Core\Menu\Models\MenuItem;
-use App\Core\Permissions\Permiso;
-use App\Core\Permissions\Rol;
 use Illuminate\Support\Collection;
 
 /**
@@ -49,12 +50,9 @@ final class ListarMenuSistemaAction
      */
     public static function rolesDelAmbito(string $ambito): array
     {
-        $plataforma = $ambito === MenuItem::AMBITO_PLATAFORMA;
+        $roles = app(Catalogo::class)->roles($ambito === MenuItem::AMBITO_PLATAFORMA ? Catalogo::PLATAFORMA : Catalogo::CONDOMINIO);
 
-        return array_values(array_map(
-            fn (Rol $r) => ['clave' => $r->value, 'nombre' => $r->etiqueta()],
-            array_filter(Rol::cases(), fn (Rol $r) => $r->esDePlataforma() === $plataforma),
-        ));
+        return array_values(array_map(fn (RolInfo $r) => ['clave' => $r->clave, 'nombre' => $r->etiqueta], $roles));
     }
 
     /**
@@ -62,12 +60,9 @@ final class ListarMenuSistemaAction
      */
     public static function permisosDelAmbito(string $ambito): array
     {
-        $plataforma = $ambito === MenuItem::AMBITO_PLATAFORMA;
+        $permisos = app(Catalogo::class)->permisos($ambito === MenuItem::AMBITO_PLATAFORMA ? Catalogo::PLATAFORMA : Catalogo::CONDOMINIO);
 
-        return array_values(array_map(
-            fn (Permiso $p) => ['clave' => $p->value, 'etiqueta' => $p->etiqueta(), 'grupo' => $p->grupo()],
-            array_filter(Permiso::cases(), fn (Permiso $p) => $p->esDePlataforma() === $plataforma),
-        ));
+        return array_values(array_map(fn (PermisoInfo $p) => ['clave' => $p->clave, 'etiqueta' => $p->etiqueta, 'grupo' => $p->grupo], $permisos));
     }
 
     /**

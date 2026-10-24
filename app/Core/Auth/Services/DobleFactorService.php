@@ -2,8 +2,8 @@
 
 namespace App\Core\Auth\Services;
 
+use App\Core\Access\Catalogo;
 use App\Core\Http\Exceptions\ApiException;
-use App\Core\Permissions\Rol;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -112,7 +112,7 @@ final class DobleFactorService
             ->join('roles as r', 'r.id', '=', 'mr.role_id')
             ->where('mr.model_type', $user->getMorphClass())
             ->where('mr.model_id', $user->id)
-            ->where('r.name', Rol::Contador->value)
+            ->whereIn('r.name', app(Catalogo::class)->nombresQueExigenDobleFactor())
             ->exists();
     }
 

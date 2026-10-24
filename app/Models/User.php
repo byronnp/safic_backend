@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Core\Access\Catalogo;
 use App\Core\Permissions\Rol;
 use App\Modules\Plataforma\Models\Condominio;
 use App\Modules\Plataforma\Models\Membresia;
@@ -82,7 +83,7 @@ class User extends Authenticatable implements JWTSubject
      */
     public function debeActivarDobleFactor(): bool
     {
-        return ! $this->tieneDobleFactor() && $this->hasRole(Rol::Contador->value);
+        return ! $this->tieneDobleFactor() && $this->hasAnyRole(app(Catalogo::class)->nombresQueExigenDobleFactor());
     }
 
     public function tieneMembresiaActivaEn(int $condominioId): bool

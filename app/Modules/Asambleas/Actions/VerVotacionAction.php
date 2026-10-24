@@ -2,7 +2,7 @@
 
 namespace App\Modules\Asambleas\Actions;
 
-use App\Core\Permissions\Rol;
+use App\Core\Access\Catalogo;
 use App\Core\Tenancy\Calendario;
 use App\Modules\Asambleas\Models\AsambleaAsistencia;
 use App\Modules\Asambleas\Models\AsambleaPunto;
@@ -39,7 +39,7 @@ final class VerVotacionAction
         return [
             'id' => $v->id, 'punto_id' => $punto->id, 'orden' => $punto->orden, 'titulo' => $punto->titulo, 'estado' => $v->estado,
             'secreta' => $v->secreta, 'mayoria' => $v->mayoria, 'umbral_pct' => $v->umbral_pct === null ? null : (string) $v->umbral_pct, 'base' => $v->base,
-            'cargo' => $v->cargo, 'cargo_etiqueta' => $eleccion ? Rol::from($v->cargo)->etiqueta() : null,
+            'cargo' => $v->cargo, 'cargo_etiqueta' => $eleccion ? app(Catalogo::class)->etiquetaDeRol($v->cargo) : null,
             'abierta_en' => $v->abierta_en->setTimezone($zona)->format('Y-m-d\TH:i'),
             'cerrada_en' => $v->cerrada_en?->setTimezone($zona)->format('Y-m-d\TH:i'),
             // Cerrada, rige lo que se guardó al cerrar; abierta, el conteo provisional

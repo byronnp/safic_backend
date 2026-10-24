@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Core\Access\Catalogo;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,7 +12,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // El catálogo de permisos y roles se lee de la base una vez por petición o trabajo
+        $this->app->scoped(Catalogo::class);
     }
 
     /**

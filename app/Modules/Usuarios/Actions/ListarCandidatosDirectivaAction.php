@@ -2,7 +2,7 @@
 
 namespace App\Modules\Usuarios\Actions;
 
-use App\Core\Permissions\Rol;
+use App\Core\Access\RolInfo;
 use App\Modules\Unidades\Actions\PropietariosVigentesAction;
 use App\Modules\Usuarios\Models\CargoDirectiva;
 
@@ -18,7 +18,7 @@ final class ListarCandidatosDirectivaAction
     /**
      * @return list<array{persona_id: int, nombre: string, unidad: string, disponible: bool, motivo: string|null, cargo_actual: string|null}>
      */
-    public function execute(Rol $cargo): array
+    public function execute(RolInfo $cargo): array
     {
         $cargos = CargoDirectiva::query()->whereNull('cerrado_en')->pluck('cargo', 'persona_id')->all();
 
@@ -27,7 +27,7 @@ final class ListarCandidatosDirectivaAction
             $actual = $cargos[$p['persona_id']] ?? null;
 
             // Quien ya ocupa este cargo no es candidato para "cambiarlo" por sí mismo
-            if ($actual === $cargo->value) {
+            if ($actual === $cargo->clave) {
                 continue;
             }
 

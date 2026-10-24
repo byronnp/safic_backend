@@ -2,8 +2,8 @@
 
 namespace App\Core\Subscriptions;
 
+use App\Core\Access\Catalogo;
 use App\Core\Http\Exceptions\ApiException;
-use App\Core\Permissions\Rol;
 use App\Core\Tenancy\Calendario;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
@@ -54,7 +54,7 @@ final class LimiteUsuarios
             ->where('cu.condominio_id', $this->tenant->require())
             ->where('cu.activo', true)
             ->where(fn ($q) => $q->whereNull('cu.acceso_hasta')->orWhere('cu.acceso_hasta', '>=', $this->calendario->hoy()))
-            ->whereIn('r.name', Rol::nombresQueCuentanParaCupo());
+            ->whereIn('r.name', app(Catalogo::class)->nombresQueCuentanParaCupo());
     }
 
     /** ¿Esta persona ya ocupa un lugar del cupo en el condominio activo? */

@@ -2,19 +2,20 @@
 
 namespace App\Modules\Usuarios\Services;
 
-use App\Core\Permissions\Rol;
+use App\Core\Access\Catalogo;
+use App\Core\Access\RolInfo;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Perfiles (roles de spatie) de un usuario en el condominio activo. Solo toca los
- * perfiles que el administrador asigna (Rol::asignables()); los cargos de directiva
+ * perfiles que el administrador asigna (roles `asignable` del catálogo); los cargos de directiva
  * y "residente" se manejan por su propio camino y aquí no se pierden.
  */
 final class PerfilesUsuario
 {
-    public function __construct(private readonly TenantContext $tenant) {}
+    public function __construct(private readonly TenantContext $tenant, private readonly Catalogo $catalogo) {}
 
     /**
      * @param  list<int>  $userIds
@@ -43,12 +44,12 @@ final class PerfilesUsuario
     }
 
     /** El perfil asignable que tiene (el primero), o null si solo tiene cargos o es residente. */
-    public function perfilAsignable(User $user): ?Rol
+    public function perfilAsignable(User $user): ?RolInfo
     {
         $nombres = $this->de([$user->id])[$user->id] ?? [];
 
-        foreach (Rol::asignables() as $rol) {
-            if (in_array($rol->value, $nombres, true)) {
+        foreach ($this->catalogo->asignables() as $rol) {
+            if (in_array($rol->clave, $nombres, true)) {
                 return $rol;
             }
         }
@@ -57,21 +58,21 @@ final class PerfilesUsuario
     }
 
     /** Suma un rol (ej. un cargo de directiva) sin tocar los demás. */
-    public function agregar(User $user, Rol $rol): void
+    public function agregar(User $user, RolInfo $rol): void
     {
         $this->enEquipo($user, function () use ($user, $rol): void {
-            if (! $user->hasRole($rol->value)) {
-                $user->assignRole($rol->value);
+            if (! $user->hasRole($rol->clave)) {
+                $user->assignRole($rol->clave);
             }
         });
     }
 
     /** Quita un rol (ej. un cargo que termina) sin tocar los demás. */
-    public function quitar(User $user, Rol $rol): void
+    public function quitar(User $user, RolInfo $rol): void
     {
         $this->enEquipo($user, function () use ($user, $rol): void {
-            if ($user->hasRole($rol->value)) {
-                $user->removeRole($rol->value);
+            if ($user->hasRole($rol->clave)) {
+                $user->removeRole($rol->clave);
             }
         });
     }
@@ -92,20 +93,20 @@ final class PerfilesUsuario
     }
 
     /** Reemplaza el perfil asignable del usuario por $rol (conserva cargos y residente). */
-    public function asignar(User $user, Rol $rol): void
+    public function asignar(User $user, RolInfo $rol): void
     {
         $anterior = getPermissionsTeamId();
         setPermissionsTeamId($this->tenant->require());
 
         try {
             $user->unsetRelation('roles')->unsetRelation('permissions');
-            foreach (Rol::asignables() as $asignable) {
-                if ($asignable !== $rol && $user->hasRole($asignable->value)) {
-                    $user->removeRole($asignable->value);
+            foreach ($this->catalogo->asignables() as $asignable) {
+                if ($asignable->clave !== $rol->clave && $user->hasRole($asignable->clave)) {
+                    $user->removeRole($asignable->clave);
                 }
             }
-            if (! $user->hasRole($rol->value)) {
-                $user->assignRole($rol->value);
+            if (! $user->hasRole($rol->clave)) {
+                $user->assignRole($rol->clave);
             }
         } finally {
             setPermissionsTeamId($anterior);
