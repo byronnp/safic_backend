@@ -82,6 +82,12 @@ class Asamblea extends Model implements AuditableContract
         return $this->hasMany(AsambleaPunto::class)->orderBy('orden');
     }
 
+    /** ¿Se está registrando la asistencia? (abierto el registro y hasta que termine la asamblea) */
+    public function registroAbierto(): bool
+    {
+        return in_array($this->estado, [self::EN_REGISTRO, self::INSTALADA, self::EN_VOTACION], true);
+    }
+
     /** Convocada y todavía sin instalar: la convocatoria sigue vigente y se puede reenviar o cancelar. */
     public function estaConvocada(): bool
     {

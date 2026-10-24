@@ -12,6 +12,7 @@ use Throwable;
  * Canales (siempre privados y por condominio):
  * - condominio.{id}.usuario.{userId}: lo que le toca a una cuenta (solicitudes de ingreso, paquetes, avisos).
  * - condominio.{id}.garita: lo que necesita ver el equipo de garita (respuestas de los residentes).
+ * - condominio.{id}.asambleas: asistencia y quórum de las asambleas (quien registra o es propietario).
  */
 final class EnVivo
 {
@@ -23,6 +24,16 @@ final class EnVivo
     public static function canalDeGarita(int $condominioId): string
     {
         return "condominio.{$condominioId}.garita";
+    }
+
+    public static function canalDeAsambleas(int $condominioId): string
+    {
+        return "condominio.{$condominioId}.asambleas";
+    }
+
+    public static function aAsambleas(int $condominioId, string $recurso, ?int $id = null): void
+    {
+        self::publicar([self::canalDeAsambleas($condominioId)], $recurso, $id);
     }
 
     /** @param list<int> $usuarios */

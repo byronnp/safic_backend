@@ -23,7 +23,8 @@ final class RevocarPoderAction
         return DB::transaction(function () use ($user, $id): AsambleaPoder {
             $poder = AsambleaPoder::query()->lockForUpdate()->findOrFail($id);
 
-            if (! $user->can(Permiso::AsambleasPreparar->value)) {
+            // La administración y quien registra la asistencia (el propietario llegó en persona) pueden retirar cualquier poder
+            if (! $user->can(Permiso::AsambleasPreparar->value) && ! $user->can(Permiso::AsambleasRegistrar->value)) {
                 $propietariaDe = collect($this->unidadesDeCuenta->execute($user->id))->where('relacion', 'propietario')->pluck('unidad_id')->all();
                 if (! in_array($poder->unidad_id, $propietariaDe, true)) {
                     throw new ApiException('NO_ES_PROPIETARIO', 'Solo el propietario de la unidad puede retirar su poder.', 403);

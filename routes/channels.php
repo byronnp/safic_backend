@@ -9,3 +9,5 @@ use Illuminate\Support\Facades\Broadcast;
 Broadcast::channel('condominio.{condominioId}.usuario.{usuarioId}', fn ($user, int $condominioId, int $usuarioId): bool => app(AutorizaCanales::class)->usuario($user, $condominioId, $usuarioId));
 
 Broadcast::channel('condominio.{condominioId}.garita', fn ($user, int $condominioId): bool => app(AutorizaCanales::class)->garita($user, $condominioId));
+
+Broadcast::channel('condominio.{condominioId}.asambleas', fn ($user, int $condominioId): bool => app(AutorizaCanales::class)->asambleas($user, $condominioId));

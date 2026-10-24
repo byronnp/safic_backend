@@ -22,6 +22,13 @@ final class AutorizaCanales
         return $this->puedeEntrar($user, $condominioId) && $this->tienePermiso($user, $condominioId, Permiso::GaritaRegistrar);
     }
 
+    /** Quien registra la asistencia o es propietario escucha el quórum de las asambleas. */
+    public function asambleas(User $user, int $condominioId): bool
+    {
+        return $this->puedeEntrar($user, $condominioId)
+            && ($this->tienePermiso($user, $condominioId, Permiso::AsambleasRegistrar) || $this->tienePermiso($user, $condominioId, Permiso::AsambleasPropias));
+    }
+
     private function puedeEntrar(User $user, int $condominioId): bool
     {
         // Mismas condiciones que el header X-Condominio-Id: membresía activa y, para el contador, doble factor ya activado

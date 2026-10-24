@@ -68,7 +68,7 @@ it('el menú de cada rol sale de sus permisos y de las hojas asignadas', functio
     $roles = ($this->roles)();
     $etiquetas = fn (string $clave) => collect($roles[$clave]['menu'])->pluck('etiqueta')->all();
 
-    expect($etiquetas('administrador'))->toBe(['Inicio', 'Unidades', 'Bloques', 'Resumen', 'Cuotas del mes', 'Cierre de mes', 'Conciliación bancaria', 'Morosidad', 'Reportes', 'Pagos por aprobar', 'Cuentas por pagar', 'Gastos recurrentes', 'Caja chica', 'Proveedores', 'Agenda', 'Áreas y reglas', 'Bitácora de garita', 'Anuncios', 'Incidencias', 'Preparar asamblea', 'Datos del condominio', 'Cobro de cuotas', 'Amenidades', 'Usuarios', 'Roles'])
+    expect($etiquetas('administrador'))->toBe(['Inicio', 'Unidades', 'Bloques', 'Resumen', 'Cuotas del mes', 'Cierre de mes', 'Conciliación bancaria', 'Morosidad', 'Reportes', 'Pagos por aprobar', 'Cuentas por pagar', 'Gastos recurrentes', 'Caja chica', 'Proveedores', 'Agenda', 'Áreas y reglas', 'Bitácora de garita', 'Anuncios', 'Incidencias', 'Preparar asamblea', 'Registro de asistencia', 'Datos del condominio', 'Cobro de cuotas', 'Amenidades', 'Usuarios', 'Roles'])
         ->and($etiquetas('guardia'))->toBe(['Inicio', 'Unidades', 'Bloques'])
         ->and($etiquetas('residente'))->toBe(['Inicio'])
         ->and($roles['administrador']['menu'][1])->toBe(['etiqueta' => 'Unidades', 'icono' => 'sym_r_apartment']);

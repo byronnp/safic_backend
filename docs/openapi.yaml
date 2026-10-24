@@ -4505,8 +4505,8 @@ paths:
       tags: [Asambleas]
       operationId: listarAsambleas
       summary: Asambleas del condominio
-      description: Permiso `asambleas.preparar`. Las más recientes primero (hasta 100), con el filtro opcional por estado.
-      x-permiso: asambleas.preparar
+      description: Permiso `asambleas.preparar` o `asambleas.registrar` (el secretario elige qué asamblea registrar). Las más recientes primero (hasta 100), con el filtro opcional por estado.
+      x-permiso: asambleas.preparar|asambleas.registrar
       parameters:
         - $ref: '#/components/parameters/CondominioId'
         - { name: estado, in: query, required: false, schema: { $ref: '#/components/schemas/EstadoAsamblea' } }
@@ -6109,8 +6109,8 @@ paths:
       tags: [Asambleas]
       operationId: retirarPoderAsamblea
       summary: Retirar un poder vigente
-      description: Permiso `asambleas.propias` (propietario de la unidad) o `asambleas.preparar`. Hasta que se instala la asamblea.
-      x-permiso: asambleas.preparar|asambleas.propias
+      description: Permiso `asambleas.propias` (propietario de la unidad), `asambleas.preparar` o `asambleas.registrar` (si el propietario llegó en persona). Hasta que se instala la asamblea.
+      x-permiso: asambleas.preparar|asambleas.propias|asambleas.registrar
       parameters:
         - $ref: '#/components/parameters/CondominioId'
         - { name: poder, in: path, required: true, schema: { type: integer } }
@@ -6132,6 +6132,162 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+
+  /asambleas/{asamblea}/registro/abrir:
+    post:
+      tags: [Asambleas]
+      operationId: abrirRegistroAsamblea
+      summary: Abrir el registro de asistencia
+      description: Permiso `asambleas.registrar`. La asamblea convocada pasa a `en_registro`; abrirlo otra vez no hace nada. 409 `REGISTRO_NO_DISPONIBLE`.
+      x-permiso: asambleas.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Quórum actual.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/QuorumAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`REGISTRO_NO_DISPONIBLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /asambleas/{asamblea}/asistencia:
+    get:
+      tags: [Asambleas]
+      operationId: listarAsistenciaAsamblea
+      summary: Lista de asistencia para la mesa
+      description: Permiso `asambleas.registrar`. Cada unidad del padrón con quién está presente, su poder validado y si debe cuotas, más el quórum.
+      x-permiso: asambleas.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Lista y quórum.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsistenciaDeAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+    post:
+      tags: [Asambleas]
+      operationId: registrarAsistenciaAsamblea
+      summary: Registrar asistencia (mesa o «Estoy presente»)
+      description: |
+        Con `unidad_id` (permiso `asambleas.registrar`): marca a la unidad en mesa; entra su representante si tiene un poder validado, o
+        su propietario. Sin `unidad_id` (permiso `asambleas.propias`): «Estoy presente» de un propietario o representante, solo en
+        asambleas virtuales o mixtas; repetirlo mantiene la presencia viva (10 minutos sin actividad dejan de contar).
+        409 `REGISTRO_CERRADO`, 409 `YA_REGISTRADA`, 409 `SOLO_EN_MESA`, 403 `SIN_UNIDADES`, 403 `SIN_PERMISO`, 422 `UNIDAD_SIN_DERECHO`.
+      x-permiso: asambleas.registrar|asambleas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                unidad_id: { type: integer, description: 'Solo en mesa: la unidad que se marca. Sin él es «Estoy presente» de quien llama.' }
+      responses:
+        '200':
+          description: Quórum actual.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/QuorumAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`REGISTRO_CERRADO`, `YA_REGISTRADA`, `SOLO_EN_MESA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /asambleas/{asamblea}/salida:
+    post:
+      tags: [Asambleas]
+      operationId: registrarSalidaAsamblea
+      summary: Registrar la salida
+      description: |
+        Permiso `asambleas.registrar` (con `unidad_id`) o `asambleas.propias` (sin él: sus unidades marcadas por la app). Baja el quórum.
+        409 `NO_REGISTRADA`.
+      x-permiso: asambleas.registrar|asambleas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                unidad_id: { type: integer, description: 'Solo en mesa: la unidad que se marca. Sin él es «Estoy presente» de quien llama.' }
+      responses:
+        '200':
+          description: Quórum actual.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/QuorumAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`REGISTRO_CERRADO`, `NO_REGISTRADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /asambleas/{asamblea}/quorum:
+    get:
+      tags: [Asambleas]
+      operationId: verQuorumAsamblea
+      summary: Quórum actual por alícuota
+      description: Permiso `asambleas.registrar` o `asambleas.propias`. Más del 50 % de las alícuotas en primera convocatoria; la segunda se abre 60 minutos después.
+      x-permiso: asambleas.registrar|asambleas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Quórum.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/QuorumAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
 
   /mis-asambleas:
     get:
@@ -10795,11 +10951,72 @@ components:
         validado_por: { type: [string, 'null'] }
         validado_en: { type: [string, 'null'], format: date-time }
         unidad_en_mora: { type: boolean, description: La unidad debe cuotas hoy (no vota aunque el poder esté validado). }
+    QuorumAsamblea:
+      type: object
+      required: [registro_abierto, unidades_total, unidades_presentes, alicuota_total, alicuota_presente, porcentaje, minimo_pct, hay_quorum, mora_cuenta_para_quorum, por_forma, segunda_convocatoria]
+      properties:
+        registro_abierto: { type: boolean }
+        unidades_total: { type: integer, description: Unidades de la base del quórum (sin las morosas si el condominio no las cuenta). }
+        unidades_presentes: { type: integer }
+        alicuota_total: { type: string, example: '10.00' }
+        alicuota_presente: { type: string, example: '5.00' }
+        porcentaje: { type: string, example: '50.00' }
+        minimo_pct: { type: string, example: '50.00' }
+        hay_quorum: { type: boolean, description: Más de la mitad de las alícuotas (el 50 % exacto no alcanza). }
+        mora_cuenta_para_quorum: { type: boolean }
+        por_forma:
+          type: object
+          required: [presencial, virtual, poder]
+          properties:
+            presencial: { type: integer }
+            virtual: { type: integer }
+            poder: { type: integer }
+        segunda_convocatoria:
+          type: object
+          required: [desde, abierta, minutos_faltan]
+          properties:
+            desde: { type: string, example: '2026-12-08T20:00', description: Hora local del condominio. }
+            abierta: { type: boolean, description: Pasaron 60 minutos de la primera convocatoria. }
+            minutos_faltan: { type: integer }
+    AsistenciaDeAsamblea:
+      type: object
+      required: [quorum, unidades]
+      properties:
+        quorum: { $ref: '#/components/schemas/QuorumAsamblea' }
+        unidades:
+          type: array
+          items:
+            type: object
+            required: [unidad_id, codigo, alicuota, propietarios, en_mora, poder, presente]
+            properties:
+              unidad_id: { type: integer }
+              codigo: { type: string }
+              alicuota: { type: string }
+              propietarios: { type: array, items: { type: string } }
+              en_mora: { type: boolean }
+              poder:
+                oneOf:
+                  - type: 'null'
+                  - type: object
+                    required: [id, representante_nombre]
+                    properties:
+                      id: { type: integer }
+                      representante_nombre: { type: string }
+              presente:
+                oneOf:
+                  - type: 'null'
+                  - type: object
+                    required: [asistente, forma, canal, ingreso_en]
+                    properties:
+                      asistente: { type: string }
+                      forma: { type: string, enum: [presencial, virtual, poder] }
+                      canal: { type: string, enum: [mesa, app] }
+                      ingreso_en: { type: string, example: '2026-12-08T19:05' }
     MiAsamblea:
       allOf:
         - $ref: '#/components/schemas/AsambleaBase'
         - type: object
-          required: [unidades, representa, puede_dar_poder]
+          required: [unidades, representa, puede_dar_poder, registro_abierto, puede_marcar_presencia, presente]
           properties:
             unidades:
               type: array
@@ -10831,6 +11048,9 @@ components:
                   poder_id: { type: integer }
                   unidad_codigo: { type: string }
             puede_dar_poder: { type: boolean }
+            registro_abierto: { type: boolean }
+            puede_marcar_presencia: { type: boolean, description: '«Estoy presente»: asamblea virtual o mixta con el registro abierto y alguna unidad con derecho.' }
+            presente: { type: boolean, description: Alguna de mis unidades está presente por la app. }
     ConvocatoriaAsamblea:
       type: object
       required: [anuncio_id, publicada_en, unidades, leyeron, confirmaron, porcentaje_confirmaron, pendientes, recordatorios]
