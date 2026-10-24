@@ -165,6 +165,15 @@ Reglas:
 - `LectorEstadoCuenta` delega la extensión `.pdf` en `LectorPdfEstadoCuenta` (`smalot/pdfparser`, fijado en 2.13.0). Formato en `docs/referencias/estado-cuenta-banco-pichincha.md`.
 - Es dinero: **no se importa** si el saldo de alguna línea o el cuadre del resumen no cierran (422 `PDF_NO_CUADRA`). Las pruebas usan texto inventado; el PDF real nunca se guarda en el repo.
 
+## Asambleas (Fase 5)
+
+- Documento oficial: «SAFIC — Fase 5: Asambleas y votaciones» (Claude Docs). Módulo `app/Modules/Asambleas`. Estados: `borrador → convocada → en_registro → instalada → en_votacion → cerrada → acta_firmada` (o `cancelada` con motivo). **Solo un borrador se edita**: una asamblea convocada ya se notificó a los propietarios.
+- **Convocatoria con 8 días hábiles** (Art. 37): se cuentan desde el día de la publicación (incluido) hasta el día anterior a la asamblea, sin fines de semana ni feriados (`DiasHabiles`, `FeriadosDeEcuador`). Los feriados son las **fechas oficiales sin traslado a lunes**; los locales y los traslados decretados van en `config('safic.feriados_extra')` / `feriados_quitar`. Confirmar con asesoría legal.
+- **Segunda convocatoria** a los 60 minutos de la primera, con los presentes (Art. 39). Quórum de primera convocatoria: más del 50 % de las alícuotas.
+- **Lo que no se inventa**: el porcentaje para reformar el reglamento (puntos `reforma_reglamento`: calificada sobre el total de alícuotas) sale del punto o de `configuracion_asambleas.porcentaje_reforma`; sin él, 422 `UMBRAL_REQUERIDO`. Las asambleas virtuales o mixtas solo se permiten si `permite_virtual` (el reglamento interno del condominio lo permite).
+- **Padrón** (`PadronDeAsambleaAction` de Unidades + mora de Finanzas): unidades con propietario vigente y alícuota; el inquilino no vota (Art. 41) salvo con poder. La foto definitiva se congela al **instalar** (entrega siguiente), no antes.
+- Permiso `asambleas.preparar` (administrador, presidente, vicepresidente). Los demás permisos de la fase llegan con su entrega.
+
 ## Contrato OpenAPI
 - `docs/openapi.yaml` (OpenAPI 3.1) es el contrato con el frontend. Toda ruta nueva o cambiada se documenta ahí en el mismo pull request.
 - Cada operación con permiso declara `x-permiso: <permiso>`; la prueba `tests/Feature/Contrato/ContratoOpenApiTest.php` falla si una ruta falta en el contrato, si sobra una operación o si el permiso no coincide.

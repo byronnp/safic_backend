@@ -66,6 +66,9 @@ it('el administrador ve inicio, unidades con bloques y su configuración', funct
             ['id' => 'seguridad.anuncios', 'etiqueta' => 'Anuncios', 'icono' => 'sym_r_campaign', 'ruta' => 'comunicacion-anuncios', 'permiso' => 'anuncios.publicar'],
             ['id' => 'seguridad.incidencias', 'etiqueta' => 'Incidencias', 'icono' => 'sym_r_support_agent', 'ruta' => 'comunicacion-incidencias', 'permiso' => 'incidencias.gestionar'],
         ]],
+        ['id' => 'asambleas', 'etiqueta' => 'Asambleas', 'icono' => 'sym_r_how_to_vote', 'hijos' => [
+            ['id' => 'asambleas.preparar', 'etiqueta' => 'Preparar asamblea', 'icono' => 'sym_r_edit_calendar', 'ruta' => 'asambleas-preparar', 'permiso' => 'asambleas.preparar'],
+        ]],
         ['id' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true, 'hijos' => [
             ['id' => 'configuracion.condominio', 'etiqueta' => 'Datos del condominio', 'icono' => 'sym_r_domain', 'ruta' => 'configuracion-condominio', 'permiso' => 'condominio.editar'],
             ['id' => 'configuracion.cobro', 'etiqueta' => 'Cobro de cuotas', 'icono' => 'sym_r_request_quote', 'ruta' => 'configuracion-cobro', 'permiso' => 'condominio.editar'],
@@ -80,7 +83,7 @@ it('ninguna pantalla en vista previa llega al menú de producción', function ()
     // Solo rutas que ya tienen pantalla con API; una vista previa se suma cuando pasa a datos reales
     $rutas = MenuItem::query()->whereNotNull('ruta')->pluck('ruta')->sort()->values()->all();
 
-    expect($rutas)->toBe(['areas-agenda', 'areas-reglas', 'bloques', 'comunicacion-anuncios', 'comunicacion-incidencias', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-aprobaciones', 'finanzas-caja-chica', 'finanzas-cierre-mes', 'finanzas-conciliacion', 'finanzas-cuentas-por-pagar', 'finanzas-cuotas', 'finanzas-morosidad', 'finanzas-pagos-por-aprobar', 'finanzas-proveedores', 'finanzas-recurrentes', 'finanzas-reportes', 'finanzas-resumen', 'garita-bitacora', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
+    expect($rutas)->toBe(['areas-agenda', 'areas-reglas', 'asambleas-preparar', 'bloques', 'comunicacion-anuncios', 'comunicacion-incidencias', 'configuracion-amenidades', 'configuracion-cobro', 'configuracion-condominio', 'configuracion-roles', 'configuracion-usuarios', 'finanzas-aprobaciones', 'finanzas-caja-chica', 'finanzas-cierre-mes', 'finanzas-conciliacion', 'finanzas-cuentas-por-pagar', 'finanzas-cuotas', 'finanzas-morosidad', 'finanzas-pagos-por-aprobar', 'finanzas-proveedores', 'finanzas-recurrentes', 'finanzas-reportes', 'finanzas-resumen', 'garita-bitacora', 'inicio', 'plataforma-amenidades', 'plataforma-condominios', 'plataforma-menu', 'plataforma-roles', 'unidades']);
 });
 
 it('un perfil sin permisos de configuración no ve esa sección', function () {
@@ -100,7 +103,7 @@ it('oculta una hoja asignada si al usuario le falta el permiso', function () {
     app(PermissionRegistrar::class)->forgetCachedPermissions();
     [, $token] = usuarioConToken($this->condominio, Rol::Administrador);
 
-    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'finanzas', 'areas', 'seguridad', 'configuracion']);
+    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'finanzas', 'areas', 'seguridad', 'asambleas', 'configuracion']);
 });
 
 it('oculta una hoja no asignada al perfil aunque tenga el permiso', function () {
@@ -115,7 +118,7 @@ it('oculta un módulo inactivo con sus hojas', function () {
     MenuItem::query()->where('clave', 'unidades')->update(['activo' => false]);
     [, $token] = usuarioConToken($this->condominio, Rol::Administrador);
 
-    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'finanzas', 'areas', 'seguridad', 'configuracion']);
+    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'finanzas', 'areas', 'seguridad', 'asambleas', 'configuracion']);
 });
 
 it('arma el menú con el perfil que el usuario tiene en el condominio del header', function () {
@@ -126,7 +129,7 @@ it('arma el menú con el perfil que el usuario tiene en el condominio del header
     $user->unsetRelation('roles')->assignRole(Rol::Residente->value);
     setPermissionsTeamId(null);
 
-    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'unidades', 'finanzas', 'areas', 'seguridad', 'configuracion'])
+    expect(array_column(menuDe($token, $this->condominio), 'id'))->toBe(['inicio', 'unidades', 'finanzas', 'areas', 'seguridad', 'asambleas', 'configuracion'])
         ->and(array_column(menuDe($token, $otro), 'id'))->toBe(['inicio']);
 });
 

@@ -55,6 +55,9 @@ enum Permiso: string
     case IncidenciasGestionar = 'incidencias.gestionar';
     case IncidenciasReportar = 'incidencias.reportar';
 
+    // Asambleas · preparar y convocar (administración y directiva)
+    case AsambleasPreparar = 'asambleas.preparar';
+
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
     case PlataformaCondominiosEditar = 'plataforma.condominios-editar';
@@ -66,6 +69,7 @@ enum Permiso: string
     {
         return match (true) {
             str_starts_with($this->value, 'plataforma.') => 'plataforma',
+            str_starts_with($this->value, 'asambleas.') => 'asambleas',
             str_starts_with($this->value, 'reservas.') => 'reservas',
             str_starts_with($this->value, 'anuncios.'), str_starts_with($this->value, 'avisos.'), str_starts_with($this->value, 'incidencias.') => 'comunicacion',
             str_starts_with($this->value, 'visitas.'), str_starts_with($this->value, 'garita.'), str_starts_with($this->value, 'paquetes.') => 'garita',
@@ -109,6 +113,7 @@ enum Permiso: string
             self::PaquetesGestionar => 'Recibir y entregar los paquetes de la garita',
             self::PaquetesPropios => 'Ver los paquetes de su unidad',
             self::AnunciosPublicar => 'Publicar anuncios y ver quién los leyó',
+            self::AsambleasPreparar => 'Preparar y convocar asambleas',
             self::AvisosPropios => 'Leer y confirmar los avisos de la administración',
             self::IncidenciasGestionar => 'Gestionar las incidencias reportadas',
             self::IncidenciasReportar => 'Reportar incidencias y seguirlas',
@@ -129,6 +134,7 @@ enum Permiso: string
             $this->modulo() === 'reservas' => 'Áreas comunes',
             $this->modulo() === 'garita' => 'Garita',
             $this->modulo() === 'comunicacion' => 'Comunicación',
+            $this->modulo() === 'asambleas' => 'Asambleas',
             $this->esDePlataforma() => 'Plataforma',
             default => 'Núcleo',
         };
@@ -142,13 +148,14 @@ enum Permiso: string
             self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar,
             self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosPagar, self::CajaChicaRegistrar,
             self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar,
+            self::AsambleasPreparar,
         ], true);
     }
 
     /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
     public function esEscritura(): bool
     {
-        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar, self::ReservasGarita, self::GaritaRegistrar, self::PaquetesGestionar, self::AnunciosPublicar, self::IncidenciasGestionar], true);
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar, self::ReservasGarita, self::GaritaRegistrar, self::PaquetesGestionar, self::AnunciosPublicar, self::IncidenciasGestionar, self::AsambleasPreparar], true);
     }
 
     public function esDePlataforma(): bool

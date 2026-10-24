@@ -30,6 +30,8 @@ servers:
     description: Local (Docker Compose)
 
 tags:
+  - name: Asambleas
+    description: 'Asambleas de copropietarios (Fase 5): preparar el borrador, el orden del día y las reglas del condominio.'
   - name: Autenticación
     description: Login, renovación del token y cierre de sesión.
   - name: Sesión
@@ -4386,6 +4388,459 @@ paths:
           $ref: '#/components/responses/NoEncontrado'
         '409':
           description: Conflicto de estado, pago o restricción.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /asambleas/configuracion:
+    get:
+      tags: [Asambleas]
+      operationId: obtenerConfiguracionAsambleas
+      summary: Reglas de asamblea del condominio
+      description: |
+        Permiso `asambleas.preparar`. Parten de los valores de la Ley de Propiedad Horizontal (sin virtuales, la mora cuenta para el
+        quórum pero no vota, voto nominal y sin porcentaje de reforma) y el condominio los ajusta si su reglamento interno lo indica.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Reglas vigentes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ConfiguracionAsambleas' }
+        '400': { $ref: '#/components/responses/CondominioRequerido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+    put:
+      tags: [Asambleas]
+      operationId: guardarConfiguracionAsambleas
+      summary: Guardar las reglas de asamblea
+      description: |
+        Permiso `asambleas.preparar`. `porcentaje_reforma` (mayor que 50, hasta 100, dos decimales) es el que exige el reglamento
+        para reformarlo; sin valor, cada punto de reforma debe indicar el suyo (hay que confirmarlo con asesoría legal).
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfiguracionAsambleas' }
+      responses:
+        '200':
+          description: Reglas guardadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ConfiguracionAsambleas' }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/CondominioRequerido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /asambleas/padron:
+    get:
+      tags: [Asambleas]
+      operationId: padronDeAsamblea
+      summary: Padrón de la asamblea con los datos de hoy
+      description: |
+        Permiso `asambleas.preparar`. Unidades con propietario vigente y alícuota, la suma de sus alícuotas (porcentaje) y cuántas
+        están en mora (no votan). Es una vista previa: la foto definitiva se congela al instalar la asamblea.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Padrón.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PadronAsamblea' }
+        '400': { $ref: '#/components/responses/CondominioRequerido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+
+  /asambleas/anticipacion:
+    get:
+      tags: [Asambleas]
+      operationId: anticipacionDeAsamblea
+      summary: Anticipación de la convocatoria para una fecha
+      description: |
+        Permiso `asambleas.preparar`. Sin guardar nada, dice si con esa fecha se llega a convocar con 8 días hábiles de
+        anticipación (Art. 37), el último día para publicar, los feriados que se descuentan y la hora de la segunda convocatoria.
+        El formulario lo consulta mientras se escribe la fecha.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: fecha_hora, in: query, required: true, schema: { type: string, example: '2026-10-17T19:00' }, description: Hora local del condominio. }
+      responses:
+        '200':
+          description: Anticipación.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AnticipacionConvocatoria' }
+        '400': { $ref: '#/components/responses/CondominioRequerido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /asambleas:
+    get:
+      tags: [Asambleas]
+      operationId: listarAsambleas
+      summary: Asambleas del condominio
+      description: Permiso `asambleas.preparar`. Las más recientes primero (hasta 100), con el filtro opcional por estado.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: estado, in: query, required: false, schema: { $ref: '#/components/schemas/EstadoAsamblea' } }
+      responses:
+        '200':
+          description: Lista.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/AsambleaResumen' }
+        '400': { $ref: '#/components/responses/CondominioRequerido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '422': { $ref: '#/components/responses/Validacion' }
+    post:
+      tags: [Asambleas]
+      operationId: crearAsamblea
+      summary: Crear el borrador de una asamblea
+      description: |
+        Permiso `asambleas.preparar`. `fecha_hora` es la hora local del condominio (`YYYY-MM-DDTHH:MM`) y debe ser futura (422
+        `FECHA_PASADA`). Una asamblea virtual o mixta solo se permite si las reglas del condominio lo permiten (422
+        `MODALIDAD_NO_PERMITIDA`: la ley habla de convocatoria escrita y no regula las telemáticas) y pide el enlace https de la
+        videollamada (`ENLACE_REQUERIDO`); una presencial o mixta pide el lugar (`LUGAR_REQUERIDO`).
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarAsamblea' }
+      responses:
+        '201':
+          description: Borrador creado; devuelve el detalle.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+                  message: { type: string }
+        '400': { $ref: '#/components/responses/CondominioRequerido' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /asambleas/{asamblea}:
+    parameters:
+      - $ref: '#/components/parameters/CondominioId'
+      - { name: asamblea, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Asambleas]
+      operationId: verAsamblea
+      summary: Detalle de una asamblea
+      description: |
+        Permiso `asambleas.preparar`. Con el orden del día, la **anticipación** de la convocatoria (la ley exige 8 días hábiles,
+        Art. 37, contados desde la publicación incluida hasta el día anterior, sin fines de semana ni feriados), el padrón de hoy y
+        qué falta para poder convocar.
+      x-permiso: asambleas.preparar
+      responses:
+        '200':
+          description: Detalle.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+    patch:
+      tags: [Asambleas]
+      operationId: actualizarAsamblea
+      summary: Editar el borrador
+      description: Permiso `asambleas.preparar`. Mismas reglas que al crear. 409 `ASAMBLEA_NO_EDITABLE` si ya no es borrador.
+      x-permiso: asambleas.preparar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarAsamblea' }
+      responses:
+        '200':
+          description: Borrador guardado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_NO_EDITABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+    delete:
+      tags: [Asambleas]
+      operationId: descartarAsamblea
+      summary: Descartar un borrador
+      description: Permiso `asambleas.preparar`. Borra el borrador con sus puntos e informes. Una asamblea convocada se cancela con motivo (409 `ASAMBLEA_NO_EDITABLE`).
+      x-permiso: asambleas.preparar
+      responses:
+        '200':
+          description: Borrador descartado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RespuestaVacia' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_NO_EDITABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /asambleas/{asamblea}/puntos:
+    post:
+      tags: [Asambleas]
+      operationId: agregarPuntoAsamblea
+      summary: Agregar un punto al orden del día
+      description: |
+        Permiso `asambleas.preparar`. Se agrega al final (hasta 40, 422 `DEMASIADOS_PUNTOS`). El tipo fija la mayoría: `informativo`
+        no se vota; `votacion` y `eleccion` son por mayoría simple (más de la mitad de los concurrentes, Art. 42) o calificada con
+        `umbral_pct`; `reforma_reglamento` siempre es calificada sobre el total de alícuotas (Art. 39) y su porcentaje sale del
+        punto o de las reglas del condominio (422 `UMBRAL_REQUERIDO`: no se inventa).
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarPunto' }
+      responses:
+        '201':
+          description: Punto agregado; devuelve el detalle de la asamblea.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_NO_EDITABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /asambleas/{asamblea}/puntos/{punto}:
+    parameters:
+      - $ref: '#/components/parameters/CondominioId'
+      - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      - { name: punto, in: path, required: true, schema: { type: integer } }
+    patch:
+      tags: [Asambleas]
+      operationId: editarPuntoAsamblea
+      summary: Editar un punto del orden del día
+      description: Permiso `asambleas.preparar`. Mismas reglas que al agregar. Solo en un borrador.
+      x-permiso: asambleas.preparar
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GuardarPunto' }
+      responses:
+        '200':
+          description: Punto guardado; devuelve el detalle de la asamblea.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_NO_EDITABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+    delete:
+      tags: [Asambleas]
+      operationId: quitarPuntoAsamblea
+      summary: Quitar un punto del orden del día
+      description: Permiso `asambleas.preparar`. Los puntos que siguen suben un lugar y su informe se borra.
+      x-permiso: asambleas.preparar
+      responses:
+        '200':
+          description: Punto quitado; devuelve el detalle de la asamblea.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_NO_EDITABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /asambleas/{asamblea}/puntos/{punto}/mover:
+    post:
+      tags: [Asambleas]
+      operationId: moverPuntoAsamblea
+      summary: Subir o bajar un punto
+      description: Permiso `asambleas.preparar`. Intercambia lugar con su vecino; en el extremo no hace nada.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+        - { name: punto, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [direccion]
+              properties:
+                direccion: { type: string, enum: [sube, baja] }
+      responses:
+        '200':
+          description: Detalle con el orden nuevo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_NO_EDITABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /asambleas/{asamblea}/puntos/{punto}/adjunto:
+    parameters:
+      - $ref: '#/components/parameters/CondominioId'
+      - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      - { name: punto, in: path, required: true, schema: { type: integer } }
+    post:
+      tags: [Asambleas]
+      operationId: adjuntarInformePunto
+      summary: Adjuntar el informe de un punto (PDF)
+      description: Permiso `asambleas.preparar`. Un PDF de hasta 10 MB; reemplaza al anterior. La URL de descarga es temporal.
+      x-permiso: asambleas.preparar
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo]
+              properties:
+                archivo: { type: string, format: binary }
+      responses:
+        '200':
+          description: Informe adjuntado; devuelve el detalle.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_NO_EDITABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+    delete:
+      tags: [Asambleas]
+      operationId: quitarInformePunto
+      summary: Quitar el informe de un punto
+      description: Permiso `asambleas.preparar`.
+      x-permiso: asambleas.preparar
+      responses:
+        '200':
+          description: Informe quitado; devuelve el detalle.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+                  message: { type: string }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_NO_EDITABLE`.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -9846,6 +10301,117 @@ components:
         decision: { type: [string, 'null'], enum: [sin_cargo, descontar_garantia, cobrar_cuenta, null] }
         garantia_estado: { type: [string, 'null'], enum: [esperando_decision, por_devolver, sin_devolucion, devuelta, null] }
         por_devolver: { type: [string, 'null'] }
+    EstadoAsamblea:
+      type: string
+      enum: [borrador, convocada, en_registro, instalada, en_votacion, cerrada, acta_firmada, cancelada]
+    ConfiguracionAsambleas:
+      type: object
+      required: [permite_virtual, mora_cuenta_para_quorum, voto_secreto, porcentaje_reforma]
+      properties:
+        permite_virtual: { type: boolean, description: Asambleas virtuales o mixtas (solo si el reglamento interno lo permite). }
+        mora_cuenta_para_quorum: { type: boolean, description: La unidad en mora suma al quórum pero no vota. }
+        voto_secreto: { type: boolean }
+        porcentaje_reforma: { type: [string, number, 'null'], description: '% para reformar el reglamento (>50, hasta 100). Sin valor hasta confirmarlo con asesoría legal.', example: '66.67' }
+    PadronAsamblea:
+      type: object
+      required: [unidades, suma_alicuotas, en_mora, quorum_minimo_pct]
+      properties:
+        unidades: { type: integer, description: Unidades con propietario vigente y alícuota. }
+        suma_alicuotas: { type: string, example: '100.00', description: Porcentaje. }
+        en_mora:
+          type: object
+          required: [unidades, alicuotas]
+          properties:
+            unidades: { type: integer }
+            alicuotas: { type: string, example: '4.12' }
+        quorum_minimo_pct: { type: string, example: '50.00', description: Primera convocatoria (más del 50 %). }
+    AnticipacionConvocatoria:
+      type: object
+      required: [cumple, minimo, dias_habiles, ultimo_dia, feriados, segunda_convocatoria]
+      properties:
+        cumple: { type: boolean, description: Hoy aún se llega a convocar con la anticipación legal. }
+        minimo: { type: integer, example: 8 }
+        dias_habiles: { type: integer, description: Días hábiles que hay hoy hasta el día anterior a la asamblea. }
+        ultimo_dia: { type: string, format: date, description: El último día para publicar la convocatoria. }
+        feriados:
+          type: array
+          items:
+            type: object
+            required: [fecha, nombre]
+            properties:
+              fecha: { type: string, format: date }
+              nombre: { type: string }
+        segunda_convocatoria: { type: string, example: '20:00', description: Hora de la 2.ª convocatoria (60 minutos después de la primera). }
+    GuardarAsamblea:
+      type: object
+      required: [titulo, tipo, modalidad, fecha_hora]
+      properties:
+        titulo: { type: string, minLength: 3, maxLength: 120 }
+        tipo: { type: string, enum: [ordinaria, extraordinaria] }
+        modalidad: { type: string, enum: [presencial, mixta, virtual] }
+        fecha_hora: { type: string, example: '2026-10-17T19:00', description: Hora local del condominio. }
+        lugar: { type: [string, 'null'], maxLength: 160 }
+        enlace_video: { type: [string, 'null'], maxLength: 300, description: 'Enlace https de Zoom, Meet o Teams.' }
+    AsambleaBase:
+      type: object
+      required: [id, titulo, tipo, modalidad, estado, fecha_hora]
+      properties:
+        id: { type: integer }
+        titulo: { type: string }
+        tipo: { type: string, enum: [ordinaria, extraordinaria] }
+        modalidad: { type: string, enum: [presencial, mixta, virtual] }
+        estado: { $ref: '#/components/schemas/EstadoAsamblea' }
+        fecha_hora: { type: string, example: '2026-10-17T19:00' }
+        lugar: { type: [string, 'null'] }
+        enlace_video: { type: [string, 'null'] }
+    AsambleaResumen:
+      allOf:
+        - $ref: '#/components/schemas/AsambleaBase'
+        - type: object
+          required: [puntos]
+          properties:
+            puntos: { type: integer, description: Cantidad de puntos del orden del día. }
+    GuardarPunto:
+      type: object
+      required: [titulo, tipo]
+      properties:
+        titulo: { type: string, minLength: 3, maxLength: 160 }
+        descripcion: { type: [string, 'null'], maxLength: 2000 }
+        tipo: { type: string, enum: [informativo, votacion, eleccion, reforma_reglamento] }
+        mayoria: { type: [string, 'null'], enum: [simple, calificada, null] }
+        umbral_pct: { type: [number, 'null'], description: 'Solo calificada: mayor que 50, hasta 100.' }
+        base: { type: [string, 'null'], enum: [presentes, total, null] }
+    PuntoAsamblea:
+      type: object
+      required: [id, orden, titulo, tipo, mayoria]
+      properties:
+        id: { type: integer }
+        orden: { type: integer }
+        titulo: { type: string }
+        descripcion: { type: [string, 'null'] }
+        tipo: { type: string, enum: [informativo, votacion, eleccion, reforma_reglamento] }
+        mayoria: { type: string, enum: [ninguna, simple, calificada] }
+        umbral_pct: { type: [string, 'null'], example: '66.67' }
+        base: { type: [string, 'null'], enum: [presentes, total, null] }
+        adjunto_nombre: { type: [string, 'null'] }
+        adjunto_url: { type: [string, 'null'], description: Enlace temporal al informe. }
+    AsambleaDetalle:
+      allOf:
+        - $ref: '#/components/schemas/AsambleaBase'
+        - type: object
+          required: [segunda_convocatoria, anticipacion, puntos, padron, falta_para_convocar, puede_convocar]
+          properties:
+            segunda_convocatoria: { type: string, example: '20:00' }
+            anticipacion: { $ref: '#/components/schemas/AnticipacionConvocatoria' }
+            puntos:
+              type: array
+              items: { $ref: '#/components/schemas/PuntoAsamblea' }
+            padron: { $ref: '#/components/schemas/PadronAsamblea' }
+            falta_para_convocar:
+              type: array
+              items: { type: string }
+              description: Lo que impide convocar (sin orden del día, sin anticipación). Vacío si se puede.
+            puede_convocar: { type: boolean }
     DanosDeReserva:
       type: object
       required: [reserva_id, area, unidad, fecha, inicio, fin, garantia, danos, fotos]
