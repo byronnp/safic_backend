@@ -31,9 +31,9 @@
 <table>
   <thead><tr><th>Opción</th><th class="num">Votos</th><th class="num">Alícuota</th></tr></thead>
   <tbody>
-    <tr><td>Sí</td><td class="num">{{ $totales['votos_si'] }}</td><td class="num">{{ $totales['alicuota_si'] }}</td></tr>
-    <tr><td>No</td><td class="num">{{ $totales['votos_no'] }}</td><td class="num">{{ $totales['alicuota_no'] }}</td></tr>
-    <tr><td>Abstención</td><td class="num">{{ $totales['votos_abstencion'] }}</td><td class="num">{{ $totales['alicuota_abstencion'] }}</td></tr>
+  @foreach ($totales as $t)
+    <tr><td>{{ $t['etiqueta'] }}</td><td class="num">{{ $t['votos'] }}</td><td class="num">{{ $t['alicuota'] }}</td></tr>
+  @endforeach
   </tbody>
 </table>
 <p><strong>Resultado: {{ $votacion['resultado'] }}.</strong></p>

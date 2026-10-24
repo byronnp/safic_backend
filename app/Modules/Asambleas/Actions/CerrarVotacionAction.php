@@ -24,6 +24,17 @@ final class CerrarVotacionAction
                 throw new ApiException('VOTACION_CERRADA', 'Esta votación ya se cerró.', 409);
             }
 
+            if ($v->esEleccion()) {
+                $e = $this->resultado->calcularEleccion($v);
+                $v->forceFill([
+                    'estado' => Votacion::CERRADA, 'cerrada_por' => $user->id, 'cerrada_en' => now(), 'base_alicuota' => $e['base_alicuota'],
+                    'ganador_candidato_id' => $e['ganador_candidato_id'], 'resultado' => $e['resultado'],
+                ])->save();
+                Asamblea::query()->whereKey($v->asamblea_id)->where('estado', Asamblea::EN_VOTACION)->update(['estado' => Asamblea::INSTALADA]);
+
+                return $v;
+            }
+
             $r = $this->resultado->calcular($v);
             $v->forceFill([
                 'estado' => Votacion::CERRADA, 'cerrada_por' => $user->id, 'cerrada_en' => now(),

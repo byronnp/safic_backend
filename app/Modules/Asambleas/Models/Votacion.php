@@ -31,7 +31,9 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property int|null $votos_si
  * @property int|null $votos_no
  * @property int|null $votos_abstencion
- * @property string|null $resultado aprobado|rechazado
+ * @property string|null $resultado aprobado|rechazado (en una elección: hubo ganador o no)
+ * @property string|null $cargo Solo en elecciones: el cargo que se vota
+ * @property int|null $ganador_candidato_id
  */
 class Votacion extends Model implements AuditableContract
 {
@@ -52,11 +54,17 @@ class Votacion extends Model implements AuditableContract
     protected $fillable = [
         'asamblea_id', 'punto_id', 'estado', 'secreta', 'mayoria', 'umbral_pct', 'base', 'abierta_por', 'cerrada_por', 'abierta_en', 'cerrada_en',
         'base_alicuota', 'alicuota_si', 'alicuota_no', 'alicuota_abstencion', 'votos_si', 'votos_no', 'votos_abstencion', 'resultado',
+        'cargo', 'ganador_candidato_id',
     ];
 
     protected function casts(): array
     {
         return ['secreta' => 'boolean', 'abierta_en' => 'datetime', 'cerrada_en' => 'datetime'];
+    }
+
+    public function esEleccion(): bool
+    {
+        return $this->cargo !== null;
     }
 
     public function estaAbierta(): bool

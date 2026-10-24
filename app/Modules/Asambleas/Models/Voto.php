@@ -12,7 +12,8 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $votacion_id
  * @property int $unidad_id
- * @property string $opcion si|no|abstencion
+ * @property string $opcion si|no|abstencion; en una elección, candidato|blanco
+ * @property int|null $candidato_id
  * @property string $alicuota
  * @property int|null $emitido_por
  * @property string $canal app|mesa
@@ -25,7 +26,7 @@ class Voto extends Model
 
     protected $table = 'votos';
 
-    protected $fillable = ['votacion_id', 'unidad_id', 'opcion', 'alicuota', 'emitido_por', 'canal', 'emitido_en', 'hash'];
+    protected $fillable = ['votacion_id', 'unidad_id', 'opcion', 'candidato_id', 'alicuota', 'emitido_por', 'canal', 'emitido_en', 'hash'];
 
     protected function casts(): array
     {

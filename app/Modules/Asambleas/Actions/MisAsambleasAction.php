@@ -2,6 +2,7 @@
 
 namespace App\Modules\Asambleas\Actions;
 
+use App\Core\Permissions\Rol;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Asambleas\Models\Asamblea;
@@ -9,9 +10,11 @@ use App\Modules\Asambleas\Models\AsambleaAsistencia;
 use App\Modules\Asambleas\Models\AsambleaPoder;
 use App\Modules\Asambleas\Models\AsambleaPunto;
 use App\Modules\Asambleas\Models\AsambleaUnidad;
+use App\Modules\Asambleas\Models\Candidato;
 use App\Modules\Asambleas\Models\Votacion;
 use App\Modules\Asambleas\Models\Voto;
 use App\Modules\Asambleas\Services\DerechoAVoto;
+use App\Modules\Unidades\Actions\ResumenPersonasAction;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 use App\Modules\Unidades\Models\Persona;
 use App\Modules\Unidades\Models\Unidad;
@@ -26,6 +29,7 @@ final class MisAsambleasAction
         private readonly Calendario $calendario,
         private readonly UnidadesDeCuentaAction $unidades,
         private readonly DerechoAVoto $derecho,
+        private readonly ResumenPersonasAction $personas,
     ) {}
 
     /** @return list<array<string, mixed>> */
@@ -90,13 +94,16 @@ final class MisAsambleasAction
                 'alicuota' => (string) ($foto[$unidadId]->alicuota ?? '0'),
                 'puede_votar' => $voto === null && $impedimento === null,
                 // Cada quien ve su propio voto, también si la votación es secreta
-                'voto' => $voto?->opcion, 'motivo' => $impedimento['mensaje'] ?? null,
+                'voto' => $voto?->opcion, 'voto_candidato_id' => $voto?->candidato_id, 'motivo' => $impedimento['mensaje'] ?? null,
             ];
         }, $this->derecho->unidadesDeLaCuenta($user, $a));
 
         return [
             'id' => $v->id, 'punto_id' => $punto->id, 'orden' => $punto->orden, 'titulo' => $punto->titulo, 'descripcion' => $punto->descripcion,
             'mayoria' => $v->mayoria, 'umbral_pct' => $v->umbral_pct === null ? null : (string) $v->umbral_pct, 'secreta' => $v->secreta, 'unidades' => $mias,
+            // Elección de directiva: la papeleta del cargo (sin conteo)
+            'cargo' => $v->cargo, 'cargo_etiqueta' => $v->esEleccion() ? Rol::from($v->cargo)->etiqueta() : null,
+            'candidatos' => $v->esEleccion() ? $this->candidatos($v) : [],
         ];
     }
 
@@ -105,12 +112,27 @@ final class MisAsambleasAction
     {
         return Votacion::query()->where('asamblea_id', $a->id)->where('estado', Votacion::CERRADA)->orderBy('cerrada_en')->get()->map(function (Votacion $v): array {
             $punto = AsambleaPunto::query()->findOrFail($v->punto_id);
+            $ganador = $v->ganador_candidato_id === null ? null : Candidato::query()->find($v->ganador_candidato_id);
 
             return [
                 'punto_id' => $punto->id, 'orden' => $punto->orden, 'titulo' => $punto->titulo, 'resultado' => $v->resultado,
-                'alicuota_si' => (string) $v->alicuota_si, 'alicuota_no' => (string) $v->alicuota_no, 'alicuota_abstencion' => (string) $v->alicuota_abstencion,
+                'cargo_etiqueta' => $v->esEleccion() ? Rol::from($v->cargo)->etiqueta() : null,
+                'ganador' => $ganador === null ? null : ($this->personas->execute([$ganador->persona_id])[$ganador->persona_id]['nombre'] ?? null),
+                'alicuota_si' => $v->esEleccion() ? null : (string) $v->alicuota_si, 'alicuota_no' => $v->esEleccion() ? null : (string) $v->alicuota_no,
+                'alicuota_abstencion' => $v->esEleccion() ? null : (string) $v->alicuota_abstencion,
                 'base_alicuota' => (string) $v->base_alicuota,
             ];
         })->all();
+    }
+
+    /** @return list<array{id: int, nombre: string, unidad: string|null}> */
+    private function candidatos(Votacion $v): array
+    {
+        $candidatos = Candidato::query()->where('punto_id', $v->punto_id)->where('cargo', $v->cargo)->orderBy('id')->get();
+        $nombres = $this->personas->execute($candidatos->pluck('persona_id')->unique()->all());
+
+        return $candidatos->map(fn (Candidato $c): array => [
+            'id' => $c->id, 'nombre' => $nombres[$c->persona_id]['nombre'] ?? 'Persona dada de baja', 'unidad' => $nombres[$c->persona_id]['unidad'] ?? null,
+        ])->all();
     }
 }

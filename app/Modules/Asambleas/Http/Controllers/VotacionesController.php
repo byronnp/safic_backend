@@ -22,10 +22,10 @@ class VotacionesController
 {
     public function abrir(Request $request, AbrirVotacionAction $abrir, VerVotacionAction $ver, int $punto): JsonResponse
     {
-        $d = $request->validate(['continuar_sin_quorum' => ['sometimes', 'boolean']]);
+        $d = $request->validate(['continuar_sin_quorum' => ['sometimes', 'boolean'], 'cargo' => ['sometimes', 'string', Rule::in(['presidente', 'vicepresidente', 'secretario', 'tesorero'])]]);
         /** @var User $user */
         $user = $request->user();
-        $v = $abrir->execute($user, $punto, (bool) ($d['continuar_sin_quorum'] ?? false));
+        $v = $abrir->execute($user, $punto, (bool) ($d['continuar_sin_quorum'] ?? false), $d['cargo'] ?? null);
 
         return ApiResponse::created($ver->execute($v), message: 'Votación abierta.');
     }
@@ -45,12 +45,15 @@ class VotacionesController
 
     public function votar(Request $request, EmitirVotoAction $emitir, int $votacion): JsonResponse
     {
-        $d = $request->validate(['opcion' => ['required', Rule::in(Votacion::OPCIONES)], 'unidad_id' => ['sometimes', 'integer']], [
-            'opcion.required' => 'Elige Sí, No o Abstención.', 'opcion.in' => 'La opción no es válida.',
+        $d = $request->validate([
+            'opcion' => ['required', Rule::in([...Votacion::OPCIONES, 'candidato', 'blanco'])], 'unidad_id' => ['sometimes', 'integer'],
+            'candidato_id' => ['sometimes', 'nullable', 'integer'],
+        ], [
+            'opcion.required' => 'Elige una opción.', 'opcion.in' => 'La opción no es válida.',
         ]);
         /** @var User $user */
         $user = $request->user();
-        $r = $emitir->execute($user, $votacion, $d['opcion'], isset($d['unidad_id']) ? (int) $d['unidad_id'] : null);
+        $r = $emitir->execute($user, $votacion, $d['opcion'], isset($d['unidad_id']) ? (int) $d['unidad_id'] : null, isset($d['candidato_id']) ? (int) $d['candidato_id'] : null);
 
         return ApiResponse::created(['unidades' => $r], message: 'Voto registrado.');
     }

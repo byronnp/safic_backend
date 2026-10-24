@@ -17,10 +17,16 @@ final class CadenaDeVotos
         return hash('sha256', "votacion:{$votacionId}");
     }
 
-    /** @param array{unidad_id: int, opcion: string, alicuota: string, canal: string, emitido_por: int|null, emitido_en: string} $d */
+    /** @param array{unidad_id: int, opcion: string, alicuota: string, canal: string, emitido_por: int|null, emitido_en: string, candidato_id?: int|null} $d */
     public function hash(string $anterior, array $d): string
     {
-        return hash('sha256', implode('|', [$anterior, $d['unidad_id'], $d['opcion'], $d['alicuota'], $d['canal'], $d['emitido_por'] ?? '', $d['emitido_en']]));
+        $campos = [$anterior, $d['unidad_id'], $d['opcion'], $d['alicuota'], $d['canal'], $d['emitido_por'] ?? '', $d['emitido_en']];
+        // El candidato entra a la cadena solo si lo hay: los votos de Sí / No / Abstención conservan el mismo hash
+        if (($d['candidato_id'] ?? null) !== null) {
+            $campos[] = 'c'.$d['candidato_id'];
+        }
+
+        return hash('sha256', implode('|', $campos));
     }
 
     /** El instante del voto como se firma: UTC, a la segundo. */
@@ -37,7 +43,7 @@ final class CadenaDeVotos
         foreach (Voto::query()->where('votacion_id', $votacion->id)->orderBy('id')->get() as $v) {
             $esperado = $this->hash($anterior, [
                 'unidad_id' => $v->unidad_id, 'opcion' => $v->opcion, 'alicuota' => (string) $v->alicuota, 'canal' => $v->canal,
-                'emitido_por' => $v->emitido_por, 'emitido_en' => $this->instante($v->emitido_en),
+                'emitido_por' => $v->emitido_por, 'emitido_en' => $this->instante($v->emitido_en), 'candidato_id' => $v->candidato_id,
             ]);
             if (! hash_equals($esperado, $v->hash)) {
                 return ['valida' => false, 'votos' => $n, 'ultimo_hash' => $anterior, 'primer_voto_alterado' => $v->id];
