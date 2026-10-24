@@ -2,6 +2,7 @@
 
 use App\Core\Permissions\Permiso;
 use App\Modules\Asambleas\Http\Controllers\AsambleasController;
+use App\Modules\Asambleas\Http\Controllers\PoderesController;
 use Illuminate\Support\Facades\Route;
 
 // Rutas del módulo Asambleas en el condominio activo. routes/api.php las carga dentro del grupo
@@ -39,3 +40,16 @@ Route::post('asambleas/{asamblea}/cancelar', [AsambleasController::class, 'cance
 Route::get('asambleas/{asamblea}/convocatoria', [AsambleasController::class, 'convocatoria'])->whereNumber('asamblea')->middleware($preparar);
 Route::post('asambleas/{asamblea}/convocatoria/reenviar', [AsambleasController::class, 'reenviarConvocatoria'])->whereNumber('asamblea')->middleware($preparar);
 Route::get('asambleas/{asamblea}/constancia.pdf', [AsambleasController::class, 'constancia'])->whereNumber('asamblea')->middleware($preparar);
+
+// Poderes (Art. 40): el propietario sube el poder o la carta; la administración lo valida
+$propias = 'permission:'.Permiso::AsambleasPropias->value;
+$prepararOPropias = 'permission:'.Permiso::AsambleasPreparar->value.'|'.Permiso::AsambleasPropias->value;
+
+Route::get('asambleas/{asamblea}/poderes', [PoderesController::class, 'index'])->whereNumber('asamblea')->middleware($preparar);
+Route::post('asambleas/{asamblea}/poderes', [PoderesController::class, 'store'])->whereNumber('asamblea')->middleware($prepararOPropias);
+Route::post('poderes/{poder}/validar', [PoderesController::class, 'validar'])->whereNumber('poder')->middleware($preparar);
+Route::post('poderes/{poder}/rechazar', [PoderesController::class, 'rechazar'])->whereNumber('poder')->middleware($preparar);
+Route::delete('poderes/{poder}', [PoderesController::class, 'destroy'])->whereNumber('poder')->middleware($prepararOPropias);
+
+// Las asambleas del propietario (próximas, sus unidades y el poder de cada una)
+Route::get('mis-asambleas', [PoderesController::class, 'mias'])->middleware($propias);
