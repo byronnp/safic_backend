@@ -10,7 +10,7 @@ use App\Models\User;
 use App\Modules\Asambleas\Models\Asamblea;
 use App\Modules\Asambleas\Models\AsambleaAsistencia;
 use App\Modules\Asambleas\Models\AsambleaPoder;
-use App\Modules\Unidades\Actions\PadronDeAsambleaAction;
+use App\Modules\Asambleas\Services\PadronDeLaAsamblea;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 use App\Modules\Unidades\Models\Persona;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\DB;
 final class RegistrarAsistenciaAction
 {
     public function __construct(
-        private readonly PadronDeAsambleaAction $padron,
+        private readonly PadronDeLaAsamblea $padron,
         private readonly UnidadesDeCuentaAction $unidadesDeCuenta,
         private readonly TenantContext $tenant,
     ) {}
@@ -52,7 +52,7 @@ final class RegistrarAsistenciaAction
         if (! $user->can(Permiso::AsambleasRegistrar->value)) {
             throw new ApiException('SIN_PERMISO', 'Solo quien registra la asistencia puede marcar a una unidad.', 403);
         }
-        $unidad = $this->enPadron($unidadId);
+        $unidad = $this->enPadron(Asamblea::query()->findOrFail($asambleaId), $unidadId);
 
         DB::transaction(function () use ($user, $asambleaId, $unidad, $personaId): void {
             $this->registroAbierto($asambleaId);
@@ -82,7 +82,7 @@ final class RegistrarAsistenciaAction
             throw new ApiException('SOLO_EN_MESA', 'Esta asamblea es presencial: tu asistencia la registra el secretario en la entrada.', 409);
         }
         $persona = Persona::query()->where('user_id', $user->id)->first();
-        $enPadron = collect($this->padron->execute())->keyBy('unidad_id');
+        $enPadron = collect($this->padron->de($asamblea))->keyBy('unidad_id');
         $propias = collect($this->unidadesDeCuenta->execute($user->id))->where('relacion', 'propietario')->pluck('unidad_id')->all();
         // Una unidad con poder validado la representa su representante, no su propietario
         $conPoder = AsambleaPoder::query()->where('asamblea_id', $asambleaId)->where('estado', AsambleaPoder::VALIDADO)->get()->keyBy('unidad_id');
@@ -141,10 +141,10 @@ final class RegistrarAsistenciaAction
         ]);
     }
 
-    /** @return array{unidad_id: int, codigo: string, alicuota: string, propietarios: list<array{persona_id: int, nombre: string}>} */
-    private function enPadron(int $unidadId): array
+    /** @return array{unidad_id: int, codigo: string, alicuota: string, propietarios: list<array{persona_id: int, nombre: string}>, en_mora: bool} */
+    private function enPadron(Asamblea $asamblea, int $unidadId): array
     {
-        $u = collect($this->padron->execute())->firstWhere('unidad_id', $unidadId);
+        $u = collect($this->padron->de($asamblea))->firstWhere('unidad_id', $unidadId);
         if ($u === null) {
             throw new ApiException('UNIDAD_SIN_DERECHO', 'Esa unidad no tiene propietario con alícuota: no entra al padrón de la asamblea.', 422);
         }

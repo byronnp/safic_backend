@@ -4505,8 +4505,8 @@ paths:
       tags: [Asambleas]
       operationId: listarAsambleas
       summary: Asambleas del condominio
-      description: Permiso `asambleas.preparar` o `asambleas.registrar` (el secretario elige qué asamblea registrar). Las más recientes primero (hasta 100), con el filtro opcional por estado.
-      x-permiso: asambleas.preparar|asambleas.registrar
+      description: Permiso `asambleas.preparar`, `asambleas.registrar` o `asambleas.instalar` (el secretario y el presidente eligen qué asamblea atender). Las más recientes primero (hasta 100), con el filtro opcional por estado.
+      x-permiso: asambleas.preparar|asambleas.registrar|asambleas.instalar
       parameters:
         - $ref: '#/components/parameters/CondominioId'
         - { name: estado, in: query, required: false, schema: { $ref: '#/components/schemas/EstadoAsamblea' } }
@@ -6288,6 +6288,74 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /asambleas/{asamblea}/mesa:
+    get:
+      tags: [Asambleas]
+      operationId: verMesaAsamblea
+      summary: La mesa de la asamblea
+      description: Permiso `asambleas.instalar` o `asambleas.registrar`. Quórum en vivo, cómo se instaló y el orden del día; es lo que se proyecta en la sala.
+      x-permiso: asambleas.instalar|asambleas.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Mesa.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MesaAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /asambleas/{asamblea}/instalar:
+    post:
+      tags: [Asambleas]
+      operationId: instalarAsamblea
+      summary: Instalar la asamblea
+      description: |
+        Permiso `asambleas.instalar` (presidente; el vicepresidente lo subroga). En primera convocatoria exige más del 50 % de las
+        alícuotas presentes; en segunda, que pasen 60 minutos de la hora de la convocatoria y haya al menos un presente. Congela la
+        foto de unidades, alícuotas, propietarios y mora. El vicepresidente debe declarar `presidente_ausente` y el acta dirá «en subrogación».
+        409 `INSTALACION_NO_DISPONIBLE`, 422 `SIN_QUORUM`, 422 `SEGUNDA_CONVOCATORIA_NO_ABIERTA`, 422 `SIN_ASISTENTES`, 422 `PRESIDENTE_AUSENTE_REQUERIDO`.
+      x-permiso: asambleas.instalar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [convocatoria]
+              properties:
+                convocatoria: { type: integer, enum: [1, 2] }
+                presidente_ausente: { type: boolean, description: 'Solo el vicepresidente: confirma que el presidente está ausente.' }
+      responses:
+        '200':
+          description: Mesa con la asamblea instalada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/MesaAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`INSTALACION_NO_DISPONIBLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
 
   /mis-asambleas:
     get:
@@ -10951,6 +11019,46 @@ components:
         validado_por: { type: [string, 'null'] }
         validado_en: { type: [string, 'null'], format: date-time }
         unidad_en_mora: { type: boolean, description: La unidad debe cuotas hoy (no vota aunque el poder esté validado). }
+    MesaAsamblea:
+      type: object
+      required: [id, titulo, tipo, modalidad, estado, condominio, fecha_hora, lugar, enlace_video, quorum, instalacion, puntos, puede_instalar]
+      properties:
+        id: { type: integer }
+        titulo: { type: string }
+        tipo: { type: string, enum: [ordinaria, extraordinaria] }
+        modalidad: { type: string, enum: [presencial, mixta, virtual] }
+        estado: { $ref: '#/components/schemas/EstadoAsamblea' }
+        condominio: { type: string }
+        fecha_hora: { type: string, example: '2026-12-08T19:00' }
+        lugar: { type: [string, 'null'] }
+        enlace_video: { type: [string, 'null'] }
+        quorum: { $ref: '#/components/schemas/QuorumAsamblea' }
+        instalacion:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [instalada_en, convocatoria, en_subrogacion, instalada_por, quorum_alicuota_presente, quorum_alicuota_total]
+              properties:
+                instalada_en: { type: string, example: '2026-12-08T19:20' }
+                convocatoria: { type: integer, enum: [1, 2] }
+                en_subrogacion: { type: boolean, description: El vicepresidente instaló por ausencia del presidente. }
+                instalada_por: { type: [string, 'null'] }
+                quorum_alicuota_presente: { type: string, example: '6.0000' }
+                quorum_alicuota_total: { type: string, example: '10.0000' }
+        puntos:
+          type: array
+          items:
+            type: object
+            required: [id, orden, titulo, tipo, mayoria, umbral_pct, base]
+            properties:
+              id: { type: integer }
+              orden: { type: integer }
+              titulo: { type: string }
+              tipo: { type: string, enum: [informativo, votacion, eleccion, reforma_reglamento] }
+              mayoria: { type: string, enum: [ninguna, simple, calificada] }
+              umbral_pct: { type: [string, 'null'] }
+              base: { type: [string, 'null'] }
+        puede_instalar: { type: boolean }
     QuorumAsamblea:
       type: object
       required: [registro_abierto, unidades_total, unidades_presentes, alicuota_total, alicuota_presente, porcentaje, minimo_pct, hay_quorum, mora_cuenta_para_quorum, por_forma, segunda_convocatoria]

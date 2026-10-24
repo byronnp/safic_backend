@@ -31,6 +31,11 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string|null $motivo_cancelacion
  * @property int|null $anuncio_id Anuncio con confirmación de lectura que sirvió de convocatoria
  * @property Carbon|null $recordada_3d_en
+ * @property int|null $instalada_por
+ * @property bool $en_subrogacion El vicepresidente instaló en lugar del presidente
+ * @property bool|null $mora_cuenta_para_quorum Regla vigente al instalar
+ * @property string|null $quorum_alicuota_presente
+ * @property string|null $quorum_alicuota_total
  * @property Carbon|null $recordada_2h_en
  * @property Carbon $created_at
  */
@@ -66,6 +71,7 @@ class Asamblea extends Model implements AuditableContract
     protected $fillable = [
         'titulo', 'tipo', 'modalidad', 'fecha_hora', 'lugar', 'enlace_video', 'estado', 'convocatoria', 'creada_por', 'convocada_por',
         'convocada_en', 'instalada_en', 'cerrada_en', 'cancelada_en', 'motivo_cancelacion', 'anuncio_id', 'recordada_3d_en', 'recordada_2h_en',
+        'instalada_por', 'en_subrogacion', 'mora_cuenta_para_quorum', 'quorum_alicuota_presente', 'quorum_alicuota_total',
     ];
 
     protected function casts(): array
@@ -73,6 +79,7 @@ class Asamblea extends Model implements AuditableContract
         return [
             'fecha_hora' => 'datetime', 'convocada_en' => 'datetime', 'instalada_en' => 'datetime', 'cerrada_en' => 'datetime',
             'cancelada_en' => 'datetime', 'recordada_3d_en' => 'datetime', 'recordada_2h_en' => 'datetime',
+            'en_subrogacion' => 'boolean', 'mora_cuenta_para_quorum' => 'boolean',
         ];
     }
 

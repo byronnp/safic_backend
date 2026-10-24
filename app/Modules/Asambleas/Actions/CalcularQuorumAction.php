@@ -5,8 +5,7 @@ namespace App\Modules\Asambleas\Actions;
 use App\Core\Tenancy\Calendario;
 use App\Modules\Asambleas\Models\Asamblea;
 use App\Modules\Asambleas\Models\AsambleaAsistencia;
-use App\Modules\Finanzas\Actions\EstadoDeUnidadParaAreasAction;
-use App\Modules\Unidades\Actions\PadronDeAsambleaAction;
+use App\Modules\Asambleas\Services\PadronDeLaAsamblea;
 use Carbon\CarbonImmutable;
 
 /**
@@ -21,8 +20,7 @@ final class CalcularQuorumAction
     private const ESCALA = 10000;
 
     public function __construct(
-        private readonly PadronDeAsambleaAction $padron,
-        private readonly EstadoDeUnidadParaAreasAction $estado,
+        private readonly PadronDeLaAsamblea $padron,
         private readonly ObtenerConfiguracionAction $configuracion,
         private readonly Calendario $calendario,
     ) {}
@@ -37,9 +35,9 @@ final class CalcularQuorumAction
      */
     public function execute(Asamblea $asamblea): array
     {
-        $unidades = $this->padron->execute();
-        $alDia = $this->estado->alDia(array_column($unidades, 'unidad_id'));
-        $moraCuenta = $this->configuracion->modelo()->mora_cuenta_para_quorum;
+        $unidades = $this->padron->de($asamblea);
+        // Instalada, rige la regla y la mora de ese momento (la foto); antes, las de hoy
+        $moraCuenta = $asamblea->mora_cuenta_para_quorum ?? $this->configuracion->modelo()->mora_cuenta_para_quorum;
         $presentes = AsambleaAsistencia::query()->presentes()->where('asamblea_id', $asamblea->id)->get()->keyBy('unidad_id');
 
         $total = 0;
@@ -48,8 +46,7 @@ final class CalcularQuorumAction
         $presentesCuentan = 0;
         $forma = ['presencial' => 0, 'virtual' => 0, 'poder' => 0];
         foreach ($unidades as $u) {
-            $enMora = ! ($alDia[$u['unidad_id']] ?? true);
-            if ($enMora && ! $moraCuenta) {
+            if ($u['en_mora'] && ! $moraCuenta) {
                 continue;
             }
             $a = (int) round((float) $u['alicuota'] * self::ESCALA);
