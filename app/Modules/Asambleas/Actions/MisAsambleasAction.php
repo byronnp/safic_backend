@@ -5,6 +5,7 @@ namespace App\Modules\Asambleas\Actions;
 use App\Core\Permissions\Rol;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
+use App\Modules\Asambleas\Models\Acta;
 use App\Modules\Asambleas\Models\Asamblea;
 use App\Modules\Asambleas\Models\AsambleaAsistencia;
 use App\Modules\Asambleas\Models\AsambleaPoder;
@@ -37,13 +38,14 @@ final class MisAsambleasAction
     {
         $propias = collect($this->unidades->execute($user->id))->where('relacion', 'propietario')->values();
         $personas = Persona::query()->where('user_id', $user->id)->pluck('id')->all();
-        $asambleas = Asamblea::query()->whereIn('estado', [Asamblea::CONVOCADA, Asamblea::EN_REGISTRO, Asamblea::INSTALADA, Asamblea::EN_VOTACION])->orderBy('fecha_hora')->get();
+        $asambleas = Asamblea::query()->whereIn('estado', [Asamblea::CONVOCADA, Asamblea::EN_REGISTRO, Asamblea::INSTALADA, Asamblea::EN_VOTACION, Asamblea::CERRADA, Asamblea::ACTA_FIRMADA])->orderBy('fecha_hora')->get();
+        $actas = Acta::query()->whereIn('asamblea_id', $asambleas->pluck('id'))->get()->keyBy('asamblea_id');
         $poderes = AsambleaPoder::query()->whereIn('asamblea_id', $asambleas->pluck('id'))->where('estado', '!=', AsambleaPoder::REVOCADO)->get()->groupBy('asamblea_id');
         $alicuotas = Unidad::query()->whereIn('id', $propias->pluck('unidad_id'))->pluck('alicuota', 'id');
         $presentes = AsambleaAsistencia::query()->presentes()->whereIn('asamblea_id', $asambleas->pluck('id'))->whereIn('unidad_id', $propias->pluck('unidad_id')->merge($poderes->flatten()->pluck('unidad_id'))->unique())->get()->groupBy('asamblea_id');
         $codigos = Unidad::query()->withTrashed()->whereIn('id', $poderes->flatten()->pluck('unidad_id'))->pluck('codigo', 'id');
 
-        return $asambleas->map(function (Asamblea $a) use ($user, $propias, $poderes, $alicuotas, $codigos, $personas, $presentes): array {
+        return $asambleas->map(function (Asamblea $a) use ($user, $propias, $poderes, $alicuotas, $codigos, $personas, $presentes, $actas): array {
             $deLaAsamblea = $poderes->get($a->id, collect());
             $mias = $propias->map(function (array $u) use ($deLaAsamblea, $alicuotas): array {
                 /** @var AsambleaPoder|null $p */
@@ -70,6 +72,8 @@ final class MisAsambleasAction
                 // Votación abierta (sin resultados: solo la mesa los ve en vivo) y resultados de las ya cerradas
                 'votacion' => $this->votacionAbierta($user, $a),
                 'resultados' => $this->resultados($a),
+                // El acta aparece cuando ya la firmaron el presidente y el secretario
+                'acta' => ($acta = $actas->get($a->id)) !== null && $acta->estaFirmada() ? ['asamblea_id' => $a->id, 'numero' => $acta->numero, 'publicada_en' => $acta->publicada_en?->setTimezone($this->calendario->zonaHoraria())->toIso8601String()] : null,
             ];
         })->values()->all();
     }
