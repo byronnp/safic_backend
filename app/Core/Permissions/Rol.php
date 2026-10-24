@@ -126,10 +126,10 @@ enum Rol: string
             self::Soporte => [Permiso::PlataformaCondominios],
             self::Cobranza, self::ContadorPlataforma => [Permiso::PlataformaCobranza],
             // El 2.º nivel de aprobación es de la directiva (presidente o vicepresidente), no de la administración
-            self::Administrador => array_values(array_filter(Permiso::cases(), fn (Permiso $p) => ! $p->esDePlataforma() && ! in_array($p, [Permiso::GastosAprobarN2, Permiso::AsambleasInstalar], true))),
+            self::Administrador => array_values(array_filter(Permiso::cases(), fn (Permiso $p) => ! $p->esDePlataforma() && ! in_array($p, [Permiso::GastosAprobarN2, Permiso::AsambleasInstalar, Permiso::AsambleasFirmar], true))),
             self::Tesorero => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::PagosAprobar, Permiso::GastosRegistrar, Permiso::ProveedoresEditar, Permiso::GastosPagar, Permiso::CajaChicaRegistrar, Permiso::PeriodosCerrar, Permiso::ConciliacionGestionar, Permiso::MorosidadGestionar, Permiso::FinanzasExportar],
-            self::Presidente, self::Vicepresidente => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::GastosAprobarN2, Permiso::AsambleasPreparar, Permiso::AsambleasRegistrar, Permiso::AsambleasInstalar],
-            self::Secretario => [Permiso::UnidadesVer, Permiso::AsambleasRegistrar],
+            self::Presidente, self::Vicepresidente => [Permiso::UnidadesVer, Permiso::FinanzasVer, Permiso::GastosAprobarN2, Permiso::AsambleasPreparar, Permiso::AsambleasRegistrar, Permiso::AsambleasInstalar, Permiso::AsambleasFirmar],
+            self::Secretario => [Permiso::UnidadesVer, Permiso::AsambleasRegistrar, Permiso::AsambleasFirmar],
             self::Guardia => [Permiso::UnidadesVer, Permiso::GaritaDirectorio, Permiso::ReservasGarita, Permiso::GaritaRegistrar, Permiso::PaquetesGestionar, Permiso::IncidenciasReportar],
             self::Contador => [Permiso::FinanzasVer, Permiso::FinanzasExportar],
             self::Residente => [Permiso::CuentaPropia, Permiso::ReservasPropias, Permiso::VisitasPropias, Permiso::PaquetesPropios, Permiso::AvisosPropios, Permiso::AsambleasPropias, Permiso::IncidenciasReportar],

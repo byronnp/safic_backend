@@ -6682,6 +6682,169 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '422': { $ref: '#/components/responses/Validacion' }
 
+  /asambleas/{asamblea}/cerrar:
+    post:
+      tags: [Asambleas]
+      operationId: cerrarAsamblea
+      summary: Cerrar la asamblea y generar el acta
+      description: |
+        Permiso `asambleas.instalar` (presidente o su subrogante). Se congela el acta (asistencia, quórum, poderes, resultados por punto y
+        resoluciones), se numera por condominio y espera las firmas del presidente y el secretario. Los puntos de votación sin tratar piden
+        confirmar (`confirmar_pendientes`) y constan «sin tratar». 409 `PUNTOS_PENDIENTES` (con `error.details.puntos`), 409 `VOTACION_ABIERTA`, 409 `ASAMBLEA_NO_INSTALADA`.
+      x-permiso: asambleas.instalar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirmar_pendientes: { type: boolean }
+      responses:
+        '200':
+          description: Estado del acta.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/EstadoDeActa' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`PUNTOS_PENDIENTES`, `VOTACION_ABIERTA`, `ASAMBLEA_NO_INSTALADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /asambleas/{asamblea}/acta:
+    get:
+      tags: [Asambleas]
+      operationId: verActa
+      summary: Estado del acta
+      description: |
+        Permiso de la mesa (`asambleas.preparar`, `.registrar`, `.instalar`, `.firmar`) desde que se cierra la asamblea, o `asambleas.propias`
+        solo cuando el acta ya está firmada y publicada. 409 `ACTA_NO_GENERADA`, 409 `ACTA_NO_PUBLICADA`.
+      x-permiso: asambleas.preparar|asambleas.registrar|asambleas.instalar|asambleas.firmar|asambleas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Acta.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/EstadoDeActa' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ACTA_NO_GENERADA`, `ACTA_NO_PUBLICADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /asambleas/{asamblea}/acta.pdf:
+    get:
+      tags: [Asambleas]
+      operationId: actaPdf
+      summary: El acta en PDF
+      description: Mismos permisos y reglas que el estado del acta. Trae la foto congelada al cerrar y las firmas de hoy.
+      x-permiso: asambleas.preparar|asambleas.registrar|asambleas.instalar|asambleas.firmar|asambleas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: El PDF.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ACTA_NO_GENERADA`, `ACTA_NO_PUBLICADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /actas/{acta}/firmar:
+    post:
+      tags: [Asambleas]
+      operationId: firmarActa
+      summary: Firmar el acta
+      description: |
+        Permiso `asambleas.firmar` (presidente, vicepresidente y secretario; no el administrador). Firma con la cuenta de quien llama: queda su
+        nombre, la fecha y la hora. El vicepresidente firma por el presidente solo si lo declara ausente (o si instaló en subrogación) y el acta
+        lo dice. Con las dos firmas el acta queda firmada, la asamblea pasa a `acta_firmada` y se publica a los propietarios con un anuncio.
+        409 `YA_FIRMO`, 409 `ACTA_YA_FIRMADA`, 403 `NO_ES_FIRMANTE`, 422 `PRESIDENTE_AUSENTE_REQUERIDO`.
+      x-permiso: asambleas.firmar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: acta, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                presidente_ausente: { type: boolean, description: Solo el vicepresidente. }
+      responses:
+        '200':
+          description: Estado del acta.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/EstadoDeActa' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`YA_FIRMO`, `ACTA_YA_FIRMADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /resoluciones:
+    get:
+      tags: [Asambleas]
+      operationId: listarResoluciones
+      summary: Historial de resoluciones
+      description: Permiso de la mesa o `asambleas.propias`. Los propietarios ven solo las de actas ya firmadas y publicadas; la mesa, todas. Las más recientes primero.
+      x-permiso: asambleas.preparar|asambleas.registrar|asambleas.instalar|asambleas.firmar|asambleas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Resoluciones.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/ResolucionDeAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+
   /mis-asambleas:
     get:
       tags: [Asambleas]
@@ -11344,6 +11507,44 @@ components:
         validado_por: { type: [string, 'null'] }
         validado_en: { type: [string, 'null'], format: date-time }
         unidad_en_mora: { type: boolean, description: La unidad debe cuotas hoy (no vota aunque el poder esté validado). }
+    EstadoDeActa:
+      type: object
+      required: [id, asamblea_id, numero, estado, hash, publicada_en, presidente, secretario, resoluciones, tu_firma, puede_firmar, es_vicepresidente]
+      properties:
+        id: { type: integer }
+        asamblea_id: { type: integer }
+        numero: { type: integer, description: Numerada por condominio. }
+        estado: { type: string, enum: [pendiente, firmada] }
+        hash: { type: string, description: Huella sha256 del contenido congelado al cerrar. }
+        publicada_en: { type: [string, 'null'], format: date-time }
+        presidente:
+          type: object
+          required: [nombre, firmada_en, en_subrogacion]
+          properties:
+            nombre: { type: [string, 'null'] }
+            firmada_en: { type: [string, 'null'], format: date-time }
+            en_subrogacion: { type: boolean }
+        secretario:
+          type: object
+          required: [nombre, firmada_en]
+          properties:
+            nombre: { type: [string, 'null'] }
+            firmada_en: { type: [string, 'null'], format: date-time }
+        resoluciones: { type: integer }
+        tu_firma: { type: [string, 'null'], enum: [presidente, secretario, null], description: Con qué cargo firmaría quien consulta. }
+        puede_firmar: { type: boolean }
+        es_vicepresidente: { type: boolean }
+    ResolucionDeAsamblea:
+      type: object
+      required: [id, asamblea_id, asamblea, acta_numero, texto, vigente_desde, publicada]
+      properties:
+        id: { type: integer }
+        asamblea_id: { type: integer }
+        asamblea: { type: string }
+        acta_numero: { type: integer }
+        texto: { type: string }
+        vigente_desde: { type: string, format: date }
+        publicada: { type: boolean }
     Nombramiento:
       type: object
       required: [cargo, etiqueta, persona_id, nombre, estado, motivo]
@@ -11627,7 +11828,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/AsambleaBase'
         - type: object
-          required: [unidades, representa, puede_dar_poder, registro_abierto, puede_marcar_presencia, presente, votacion, resultados]
+          required: [unidades, representa, puede_dar_poder, registro_abierto, puede_marcar_presencia, presente, votacion, resultados, acta]
           properties:
             unidades:
               type: array
@@ -11702,6 +11903,16 @@ components:
                           voto: { type: [string, 'null'], enum: [si, no, abstencion, candidato, blanco, null], description: 'Mi propio voto, también si la votación es secreta.' }
                           voto_candidato_id: { type: [integer, 'null'] }
                           motivo: { type: [string, 'null'], description: 'Por qué no puede votar (mora o no presente).' }
+            acta:
+              description: El acta, cuando ya la firmaron el presidente y el secretario.
+              oneOf:
+                - type: 'null'
+                - type: object
+                  required: [asamblea_id, numero, publicada_en]
+                  properties:
+                    asamblea_id: { type: integer }
+                    numero: { type: integer }
+                    publicada_en: { type: [string, 'null'], format: date-time }
             resultados:
               type: array
               description: 'Resultados de las votaciones ya cerradas (los asistentes los ven al cerrarse).'

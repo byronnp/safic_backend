@@ -1,6 +1,7 @@
 <?php
 
 use App\Core\Permissions\Permiso;
+use App\Modules\Asambleas\Http\Controllers\ActasController;
 use App\Modules\Asambleas\Http\Controllers\AsambleasController;
 use App\Modules\Asambleas\Http\Controllers\AsistenciaController;
 use App\Modules\Asambleas\Http\Controllers\EleccionController;
@@ -89,3 +90,14 @@ Route::get('puntos/{punto}/candidatos', [EleccionController::class, 'index'])->w
 Route::post('puntos/{punto}/candidatos', [EleccionController::class, 'postular'])->whereNumber('punto')->middleware($postulan);
 Route::delete('candidatos/{candidato}', [EleccionController::class, 'retirar'])->whereNumber('candidato')->middleware($postulan);
 Route::post('puntos/{punto}/eleccion/cerrar', [EleccionController::class, 'cerrar'])->whereNumber('punto')->middleware($instalar);
+
+// Cierre y acta: el presidente cierra; el presidente (o su subrogante) y el secretario firman; los propietarios ven el acta firmada y las resoluciones
+$firman = 'permission:'.Permiso::AsambleasFirmar->value;
+$conAcceso = 'permission:'.implode('|', [Permiso::AsambleasPreparar->value, Permiso::AsambleasRegistrar->value, Permiso::AsambleasInstalar->value, Permiso::AsambleasFirmar->value]);
+$conActa = $conAcceso.'|'.Permiso::AsambleasPropias->value;
+
+Route::post('asambleas/{asamblea}/cerrar', [ActasController::class, 'cerrar'])->whereNumber('asamblea')->middleware($instalar);
+Route::get('asambleas/{asamblea}/acta', [ActasController::class, 'show'])->whereNumber('asamblea')->middleware($conActa);
+Route::get('asambleas/{asamblea}/acta.pdf', [ActasController::class, 'pdf'])->whereNumber('asamblea')->middleware($conActa);
+Route::post('actas/{acta}/firmar', [ActasController::class, 'firmar'])->whereNumber('acta')->middleware($firman);
+Route::get('resoluciones', [ActasController::class, 'resoluciones'])->middleware($conActa);
