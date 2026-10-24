@@ -29,6 +29,9 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property Carbon|null $cerrada_en
  * @property Carbon|null $cancelada_en
  * @property string|null $motivo_cancelacion
+ * @property int|null $anuncio_id Anuncio con confirmación de lectura que sirvió de convocatoria
+ * @property Carbon|null $recordada_3d_en
+ * @property Carbon|null $recordada_2h_en
  * @property Carbon $created_at
  */
 class Asamblea extends Model implements AuditableContract
@@ -62,14 +65,14 @@ class Asamblea extends Model implements AuditableContract
 
     protected $fillable = [
         'titulo', 'tipo', 'modalidad', 'fecha_hora', 'lugar', 'enlace_video', 'estado', 'convocatoria', 'creada_por', 'convocada_por',
-        'convocada_en', 'instalada_en', 'cerrada_en', 'cancelada_en', 'motivo_cancelacion',
+        'convocada_en', 'instalada_en', 'cerrada_en', 'cancelada_en', 'motivo_cancelacion', 'anuncio_id', 'recordada_3d_en', 'recordada_2h_en',
     ];
 
     protected function casts(): array
     {
         return [
             'fecha_hora' => 'datetime', 'convocada_en' => 'datetime', 'instalada_en' => 'datetime', 'cerrada_en' => 'datetime',
-            'cancelada_en' => 'datetime',
+            'cancelada_en' => 'datetime', 'recordada_3d_en' => 'datetime', 'recordada_2h_en' => 'datetime',
         ];
     }
 
@@ -77,6 +80,12 @@ class Asamblea extends Model implements AuditableContract
     public function puntos(): HasMany
     {
         return $this->hasMany(AsambleaPunto::class)->orderBy('orden');
+    }
+
+    /** Convocada y todavía sin instalar: la convocatoria sigue vigente y se puede reenviar o cancelar. */
+    public function estaConvocada(): bool
+    {
+        return in_array($this->estado, [self::CONVOCADA, self::EN_REGISTRO], true);
     }
 
     /** Solo un borrador se puede editar: una asamblea convocada ya se notificó a los propietarios. */

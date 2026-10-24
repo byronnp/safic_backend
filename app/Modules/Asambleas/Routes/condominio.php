@@ -32,3 +32,10 @@ Route::delete('asambleas/{asamblea}/puntos/{punto}', [AsambleasController::class
 Route::post('asambleas/{asamblea}/puntos/{punto}/mover', [AsambleasController::class, 'moverPunto'])->whereNumber(['asamblea', 'punto'])->middleware($preparar);
 Route::post('asambleas/{asamblea}/puntos/{punto}/adjunto', [AsambleasController::class, 'adjuntar'])->whereNumber(['asamblea', 'punto'])->middleware($preparar);
 Route::delete('asambleas/{asamblea}/puntos/{punto}/adjunto', [AsambleasController::class, 'quitarAdjunto'])->whereNumber(['asamblea', 'punto'])->middleware($preparar);
+
+// Convocar (publica el anuncio con confirmación), cancelar, seguimiento y constancia
+Route::post('asambleas/{asamblea}/convocar', [AsambleasController::class, 'convocar'])->whereNumber('asamblea')->middleware($preparar);
+Route::post('asambleas/{asamblea}/cancelar', [AsambleasController::class, 'cancelar'])->whereNumber('asamblea')->middleware($preparar);
+Route::get('asambleas/{asamblea}/convocatoria', [AsambleasController::class, 'convocatoria'])->whereNumber('asamblea')->middleware($preparar);
+Route::post('asambleas/{asamblea}/convocatoria/reenviar', [AsambleasController::class, 'reenviarConvocatoria'])->whereNumber('asamblea')->middleware($preparar);
+Route::get('asambleas/{asamblea}/constancia.pdf', [AsambleasController::class, 'constancia'])->whereNumber('asamblea')->middleware($preparar);
