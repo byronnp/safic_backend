@@ -9,6 +9,11 @@ return [
 
     // Versión vigente del aviso de privacidad (LOPDP). Al publicar otro texto se cambia
     // y cada aceptación queda registrada con la versión que la persona vio.
+    // Feriados que se suman a los nacionales para contar los días hábiles de la convocatoria de asambleas ('YYYY-MM-DD' => nombre):
+    // feriados locales o traslados decretados. `feriados_quitar` saca fechas de la lista nacional.
+    'feriados_extra' => [],
+    'feriados_quitar' => [],
+
     'aviso_privacidad_version' => (string) env('SAFIC_AVISO_PRIVACIDAD_VERSION', '2026-10-borrador'),
 
     'auth' => [
