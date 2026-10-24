@@ -2,30 +2,31 @@
 
 namespace Database\Seeders;
 
+use App\Core\Access\Catalogo;
 use App\Core\Menu\Models\MenuItem;
-use App\Core\Permissions\Permiso;
-use App\Core\Permissions\Rol;
 use Illuminate\Database\Seeder;
-use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Menú inicial del sistema. Idempotente: solo crea los ítems que faltan y solo
- * asigna perfiles a los ítems nuevos, para no pisar lo que el super admin cambió.
+ * Carga a la base el menú del sistema que está en database/data/menu.php. Idempotente: solo crea los ítems que faltan y solo asigna
+ * roles a los ítems nuevos, para no pisar lo que el super admin cambió desde «Menú del sistema».
  *
- * Aquí van solo las pantallas que ya tienen API (una pantalla en vista previa no se agrega). Las pantallas en vista previa
- * las agrega el frontend en desarrollo; cuando una pasa a datos reales, se suma
- * su ítem a este archivo (mismo `clave` que el `id` del frontend).
+ * Aquí van solo las pantallas que ya tienen API (una pantalla en vista previa no se agrega). Cuando una pasa a datos reales, se suma su
+ * ítem al archivo de datos (mismo `clave` que el `id` del frontend) y se corre este seeder: no hay que tocar el código.
  *
- * Por defecto, una hoja se asigna a cada perfil cuyo conjunto de permisos por
- * defecto incluye el permiso de la hoja (o a todos los perfiles del ámbito si
- * la hoja no pide permiso).
+ * Por defecto, una hoja nueva se asigna a cada rol del ámbito que hoy tiene el permiso de la hoja (o a todos los roles del ámbito si la
+ * hoja no pide permiso).
  */
 class MenuSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->sembrar($this->menuCondominio(), MenuItem::AMBITO_CONDOMINIO, null);
-        $this->sembrar($this->menuPlataforma(), MenuItem::AMBITO_PLATAFORMA, null);
+        /** @var array{condominio: list<array<string, mixed>>, plataforma: list<array<string, mixed>>} $datos */
+        // El archivo de datos se puede apuntar a otro (pruebas); por defecto es database/data/menu.php
+        $datos = require config('safic.archivo_de_menu') ?? database_path('data/menu.php');
+
+        $this->sembrar($datos['condominio'], MenuItem::AMBITO_CONDOMINIO, null);
+        $this->sembrar($datos['plataforma'], MenuItem::AMBITO_PLATAFORMA, null);
     }
 
     /**
@@ -34,8 +35,7 @@ class MenuSeeder extends Seeder
     private function sembrar(array $items, string $ambito, ?MenuItem $padre): void
     {
         foreach ($items as $orden => $definicion) {
-            /** @var Permiso|null $permiso */
-            $permiso = $definicion['permiso'] ?? null;
+            $permiso = isset($definicion['permiso']) ? (string) $definicion['permiso'] : null;
 
             $item = MenuItem::query()->firstOrCreate(['clave' => $definicion['clave']], [
                 'padre_id' => $padre?->id,
@@ -43,7 +43,7 @@ class MenuSeeder extends Seeder
                 'etiqueta' => $definicion['etiqueta'],
                 'icono' => $definicion['icono'],
                 'ruta' => $definicion['ruta'] ?? null,
-                'permiso' => $permiso?->value,
+                'permiso' => $permiso,
                 'seccion' => $definicion['seccion'] ?? false,
                 'orden' => ($orden + 1) * 10,
             ]);
@@ -63,108 +63,20 @@ class MenuSeeder extends Seeder
     /**
      * @return list<int>
      */
-    private function perfilesPara(string $ambito, ?Permiso $permiso): array
+    private function perfilesPara(string $ambito, ?string $permiso): array
     {
-        $roles = array_filter(Rol::cases(), fn (Rol $rol) => $rol->esDePlataforma() === ($ambito === MenuItem::AMBITO_PLATAFORMA)
-            && ($permiso === null || in_array($permiso, $rol->permisosPorDefecto(), true)));
+        $deAmbito = array_map(fn ($r) => $r->id, array_filter(
+            app(Catalogo::class)->roles($ambito === MenuItem::AMBITO_PLATAFORMA ? Catalogo::PLATAFORMA : Catalogo::CONDOMINIO),
+            fn ($r) => $r->sistema,
+        ));
+        if ($permiso === null) {
+            return array_values($deAmbito);
+        }
 
-        /** @var list<int> $ids */
-        $ids = Role::query()
-            ->whereNull('condominio_id')
-            ->where('guard_name', 'api')
-            ->whereIn('name', array_map(fn (Rol $rol) => $rol->value, $roles))
-            ->pluck('id')
-            ->all();
+        /** @var list<int> $conPermiso */
+        $conPermiso = DB::table('role_has_permissions as rhp')->join('permissions as p', 'p.id', '=', 'rhp.permission_id')
+            ->where('p.name', $permiso)->whereIn('rhp.role_id', $deAmbito)->pluck('rhp.role_id')->map(fn ($id): int => (int) $id)->all();
 
-        return $ids;
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function menuCondominio(): array
-    {
-        return [
-            ['clave' => 'inicio', 'etiqueta' => 'Inicio', 'icono' => 'sym_r_space_dashboard', 'ruta' => 'inicio'],
-            [
-                'clave' => 'unidades', 'etiqueta' => 'Unidades', 'icono' => 'sym_r_apartment',
-                'hijos' => [
-                    ['clave' => 'unidades.lista', 'etiqueta' => 'Unidades', 'icono' => 'sym_r_apartment', 'ruta' => 'unidades', 'permiso' => Permiso::UnidadesVer],
-                    ['clave' => 'unidades.bloques', 'etiqueta' => 'Bloques', 'icono' => 'sym_r_domain', 'ruta' => 'bloques', 'permiso' => Permiso::UnidadesVer],
-                ],
-            ],
-            [
-                'clave' => 'finanzas', 'etiqueta' => 'Finanzas', 'icono' => 'sym_r_account_balance_wallet',
-                'hijos' => [
-                    ['clave' => 'finanzas.resumen', 'etiqueta' => 'Resumen', 'icono' => 'sym_r_dashboard', 'ruta' => 'finanzas-resumen', 'permiso' => Permiso::FinanzasVer],
-                    ['clave' => 'finanzas.cuotas', 'etiqueta' => 'Cuotas del mes', 'icono' => 'sym_r_receipt_long', 'ruta' => 'finanzas-cuotas', 'permiso' => Permiso::FinanzasVer],
-                    ['clave' => 'finanzas.cierre', 'etiqueta' => 'Cierre de mes', 'icono' => 'sym_r_lock', 'ruta' => 'finanzas-cierre-mes', 'permiso' => Permiso::FinanzasVer],
-                    ['clave' => 'finanzas.conciliacion', 'etiqueta' => 'Conciliación bancaria', 'icono' => 'sym_r_account_balance', 'ruta' => 'finanzas-conciliacion', 'permiso' => Permiso::FinanzasVer],
-                    ['clave' => 'finanzas.morosidad', 'etiqueta' => 'Morosidad', 'icono' => 'sym_r_notifications_active', 'ruta' => 'finanzas-morosidad', 'permiso' => Permiso::FinanzasVer],
-                    ['clave' => 'finanzas.reportes', 'etiqueta' => 'Reportes', 'icono' => 'sym_r_bar_chart', 'ruta' => 'finanzas-reportes', 'permiso' => Permiso::FinanzasVer],
-                    ['clave' => 'finanzas.pagos', 'etiqueta' => 'Pagos por aprobar', 'icono' => 'sym_r_fact_check', 'ruta' => 'finanzas-pagos-por-aprobar', 'permiso' => Permiso::PagosAprobar],
-                    ['clave' => 'finanzas.cuentas', 'etiqueta' => 'Cuentas por pagar', 'icono' => 'sym_r_payments', 'ruta' => 'finanzas-cuentas-por-pagar', 'permiso' => Permiso::FinanzasVer],
-                    ['clave' => 'finanzas.recurrentes', 'etiqueta' => 'Gastos recurrentes', 'icono' => 'sym_r_autorenew', 'ruta' => 'finanzas-recurrentes', 'permiso' => Permiso::FinanzasVer],
-                    ['clave' => 'finanzas.caja-chica', 'etiqueta' => 'Caja chica', 'icono' => 'sym_r_savings', 'ruta' => 'finanzas-caja-chica', 'permiso' => Permiso::CajaChicaRegistrar],
-                    ['clave' => 'finanzas.proveedores', 'etiqueta' => 'Proveedores', 'icono' => 'sym_r_local_shipping', 'ruta' => 'finanzas-proveedores', 'permiso' => Permiso::FinanzasVer],
-                    ['clave' => 'finanzas.aprobaciones', 'etiqueta' => 'Aprobaciones', 'icono' => 'sym_r_approval', 'ruta' => 'finanzas-aprobaciones', 'permiso' => Permiso::GastosAprobarN2],
-                ],
-            ],
-            [
-                'clave' => 'areas', 'etiqueta' => 'Áreas comunes', 'icono' => 'sym_r_pool',
-                'hijos' => [
-                    ['clave' => 'areas.agenda', 'etiqueta' => 'Agenda', 'icono' => 'sym_r_calendar_month', 'ruta' => 'areas-agenda', 'permiso' => Permiso::ReservasGestionar],
-                    ['clave' => 'areas.reglas', 'etiqueta' => 'Áreas y reglas', 'icono' => 'sym_r_rule', 'ruta' => 'areas-reglas', 'permiso' => Permiso::ReservasGestionar],
-                ],
-            ],
-            [
-                'clave' => 'seguridad', 'etiqueta' => 'Seguridad y comunicación', 'icono' => 'sym_r_shield_person',
-                'hijos' => [
-                    ['clave' => 'seguridad.bitacora', 'etiqueta' => 'Bitácora de garita', 'icono' => 'sym_r_badge', 'ruta' => 'garita-bitacora', 'permiso' => Permiso::GaritaBitacora],
-                    ['clave' => 'seguridad.anuncios', 'etiqueta' => 'Anuncios', 'icono' => 'sym_r_campaign', 'ruta' => 'comunicacion-anuncios', 'permiso' => Permiso::AnunciosPublicar],
-                    ['clave' => 'seguridad.incidencias', 'etiqueta' => 'Incidencias', 'icono' => 'sym_r_support_agent', 'ruta' => 'comunicacion-incidencias', 'permiso' => Permiso::IncidenciasGestionar],
-                ],
-            ],
-            [
-                'clave' => 'asambleas', 'etiqueta' => 'Asambleas', 'icono' => 'sym_r_how_to_vote',
-                'hijos' => [
-                    ['clave' => 'asambleas.preparar', 'etiqueta' => 'Preparar asamblea', 'icono' => 'sym_r_edit_calendar', 'ruta' => 'asambleas-preparar', 'permiso' => Permiso::AsambleasPreparar],
-                    ['clave' => 'asambleas.registro', 'etiqueta' => 'Registro de asistencia', 'icono' => 'sym_r_how_to_reg', 'ruta' => 'asambleas-registro', 'permiso' => Permiso::AsambleasRegistrar],
-                    ['clave' => 'asambleas.mesa', 'etiqueta' => 'Mesa de la asamblea', 'icono' => 'sym_r_groups', 'ruta' => 'asambleas-mesa', 'permiso' => Permiso::AsambleasInstalar],
-                ],
-            ],
-            [
-                'clave' => 'configuracion', 'etiqueta' => 'Configuración', 'icono' => 'sym_r_settings', 'seccion' => true,
-                'hijos' => [
-                    ['clave' => 'configuracion.condominio', 'etiqueta' => 'Datos del condominio', 'icono' => 'sym_r_domain', 'ruta' => 'configuracion-condominio', 'permiso' => Permiso::CondominioEditar],
-                    ['clave' => 'configuracion.cobro', 'etiqueta' => 'Cobro de cuotas', 'icono' => 'sym_r_request_quote', 'ruta' => 'configuracion-cobro', 'permiso' => Permiso::CondominioEditar],
-                    ['clave' => 'configuracion.amenidades', 'etiqueta' => 'Amenidades', 'icono' => 'sym_r_pool', 'ruta' => 'configuracion-amenidades', 'permiso' => Permiso::AmenidadesGestionar],
-                    ['clave' => 'configuracion.usuarios', 'etiqueta' => 'Usuarios', 'icono' => 'sym_r_manage_accounts', 'ruta' => 'configuracion-usuarios', 'permiso' => Permiso::UsuariosGestionar],
-                    ['clave' => 'configuracion.roles', 'etiqueta' => 'Roles', 'icono' => 'sym_r_admin_panel_settings', 'ruta' => 'configuracion-roles', 'permiso' => Permiso::UsuariosGestionar],
-                ],
-            ],
-        ];
-    }
-
-    /**
-     * Solo las pantallas del panel de plataforma que ya tienen API: se suman aquí a
-     * medida que pasan de vista previa a datos reales (una pantalla en vista previa
-     * nunca debe llegar al menú de producción).
-     *
-     * @return list<array<string, mixed>>
-     */
-    private function menuPlataforma(): array
-    {
-        return [
-            ['clave' => 'plataforma.condominios', 'etiqueta' => 'Condominios', 'icono' => 'sym_r_location_city', 'ruta' => 'plataforma-condominios', 'permiso' => Permiso::PlataformaCondominios],
-            ['clave' => 'plataforma.amenidades', 'etiqueta' => 'Catálogo de amenidades', 'icono' => 'sym_r_category', 'ruta' => 'plataforma-amenidades', 'permiso' => Permiso::PlataformaCondominios],
-            [
-                'clave' => 'plataforma.acceso', 'etiqueta' => 'Acceso', 'icono' => 'sym_r_lock', 'seccion' => true,
-                'hijos' => [
-                    ['clave' => 'plataforma.roles', 'etiqueta' => 'Roles y permisos', 'icono' => 'sym_r_shield_person', 'ruta' => 'plataforma-roles', 'permiso' => Permiso::PlataformaRoles],
-                    ['clave' => 'plataforma.menu', 'etiqueta' => 'Menú del sistema', 'icono' => 'sym_r_menu_open', 'ruta' => 'plataforma-menu', 'permiso' => Permiso::PlataformaRoles],
-                ],
-            ],
-        ];
+        return $conPermiso;
     }
 }

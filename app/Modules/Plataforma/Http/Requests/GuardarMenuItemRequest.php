@@ -2,8 +2,8 @@
 
 namespace App\Modules\Plataforma\Http\Requests;
 
+use App\Core\Access\Catalogo;
 use App\Core\Menu\Models\MenuItem;
-use App\Core\Permissions\Permiso;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -33,7 +33,7 @@ class GuardarMenuItemRequest extends FormRequest
             'etiqueta' => [...$obligatorio, 'string', 'min:2', 'max:60'],
             'icono' => [...$obligatorio, 'string', 'max:60', 'regex:/^sym_r_[a-z0-9_]+$/'],
             'ruta' => ['sometimes', 'nullable', 'string', 'max:80', 'regex:/^[a-z0-9-]+$/'],
-            'permiso' => ['sometimes', 'nullable', 'string', Rule::in(array_map(fn (Permiso $p) => $p->value, Permiso::cases()))],
+            'permiso' => ['sometimes', 'nullable', 'string', Rule::in(array_keys(app(Catalogo::class)->permisos()))],
             'seccion' => ['sometimes', 'boolean'],
             'activo' => ['sometimes', 'boolean'],
             'roles' => ['sometimes', 'array'],
@@ -45,7 +45,8 @@ class GuardarMenuItemRequest extends FormRequest
     {
         $validator->after(function (Validator $validator): void {
             $permiso = $this->input('permiso');
-            if (! is_string($permiso) || Permiso::tryFrom($permiso) === null) {
+            $info = is_string($permiso) ? app(Catalogo::class)->permiso($permiso) : null;
+            if ($info === null) {
                 return;
             }
 
@@ -53,7 +54,7 @@ class GuardarMenuItemRequest extends FormRequest
                 ? MenuItem::query()->whereKey($this->route('item'))->value('ambito')
                 : $this->input('ambito');
 
-            if ($ambito !== null && Permiso::from($permiso)->esDePlataforma() !== ($ambito === MenuItem::AMBITO_PLATAFORMA)) {
+            if ($ambito !== null && $info->esDePlataforma() !== ($ambito === MenuItem::AMBITO_PLATAFORMA)) {
                 $validator->errors()->add('permiso', 'Ese permiso no corresponde a este menú.');
             }
         });

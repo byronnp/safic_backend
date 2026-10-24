@@ -2,11 +2,11 @@
 
 namespace App\Modules\Plataforma\Actions;
 
+use App\Core\Access\Catalogo;
+use App\Core\Access\RolInfo;
 use App\Core\Audit\BitacoraPlataforma;
 use App\Core\Http\Exceptions\ApiException;
 use App\Core\Menu\Models\MenuItem;
-use App\Core\Permissions\Permiso;
-use App\Core\Permissions\Rol;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
@@ -19,6 +19,8 @@ use Spatie\Permission\PermissionRegistrar;
  */
 final class GuardarRolAction
 {
+    public function __construct(private readonly Catalogo $catalogo) {}
+
     /**
      * @param  list<string>  $permisos
      */
@@ -26,14 +28,18 @@ final class GuardarRolAction
     {
         $clave = Str::slug($nombre, '_');
 
-        if ($clave === '' || Rol::tryFrom($clave) !== null || $this->existe($clave)) {
+        if ($clave === '' || $this->existe($clave)) {
             throw new ApiException('ROL_EXISTENTE', 'Ya existe un rol con ese nombre.', 409);
         }
 
-        return DB::transaction(function () use ($clave, $permisos, $actorId): Role {
+        return DB::transaction(function () use ($clave, $nombre, $permisos, $actorId): Role {
             $rol = null;
-            $this->enGlobal(function () use ($clave, &$rol): void {
-                $rol = Role::create(['name' => $clave, 'guard_name' => 'api', 'condominio_id' => null]);
+            $this->enGlobal(function () use ($clave, $nombre, &$rol): void {
+                // Un rol del super admin: del condominio, sin reglas especiales y fuera del código (`sistema` falso)
+                $rol = Role::create([
+                    'name' => $clave, 'guard_name' => 'api', 'condominio_id' => null, 'etiqueta' => mb_substr(trim($nombre), 0, 80),
+                    'ambito' => Catalogo::CONDOMINIO, 'sistema' => false, 'orden' => 100,
+                ]);
             });
 
             /** @var Role $nuevo */
@@ -72,32 +78,32 @@ final class GuardarRolAction
             $rol = ListarRolesAdminAction::rolesDeCondominio()->firstWhere('name', $clave)
                 ?? throw new ApiException('ROL_NO_ENCONTRADO', 'Ese rol no existe o no se edita aquí.', 404);
 
-            return $this->asignar($rol, Rol::tryFrom($clave), $permisos, $actorId, 'permisos');
+            return $this->asignar($rol, $this->catalogo->rol($clave), $permisos, $actorId, 'permisos');
         });
     }
 
     /**
      * @param  list<string>  $permisos
      */
-    private function asignar(Role $rol, ?Rol $enum, array $permisos, int $actorId, string $accion): Role
+    private function asignar(Role $rol, ?RolInfo $info, array $permisos, int $actorId, string $accion): Role
     {
         $conjunto = array_values(array_unique($permisos));
 
         foreach ($conjunto as $clave) {
-            $permiso = Permiso::tryFrom($clave);
+            $permiso = $this->catalogo->permiso($clave);
             if ($permiso === null || $permiso->esDePlataforma()) {
                 throw new ApiException('PERMISO_INVALIDO', "El permiso «{$clave}» no se puede asignar a un rol de condominio.", 422);
             }
-            $motivo = $enum?->motivoBloqueo($permiso);
+            $motivo = $info?->motivoBloqueo($permiso);
             if ($motivo !== null) {
                 throw new ApiException('PERMISO_BLOQUEADO', $motivo, 422);
             }
         }
 
-        if ($enum !== null) {
-            foreach (Permiso::cases() as $permiso) {
-                if ($enum->exige($permiso) && ! in_array($permiso->value, $conjunto, true)) {
-                    throw new ApiException('PERMISO_OBLIGATORIO', "El rol {$enum->etiqueta()} necesita «{$permiso->etiqueta()}».", 422);
+        if ($info !== null) {
+            foreach ($info->obligatorios as $obligatorio) {
+                if (! in_array($obligatorio, $conjunto, true)) {
+                    throw new ApiException('PERMISO_OBLIGATORIO', "El rol {$info->etiqueta} necesita «{$this->catalogo->permiso($obligatorio)?->etiqueta}».", 422);
                 }
             }
         }
@@ -112,7 +118,7 @@ final class GuardarRolAction
             $accion === 'creado' ? 'creado' : 'actualizado',
             'rol',
             $rol->name,
-            $enum?->etiqueta() ?? Str::headline($rol->name),
+            $info->etiqueta ?? ($rol->etiqueta ?? Str::headline($rol->name)),
             $accion === 'creado' ? null : ['permisos' => $antes],
             ['permisos' => collect($conjunto)->sort()->values()->all()],
         );
@@ -136,6 +142,7 @@ final class GuardarRolAction
         } finally {
             setPermissionsTeamId($anterior);
             app(PermissionRegistrar::class)->forgetCachedPermissions();
+            $this->catalogo->olvidar();
         }
     }
 }

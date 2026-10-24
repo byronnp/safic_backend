@@ -2,9 +2,9 @@
 
 namespace App\Modules\Usuarios\Actions;
 
+use App\Core\Access\Catalogo;
 use App\Core\Auth\Services\InvitacionService;
 use App\Core\Http\Exceptions\ApiException;
-use App\Core\Permissions\Rol;
 use App\Core\Subscriptions\LimiteUsuarios;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
@@ -37,7 +37,7 @@ final class InvitarUsuarioAction
     {
         return DB::transaction(function () use ($datos, $invitadoPor): array {
             $condominio = Condominio::query()->findOrFail($this->tenant->require());
-            $rol = Rol::from($datos['rol']);
+            $rol = app(Catalogo::class)->rol($datos['rol']) ?? throw new ApiException('ROL_NO_VALIDO', 'Ese perfil no existe.', 422);
             $email = mb_strtolower($datos['email']);
 
             $user = User::query()->where('email', $email)->first();
@@ -53,7 +53,7 @@ final class InvitarUsuarioAction
                 throw new ApiException('USUARIO_YA_EXISTE', 'Esa persona ya tiene acceso a este condominio. Búscala en la lista para cambiar su perfil o reactivarla.', 409);
             }
 
-            if ($rol->cuentaParaCupo()) {
+            if ($rol->cuentaCupo === true) {
                 $this->limite->asegurarCupo();
             }
 
@@ -86,7 +86,7 @@ final class InvitarUsuarioAction
                 Mail::to($user->email)->queue(new InvitacionUsuarioMail(
                     nombre: $user->name,
                     condominio: $condominio->nombre,
-                    perfil: $rol->etiqueta(),
+                    perfil: $rol->etiqueta,
                     enlace: config('safic.frontend_url').'/invitacion/'.$token,
                     diasVigencia: InvitacionService::DIAS_VIGENCIA,
                 ));

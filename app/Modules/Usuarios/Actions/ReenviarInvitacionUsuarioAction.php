@@ -42,7 +42,7 @@ final class ReenviarInvitacionUsuarioAction
             Mail::to($user->email)->queue(new InvitacionUsuarioMail(
                 nombre: $user->name,
                 condominio: $condominio->nombre,
-                perfil: $this->perfiles->perfilAsignable($user)?->etiqueta() ?? 'Equipo',
+                perfil: $this->perfiles->perfilAsignable($user)->etiqueta ?? 'Equipo',
                 enlace: config('safic.frontend_url').'/invitacion/'.$token,
                 diasVigencia: InvitacionService::DIAS_VIGENCIA,
             ));

@@ -27,4 +27,7 @@ return [
         'mobile_header' => 'X-Client-Type',
         'mobile_value' => 'mobile',
     ],
+
+    // Archivo con el menú del sistema que carga MenuSeeder (nulo: database/data/menu.php)
+    'archivo_de_menu' => null,
 ];

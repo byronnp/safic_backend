@@ -2,7 +2,8 @@
 
 namespace App\Modules\Usuarios\Http\Requests;
 
-use App\Core\Permissions\Rol;
+use App\Core\Access\Catalogo;
+use App\Core\Access\RolInfo;
 use App\Core\Tenancy\Calendario;
 use App\Core\Validation\Rules\CedulaEc;
 use Carbon\CarbonImmutable;
@@ -38,9 +39,9 @@ class InvitarUsuarioRequest extends FormRequest
             'cedula' => ['required', 'string', new CedulaEc],
             'email' => ['required', 'email', 'max:160'],
             'celular' => ['nullable', 'string', 'regex:/^09\d{8}$/'],
-            'rol' => ['required', Rule::in(array_map(fn (Rol $r) => $r->value, Rol::asignables()))],
+            'rol' => ['required', Rule::in(array_map(fn (RolInfo $r) => $r->clave, app(Catalogo::class)->asignables()))],
             'acceso_hasta' => [
-                Rule::requiredIf($this->input('rol') === Rol::Contador->value), 'nullable', 'date_format:Y-m-d',
+                Rule::requiredIf(app(Catalogo::class)->rol((string) $this->input('rol'))?->requiereVigencia === true), 'nullable', 'date_format:Y-m-d',
                 'after:'.$hoy->toDateString(), 'before_or_equal:'.$hoy->addYears(2)->toDateString(),
             ],
         ];

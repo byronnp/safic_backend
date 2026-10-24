@@ -2,7 +2,7 @@
 
 namespace App\Modules\Asambleas\Actions;
 
-use App\Core\Permissions\Rol;
+use App\Core\Access\RolInfo;
 use App\Modules\Asambleas\Models\AsambleaPunto;
 use App\Modules\Asambleas\Models\Candidato;
 use App\Modules\Asambleas\Models\Votacion;
@@ -34,16 +34,16 @@ final class ListarCandidatosEleccionAction
         $nombres = $this->personas->execute($candidatos->pluck('persona_id')->unique()->all());
         $votaciones = Votacion::query()->where('punto_id', $punto->id)->whereNotNull('cargo')->get()->keyBy('cargo');
 
-        $cargos = array_map(function (Rol $rol) use ($candidatos, $nombres, $votaciones, $punto): array {
-            $v = $votaciones->get($rol->value);
+        $cargos = array_map(function (RolInfo $rol) use ($candidatos, $nombres, $votaciones, $punto): array {
+            $v = $votaciones->get($rol->clave);
 
             return [
-                'cargo' => $rol->value, 'etiqueta' => $rol->etiqueta(),
-                'candidatos' => $candidatos->where('cargo', $rol->value)->map(fn (Candidato $c): array => [
+                'cargo' => $rol->clave, 'etiqueta' => $rol->etiqueta,
+                'candidatos' => $candidatos->where('cargo', $rol->clave)->map(fn (Candidato $c): array => [
                     'id' => $c->id, 'persona_id' => $c->persona_id, 'nombre' => $nombres[$c->persona_id]['nombre'] ?? 'Persona dada de baja', 'unidad' => $nombres[$c->persona_id]['unidad'] ?? null,
                 ])->values()->all(),
                 'votacion' => $v === null ? null : ['id' => $v->id, 'estado' => $v->estado, 'resultado' => $v->resultado, 'ganador_candidato_id' => $v->ganador_candidato_id],
-                'puede_abrir' => $punto->eleccion_cerrada_en === null && $v === null && $candidatos->where('cargo', $rol->value)->isNotEmpty(),
+                'puede_abrir' => $punto->eleccion_cerrada_en === null && $v === null && $candidatos->where('cargo', $rol->clave)->isNotEmpty(),
             ];
         }, CargoDirectiva::cargos());
 

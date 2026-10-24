@@ -11,7 +11,7 @@ Trabaja en modo plan primero: lista archivos, migraciones, permisos y pruebas, y
 ## Antes de escribir código
 1. Lee la sección del documento de la fase (enlaces en `docs/arquitectura.md`) y la pantalla en "Campos por pantalla".
 2. Decide si la tabla es **de condominio** (casi siempre) o **de plataforma** (planes, condominios, suscripciones: sin RLS ni trait).
-3. Define el permiso: ¿existe en `App\Core\Permissions\Permiso`? Si no, agrégalo ahí (nunca desde pantallas) y su asignación por defecto en `Rol::permisosPorDefecto()`. Si cuenta para el límite de administrativos, inclúyelo en `Permiso::esAdministrativo()`.
+3. Define el permiso: ¿existe en `database/data/acceso.php`? Si no, agrégalo ahí (clave, etiqueta, grupo, ámbito, `administrativo` si cuenta para el límite de administrativos, `escritura` si modifica datos) y listalo en `permisos` de los roles que lo traen por defecto; luego `php artisan db:seed --class=RolesYPermisosSeeder`. El catálogo vive en la base (`App\Core\Access\Catalogo`); solo agrega un caso al enum `Permiso` si el código lo nombra, y la ruta puede usar la clave como texto.
 4. Escribe primero las pruebas que fallan (paso 8) con las reglas del documento.
 
 ## Archivos (módulo `<M>`, entidad `<E>`, tabla `<es>`)

@@ -1,5 +1,6 @@
 <?php
 
+use App\Core\Access\Catalogo;
 use App\Core\Permissions\Rol;
 use App\Modules\Asambleas\Models\AsambleaPunto;
 use App\Modules\Asambleas\Models\Candidato;
@@ -201,7 +202,7 @@ it('cerrar la elección pide que todos los cargos con candidatos estén votados'
 
 it('al cerrar la elección los ganadores se nombran: se cierra el periodo del titular anterior', function () {
     // B era presidente; A y C se postulan
-    enCondominio($this->condominio, fn () => app(AsignarCargoAction::class)->execute(Rol::Presidente, $this->pB, 'Asamblea 2024', hoyLocal()->addYear()->format('Y-m-d'), $this->admin));
+    enCondominio($this->condominio, fn () => app(AsignarCargoAction::class)->execute(app(Catalogo::class)->rol('presidente'), $this->pB, 'Asamblea 2024', hoyLocal()->addYear()->format('Y-m-d'), $this->admin));
     ($this->postular)($this->pA, 'presidente')->assertCreated();
     ($this->postular)($this->pC, 'presidente')->assertCreated();
     ($this->postular)($this->pA, 'secretario')->assertCreated();

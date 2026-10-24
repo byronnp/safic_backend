@@ -2,7 +2,8 @@
 
 namespace App\Modules\Usuarios\Http\Requests;
 
-use App\Core\Permissions\Rol;
+use App\Core\Access\Catalogo;
+use App\Core\Access\RolInfo;
 use App\Core\Tenancy\Calendario;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
@@ -26,7 +27,7 @@ class ActualizarUsuarioRequest extends FormRequest
         $hoy = CarbonImmutable::parse(app(Calendario::class)->hoy());
 
         return [
-            'rol' => ['sometimes', 'required', Rule::in(array_map(fn (Rol $r) => $r->value, Rol::asignables()))],
+            'rol' => ['sometimes', 'required', Rule::in(array_map(fn (RolInfo $r) => $r->clave, app(Catalogo::class)->asignables()))],
             'acceso_hasta' => [
                 'sometimes', 'nullable', 'date_format:Y-m-d',
                 'after_or_equal:'.$hoy->toDateString(), 'before_or_equal:'.$hoy->addYears(2)->toDateString(),

@@ -2,7 +2,7 @@
 
 namespace App\Modules\Asambleas\Actions;
 
-use App\Core\Permissions\Rol;
+use App\Core\Access\Catalogo;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Asambleas\Models\Acta;
@@ -106,7 +106,7 @@ final class MisAsambleasAction
             'id' => $v->id, 'punto_id' => $punto->id, 'orden' => $punto->orden, 'titulo' => $punto->titulo, 'descripcion' => $punto->descripcion,
             'mayoria' => $v->mayoria, 'umbral_pct' => $v->umbral_pct === null ? null : (string) $v->umbral_pct, 'secreta' => $v->secreta, 'unidades' => $mias,
             // Elección de directiva: la papeleta del cargo (sin conteo)
-            'cargo' => $v->cargo, 'cargo_etiqueta' => $v->esEleccion() ? Rol::from($v->cargo)->etiqueta() : null,
+            'cargo' => $v->cargo, 'cargo_etiqueta' => $v->esEleccion() ? app(Catalogo::class)->etiquetaDeRol($v->cargo) : null,
             'candidatos' => $v->esEleccion() ? $this->candidatos($v) : [],
         ];
     }
@@ -120,7 +120,7 @@ final class MisAsambleasAction
 
             return [
                 'punto_id' => $punto->id, 'orden' => $punto->orden, 'titulo' => $punto->titulo, 'resultado' => $v->resultado,
-                'cargo_etiqueta' => $v->esEleccion() ? Rol::from($v->cargo)->etiqueta() : null,
+                'cargo_etiqueta' => $v->esEleccion() ? app(Catalogo::class)->etiquetaDeRol($v->cargo) : null,
                 'ganador' => $ganador === null ? null : ($this->personas->execute([$ganador->persona_id])[$ganador->persona_id]['nombre'] ?? null),
                 'alicuota_si' => $v->esEleccion() ? null : (string) $v->alicuota_si, 'alicuota_no' => $v->esEleccion() ? null : (string) $v->alicuota_no,
                 'alicuota_abstencion' => $v->esEleccion() ? null : (string) $v->alicuota_abstencion,

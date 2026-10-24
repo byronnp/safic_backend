@@ -2,15 +2,13 @@
 
 namespace App\Modules\Usuarios\Actions;
 
+use App\Core\Access\Catalogo;
 use App\Core\Menu\Models\MenuItem;
 use App\Core\Menu\Services\MenuService;
-use App\Core\Permissions\Permiso;
-use App\Core\Permissions\Rol;
 use App\Core\Subscriptions\LimiteUsuarios;
 use App\Core\Tenancy\TenantContext;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
 /**
@@ -24,6 +22,7 @@ final class ListarRolesAction
         private readonly TenantContext $tenant,
         private readonly MenuService $menus,
         private readonly LimiteUsuarios $limite,
+        private readonly Catalogo $catalogo,
     ) {}
 
     /**
@@ -43,7 +42,7 @@ final class ListarRolesAction
             ->where('guard_name', 'api')
             ->with('permissions')
             ->get()
-            ->reject(fn (Role $rol) => $this->esDePlataforma($rol))
+            ->filter(fn (Role $rol) => $rol->ambito === Catalogo::CONDOMINIO)
             ->map(fn (Role $rol) => $this->rol($rol, (int) ($usuarios[$rol->id] ?? 0)))
             ->sortBy([['orden', 'asc'], ['nombre', 'asc']])
             ->map(fn (array $rol) => array_diff_key($rol, ['orden' => 1]))
@@ -55,8 +54,8 @@ final class ListarRolesAction
         return [
             'roles' => $roles,
             'permisos' => array_values(array_map(
-                fn (Permiso $p) => ['clave' => $p->value, 'etiqueta' => $p->etiqueta(), 'grupo' => $p->grupo(), 'administrativo' => $p->esAdministrativo()],
-                array_filter(Permiso::cases(), fn (Permiso $p) => ! $p->esDePlataforma()),
+                fn ($p) => ['clave' => $p->clave, 'etiqueta' => $p->etiqueta, 'grupo' => $p->grupo, 'administrativo' => $p->administrativo],
+                $this->catalogo->permisos(Catalogo::CONDOMINIO),
             )),
             'cupo' => ['plan' => $plan['nombre'] ?? null, 'limite' => $plan['limite'] ?? null, 'usados' => $this->limite->usados()],
         ];
@@ -67,26 +66,24 @@ final class ListarRolesAction
      */
     private function rol(Role $rol, int $usuarios): array
     {
-        $enum = Rol::tryFrom($rol->name);
+        $info = $this->catalogo->rol($rol->name);
         $permisos = $rol->permissions->pluck('name')->filter(fn (string $n) => ! str_starts_with($n, 'plataforma.'))->sort()->values();
-        $administrativo = $permisos->contains(fn (string $n) => Permiso::tryFrom($n)?->esAdministrativo() === true);
+        // Un rol que creó el super admin consume cupo si tiene algún permiso administrativo
+        $administrativo = $permisos->contains(fn (string $n) => $this->catalogo->permiso($n)?->administrativo === true);
 
         return [
             'clave' => $rol->name,
-            'nombre' => $enum?->etiqueta() ?? Str::headline($rol->name),
+            'nombre' => $info->etiqueta ?? $this->catalogo->etiquetaDeRol($rol->name),
             'tipo' => match (true) {
-                $enum === null => 'adicional',
-                $enum->esCargo() => 'cargo',
-                default => 'sistema',
+                $info?->esCargo === true => 'cargo',
+                $info?->sistema === true => 'sistema',
+                default => 'adicional',
             },
-            'cuenta_cupo' => $enum?->cuentaParaCupo() ?? $administrativo,
+            'cuenta_cupo' => $info->cuentaCupo ?? $administrativo,
             'usuarios' => $usuarios,
             'permisos' => $permisos->all(),
             'menu' => $this->menu($rol),
-            'orden' => $enum === null ? 100 : array_search($enum, [
-                Rol::Administrador, Rol::Contador, Rol::Guardia, Rol::Mantenimiento, Rol::Residente,
-                Rol::Presidente, Rol::Vicepresidente, Rol::Secretario, Rol::Tesorero,
-            ], true),
+            'orden' => $info->orden ?? 100,
         ];
     }
 
@@ -110,14 +107,5 @@ final class ListarRolesAction
         $recorrer($this->menus->paraPerfil($rol, MenuItem::AMBITO_CONDOMINIO));
 
         return $hojas;
-    }
-
-    private function esDePlataforma(Role $rol): bool
-    {
-        $enum = Rol::tryFrom($rol->name);
-
-        return $enum !== null
-            ? $enum->esDePlataforma()
-            : $rol->permissions->contains(fn ($p) => str_starts_with($p->name, 'plataforma.'));
     }
 }

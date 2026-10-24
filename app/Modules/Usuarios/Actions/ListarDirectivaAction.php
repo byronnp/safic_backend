@@ -28,12 +28,12 @@ final class ListarDirectivaAction
 
         return array_map(function ($rol) use ($abiertos, $resumen, $hoy): array {
             /** @var CargoDirectiva|null $fila */
-            $fila = $abiertos->get($rol->value);
+            $fila = $abiertos->get($rol->clave);
             $persona = $fila === null ? null : ($resumen[$fila->persona_id] ?? null);
 
             return [
-                'cargo' => $rol->value,
-                'etiqueta' => $rol->etiqueta(),
+                'cargo' => $rol->clave,
+                'etiqueta' => $rol->etiqueta,
                 'estado' => match (true) {
                     $fila === null => 'vacante',
                     $fila->periodo_fin->toDateString() < $hoy => 'prorrogado',

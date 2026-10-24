@@ -2,13 +2,12 @@
 
 namespace App\Modules\Plataforma\Actions;
 
-use App\Core\Permissions\Permiso;
-use App\Core\Permissions\Rol;
+use App\Core\Access\Catalogo;
+use App\Core\Access\PermisoInfo;
 use App\Models\User;
 use App\Modules\Usuarios\Actions\ListarSolicitudesRolPendientesAction;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
 /**
@@ -18,14 +17,14 @@ use Spatie\Permission\Models\Role;
  */
 final class ListarRolesAdminAction
 {
-    public function __construct(private readonly ListarSolicitudesRolPendientesAction $solicitudes) {}
+    public function __construct(private readonly ListarSolicitudesRolPendientesAction $solicitudes, private readonly Catalogo $catalogo) {}
 
     /**
      * @return array{roles: list<array<string, mixed>>, permisos: list<array<string, mixed>>, solicitudes: list<array<string, mixed>>}
      */
     public function execute(): array
     {
-        $permisos = array_values(array_filter(Permiso::cases(), fn (Permiso $p) => ! $p->esDePlataforma()));
+        $permisos = array_values($this->catalogo->permisos(Catalogo::CONDOMINIO));
 
         $enUso = DB::table('model_has_roles')
             ->where('model_type', (new User)->getMorphClass())
@@ -43,12 +42,12 @@ final class ListarRolesAdminAction
 
         return [
             'roles' => $roles,
-            'permisos' => array_map(fn (Permiso $p) => [
-                'clave' => $p->value,
-                'etiqueta' => $p->etiqueta(),
-                'grupo' => $p->grupo(),
-                'administrativo' => $p->esAdministrativo(),
-                'escritura' => $p->esEscritura(),
+            'permisos' => array_map(fn (PermisoInfo $p) => [
+                'clave' => $p->clave,
+                'etiqueta' => $p->etiqueta,
+                'grupo' => $p->grupo,
+                'administrativo' => $p->administrativo,
+                'escritura' => $p->escritura,
             ], $permisos),
             'solicitudes' => $this->solicitudes->execute(),
         ];
@@ -64,55 +63,41 @@ final class ListarRolesAdminAction
         return Role::query()
             ->whereNull('condominio_id')
             ->where('guard_name', 'api')
+            ->where('ambito', Catalogo::CONDOMINIO)
             ->with('permissions')
-            ->get()
-            ->reject(function (Role $rol): bool {
-                $enum = Rol::tryFrom($rol->name);
-
-                return $enum !== null
-                    ? $enum->esDePlataforma()
-                    : $rol->permissions->contains(fn ($p) => str_starts_with($p->name, 'plataforma.'));
-            })
-            ->values();
+            ->get();
     }
 
     /**
-     * @param  list<Permiso>  $permisos
+     * @param  list<PermisoInfo>  $permisos
      * @return array<string, mixed>
      */
     private function rol(Role $rol, int $condominios, array $permisos): array
     {
-        $enum = Rol::tryFrom($rol->name);
+        $info = $this->catalogo->rol($rol->name);
         $concedidos = $rol->permissions->pluck('name')->filter(fn (string $n) => ! str_starts_with($n, 'plataforma.'))->sort()->values()->all();
 
         $bloqueos = [];
-        $obligatorios = [];
         foreach ($permisos as $permiso) {
-            $motivo = $enum?->motivoBloqueo($permiso);
+            $motivo = $info?->motivoBloqueo($permiso);
             if ($motivo !== null) {
-                $bloqueos[$permiso->value] = $motivo;
-            }
-            if ($enum?->exige($permiso) === true) {
-                $obligatorios[] = $permiso->value;
+                $bloqueos[$permiso->clave] = $motivo;
             }
         }
 
         return [
             'clave' => $rol->name,
-            'nombre' => $enum?->etiqueta() ?? Str::headline($rol->name),
+            'nombre' => $info->etiqueta ?? $this->catalogo->etiquetaDeRol($rol->name),
             'tipo' => match (true) {
-                $enum === null => 'adicional',
-                $enum->esCargo() => 'cargo',
-                default => 'sistema',
+                $info?->esCargo === true => 'cargo',
+                $info?->sistema === true => 'sistema',
+                default => 'adicional',
             },
             'condominios' => $condominios,
             'permisos' => $concedidos,
             'bloqueos' => (object) $bloqueos,
-            'obligatorios' => $obligatorios,
-            'orden' => $enum === null ? 100 : array_search($enum, [
-                Rol::Administrador, Rol::Tesorero, Rol::Contador, Rol::Presidente, Rol::Vicepresidente,
-                Rol::Secretario, Rol::Guardia, Rol::Mantenimiento, Rol::Residente,
-            ], true),
+            'obligatorios' => $info->obligatorios ?? [],
+            'orden' => $info->orden ?? 100,
         ];
     }
 }
