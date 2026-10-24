@@ -7,6 +7,11 @@ use App\Models\User;
 use App\Modules\Asambleas\Models\Asamblea;
 use App\Modules\Asambleas\Models\AsambleaAsistencia;
 use App\Modules\Asambleas\Models\AsambleaPoder;
+use App\Modules\Asambleas\Models\AsambleaPunto;
+use App\Modules\Asambleas\Models\AsambleaUnidad;
+use App\Modules\Asambleas\Models\Votacion;
+use App\Modules\Asambleas\Models\Voto;
+use App\Modules\Asambleas\Services\DerechoAVoto;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 use App\Modules\Unidades\Models\Persona;
 use App\Modules\Unidades\Models\Unidad;
@@ -17,7 +22,11 @@ use App\Modules\Unidades\Models\Unidad;
  */
 final class MisAsambleasAction
 {
-    public function __construct(private readonly Calendario $calendario, private readonly UnidadesDeCuentaAction $unidades) {}
+    public function __construct(
+        private readonly Calendario $calendario,
+        private readonly UnidadesDeCuentaAction $unidades,
+        private readonly DerechoAVoto $derecho,
+    ) {}
 
     /** @return list<array<string, mixed>> */
     public function execute(User $user): array
@@ -30,7 +39,7 @@ final class MisAsambleasAction
         $presentes = AsambleaAsistencia::query()->presentes()->whereIn('asamblea_id', $asambleas->pluck('id'))->whereIn('unidad_id', $propias->pluck('unidad_id')->merge($poderes->flatten()->pluck('unidad_id'))->unique())->get()->groupBy('asamblea_id');
         $codigos = Unidad::query()->withTrashed()->whereIn('id', $poderes->flatten()->pluck('unidad_id'))->pluck('codigo', 'id');
 
-        return $asambleas->map(function (Asamblea $a) use ($propias, $poderes, $alicuotas, $codigos, $personas, $presentes): array {
+        return $asambleas->map(function (Asamblea $a) use ($user, $propias, $poderes, $alicuotas, $codigos, $personas, $presentes): array {
             $deLaAsamblea = $poderes->get($a->id, collect());
             $mias = $propias->map(function (array $u) use ($deLaAsamblea, $alicuotas): array {
                 /** @var AsambleaPoder|null $p */
@@ -54,7 +63,54 @@ final class MisAsambleasAction
                 'registro_abierto' => $a->registroAbierto(),
                 'puede_marcar_presencia' => $a->registroAbierto() && in_array($a->modalidad, ['virtual', 'mixta'], true) && ($mias !== [] || $representa !== []),
                 'presente' => ($presentes->get($a->id) ?? collect())->contains(fn (AsambleaAsistencia $p): bool => $p->canal === 'app'),
+                // Votación abierta (sin resultados: solo la mesa los ve en vivo) y resultados de las ya cerradas
+                'votacion' => $this->votacionAbierta($user, $a),
+                'resultados' => $this->resultados($a),
             ];
         })->values()->all();
+    }
+
+    /** @return array<string, mixed>|null */
+    private function votacionAbierta(User $user, Asamblea $a): ?array
+    {
+        $v = Votacion::query()->where('asamblea_id', $a->id)->where('estado', Votacion::ABIERTA)->first();
+        if ($v === null) {
+            return null;
+        }
+        $punto = AsambleaPunto::query()->findOrFail($v->punto_id);
+        $foto = AsambleaUnidad::query()->where('asamblea_id', $a->id)->get()->keyBy('unidad_id');
+        $votos = Voto::query()->where('votacion_id', $v->id)->get()->keyBy('unidad_id');
+
+        $mias = array_map(function (int $unidadId) use ($a, $foto, $votos): array {
+            $voto = $votos->get($unidadId);
+            $impedimento = $voto === null ? $this->derecho->impedimento($a, $unidadId) : null;
+
+            return [
+                'unidad_id' => $unidadId, 'codigo' => (string) ($foto[$unidadId]->codigo ?? '—'),
+                'alicuota' => (string) ($foto[$unidadId]->alicuota ?? '0'),
+                'puede_votar' => $voto === null && $impedimento === null,
+                // Cada quien ve su propio voto, también si la votación es secreta
+                'voto' => $voto?->opcion, 'motivo' => $impedimento['mensaje'] ?? null,
+            ];
+        }, $this->derecho->unidadesDeLaCuenta($user, $a));
+
+        return [
+            'id' => $v->id, 'punto_id' => $punto->id, 'orden' => $punto->orden, 'titulo' => $punto->titulo, 'descripcion' => $punto->descripcion,
+            'mayoria' => $v->mayoria, 'umbral_pct' => $v->umbral_pct === null ? null : (string) $v->umbral_pct, 'secreta' => $v->secreta, 'unidades' => $mias,
+        ];
+    }
+
+    /** @return list<array<string, mixed>> Resultados de las votaciones cerradas: los asistentes los ven al cerrarse. */
+    private function resultados(Asamblea $a): array
+    {
+        return Votacion::query()->where('asamblea_id', $a->id)->where('estado', Votacion::CERRADA)->orderBy('cerrada_en')->get()->map(function (Votacion $v): array {
+            $punto = AsambleaPunto::query()->findOrFail($v->punto_id);
+
+            return [
+                'punto_id' => $punto->id, 'orden' => $punto->orden, 'titulo' => $punto->titulo, 'resultado' => $v->resultado,
+                'alicuota_si' => (string) $v->alicuota_si, 'alicuota_no' => (string) $v->alicuota_no, 'alicuota_abstencion' => (string) $v->alicuota_abstencion,
+                'base_alicuota' => (string) $v->base_alicuota,
+            ];
+        })->all();
     }
 }

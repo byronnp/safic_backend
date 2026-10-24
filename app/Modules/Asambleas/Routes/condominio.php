@@ -5,6 +5,7 @@ use App\Modules\Asambleas\Http\Controllers\AsambleasController;
 use App\Modules\Asambleas\Http\Controllers\AsistenciaController;
 use App\Modules\Asambleas\Http\Controllers\MesaController;
 use App\Modules\Asambleas\Http\Controllers\PoderesController;
+use App\Modules\Asambleas\Http\Controllers\VotacionesController;
 use Illuminate\Support\Facades\Route;
 
 // Rutas del módulo Asambleas en el condominio activo. routes/api.php las carga dentro del grupo
@@ -70,3 +71,12 @@ Route::get('asambleas/{asamblea}/quorum', [AsistenciaController::class, 'quorum'
 // La mesa: el presidente (o el vicepresidente en subrogación) instala; quien registra también la ve
 Route::get('asambleas/{asamblea}/mesa', [MesaController::class, 'show'])->whereNumber('asamblea')->middleware('permission:'.Permiso::AsambleasInstalar->value.'|'.Permiso::AsambleasRegistrar->value);
 Route::post('asambleas/{asamblea}/instalar', [MesaController::class, 'instalar'])->whereNumber('asamblea')->middleware($instalar);
+
+// Votaciones por punto: el presidente abre y cierra; el propietario (o el secretario en mesa) vota; la mesa ve el conteo y la auditoría
+$mesa = 'permission:'.Permiso::AsambleasInstalar->value.'|'.Permiso::AsambleasRegistrar->value;
+
+Route::post('puntos/{punto}/votacion/abrir', [VotacionesController::class, 'abrir'])->whereNumber('punto')->middleware($instalar);
+Route::get('votaciones/{votacion}', [VotacionesController::class, 'show'])->whereNumber('votacion')->middleware($mesa);
+Route::post('votaciones/{votacion}/cerrar', [VotacionesController::class, 'cerrar'])->whereNumber('votacion')->middleware($instalar);
+Route::post('votaciones/{votacion}/votos', [VotacionesController::class, 'votar'])->whereNumber('votacion')->middleware($registrarOPropias);
+Route::get('votaciones/{votacion}/auditoria.pdf', [VotacionesController::class, 'auditoria'])->whereNumber('votacion')->middleware($mesa);
