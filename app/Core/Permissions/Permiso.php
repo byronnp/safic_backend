@@ -61,6 +61,9 @@ enum Permiso: string
     // Asambleas · lo del propietario: ver sus asambleas y dar poder a un representante
     case AsambleasPropias = 'asambleas.propias';
 
+    // Asambleas · registrar la asistencia en mesa (secretario y directiva)
+    case AsambleasRegistrar = 'asambleas.registrar';
+
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
     case PlataformaCondominiosEditar = 'plataforma.condominios-editar';
@@ -118,6 +121,7 @@ enum Permiso: string
             self::AnunciosPublicar => 'Publicar anuncios y ver quién los leyó',
             self::AsambleasPreparar => 'Preparar y convocar asambleas',
             self::AsambleasPropias => 'Ver sus asambleas y dar poder a un representante',
+            self::AsambleasRegistrar => 'Abrir el registro y marcar la asistencia en la asamblea',
             self::AvisosPropios => 'Leer y confirmar los avisos de la administración',
             self::IncidenciasGestionar => 'Gestionar las incidencias reportadas',
             self::IncidenciasReportar => 'Reportar incidencias y seguirlas',
@@ -159,7 +163,7 @@ enum Permiso: string
     /** Permiso que modifica datos (un rol de solo lectura no lo recibe). */
     public function esEscritura(): bool
     {
-        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar, self::ReservasGarita, self::GaritaRegistrar, self::PaquetesGestionar, self::AnunciosPublicar, self::IncidenciasGestionar, self::AsambleasPreparar], true);
+        return in_array($this, [self::UnidadesEditar, self::UsuariosGestionar, self::AmenidadesGestionar, self::CondominioEditar, self::CuotasEmitir, self::PagosAprobar, self::GastosRegistrar, self::ProveedoresEditar, self::GastosAprobarN1, self::GastosAprobarN2, self::GastosPagar, self::CajaChicaRegistrar, self::PeriodosCerrar, self::PeriodosReabrir, self::ConciliacionGestionar, self::MorosidadGestionar, self::ReservasGestionar, self::ReservasGarita, self::GaritaRegistrar, self::PaquetesGestionar, self::AnunciosPublicar, self::IncidenciasGestionar, self::AsambleasPreparar, self::AsambleasRegistrar], true);
     }
 
     public function esDePlataforma(): bool

@@ -5,6 +5,7 @@ namespace App\Modules\Asambleas\Actions;
 use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Asambleas\Models\Asamblea;
+use App\Modules\Asambleas\Models\AsambleaAsistencia;
 use App\Modules\Asambleas\Models\AsambleaPoder;
 use App\Modules\Unidades\Actions\UnidadesDeCuentaAction;
 use App\Modules\Unidades\Models\Persona;
@@ -26,9 +27,10 @@ final class MisAsambleasAction
         $asambleas = Asamblea::query()->whereIn('estado', [Asamblea::CONVOCADA, Asamblea::EN_REGISTRO, Asamblea::INSTALADA, Asamblea::EN_VOTACION])->orderBy('fecha_hora')->get();
         $poderes = AsambleaPoder::query()->whereIn('asamblea_id', $asambleas->pluck('id'))->where('estado', '!=', AsambleaPoder::REVOCADO)->get()->groupBy('asamblea_id');
         $alicuotas = Unidad::query()->whereIn('id', $propias->pluck('unidad_id'))->pluck('alicuota', 'id');
+        $presentes = AsambleaAsistencia::query()->presentes()->whereIn('asamblea_id', $asambleas->pluck('id'))->whereIn('unidad_id', $propias->pluck('unidad_id')->merge($poderes->flatten()->pluck('unidad_id'))->unique())->get()->groupBy('asamblea_id');
         $codigos = Unidad::query()->withTrashed()->whereIn('id', $poderes->flatten()->pluck('unidad_id'))->pluck('codigo', 'id');
 
-        return $asambleas->map(function (Asamblea $a) use ($propias, $poderes, $alicuotas, $codigos, $personas): array {
+        return $asambleas->map(function (Asamblea $a) use ($propias, $poderes, $alicuotas, $codigos, $personas, $presentes): array {
             $deLaAsamblea = $poderes->get($a->id, collect());
             $mias = $propias->map(function (array $u) use ($deLaAsamblea, $alicuotas): array {
                 /** @var AsambleaPoder|null $p */
@@ -48,6 +50,10 @@ final class MisAsambleasAction
                 'lugar' => $a->lugar, 'enlace_video' => $a->enlace_video,
                 'unidades' => $mias, 'representa' => $representa,
                 'puede_dar_poder' => $a->estaConvocada() && $mias !== [],
+                // «Estoy presente» desde la app: solo asambleas virtuales o mixtas con el registro abierto y alguna unidad con derecho
+                'registro_abierto' => $a->registroAbierto(),
+                'puede_marcar_presencia' => $a->registroAbierto() && in_array($a->modalidad, ['virtual', 'mixta'], true) && ($mias !== [] || $representa !== []),
+                'presente' => ($presentes->get($a->id) ?? collect())->contains(fn (AsambleaAsistencia $p): bool => $p->canal === 'app'),
             ];
         })->values()->all();
     }

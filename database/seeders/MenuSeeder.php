@@ -129,6 +129,7 @@ class MenuSeeder extends Seeder
                 'clave' => 'asambleas', 'etiqueta' => 'Asambleas', 'icono' => 'sym_r_how_to_vote',
                 'hijos' => [
                     ['clave' => 'asambleas.preparar', 'etiqueta' => 'Preparar asamblea', 'icono' => 'sym_r_edit_calendar', 'ruta' => 'asambleas-preparar', 'permiso' => Permiso::AsambleasPreparar],
+                    ['clave' => 'asambleas.registro', 'etiqueta' => 'Registro de asistencia', 'icono' => 'sym_r_how_to_reg', 'ruta' => 'asambleas-registro', 'permiso' => Permiso::AsambleasRegistrar],
                 ],
             ],
             [

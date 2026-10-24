@@ -2,6 +2,7 @@
 
 use App\Core\Permissions\Permiso;
 use App\Modules\Asambleas\Http\Controllers\AsambleasController;
+use App\Modules\Asambleas\Http\Controllers\AsistenciaController;
 use App\Modules\Asambleas\Http\Controllers\PoderesController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,7 +21,7 @@ Route::get('asambleas/padron', [AsambleasController::class, 'padron'])->middlewa
 // Cómo queda la anticipación de la convocatoria (8 días hábiles) con una fecha, sin guardar nada
 Route::get('asambleas/anticipacion', [AsambleasController::class, 'anticipacion'])->middleware($preparar);
 
-Route::get('asambleas', [AsambleasController::class, 'index'])->middleware($preparar);
+Route::get('asambleas', [AsambleasController::class, 'index'])->middleware('permission:'.Permiso::AsambleasPreparar->value.'|'.Permiso::AsambleasRegistrar->value);
 Route::post('asambleas', [AsambleasController::class, 'store'])->middleware($preparar);
 Route::get('asambleas/{asamblea}', [AsambleasController::class, 'show'])->whereNumber('asamblea')->middleware($preparar);
 Route::patch('asambleas/{asamblea}', [AsambleasController::class, 'update'])->whereNumber('asamblea')->middleware($preparar);
@@ -49,7 +50,17 @@ Route::get('asambleas/{asamblea}/poderes', [PoderesController::class, 'index'])-
 Route::post('asambleas/{asamblea}/poderes', [PoderesController::class, 'store'])->whereNumber('asamblea')->middleware($prepararOPropias);
 Route::post('poderes/{poder}/validar', [PoderesController::class, 'validar'])->whereNumber('poder')->middleware($preparar);
 Route::post('poderes/{poder}/rechazar', [PoderesController::class, 'rechazar'])->whereNumber('poder')->middleware($preparar);
-Route::delete('poderes/{poder}', [PoderesController::class, 'destroy'])->whereNumber('poder')->middleware($prepararOPropias);
+Route::delete('poderes/{poder}', [PoderesController::class, 'destroy'])->whereNumber('poder')->middleware($prepararOPropias.'|'.Permiso::AsambleasRegistrar->value);
 
 // Las asambleas del propietario (próximas, sus unidades y el poder de cada una)
 Route::get('mis-asambleas', [PoderesController::class, 'mias'])->middleware($propias);
+
+// Asistencia y quórum: el secretario abre el registro y marca en mesa; el propietario de una asamblea virtual dice «estoy presente»
+$registrar = 'permission:'.Permiso::AsambleasRegistrar->value;
+$registrarOPropias = 'permission:'.Permiso::AsambleasRegistrar->value.'|'.Permiso::AsambleasPropias->value;
+
+Route::post('asambleas/{asamblea}/registro/abrir', [AsistenciaController::class, 'abrir'])->whereNumber('asamblea')->middleware($registrar);
+Route::get('asambleas/{asamblea}/asistencia', [AsistenciaController::class, 'index'])->whereNumber('asamblea')->middleware($registrar);
+Route::post('asambleas/{asamblea}/asistencia', [AsistenciaController::class, 'registrar'])->whereNumber('asamblea')->middleware($registrarOPropias);
+Route::post('asambleas/{asamblea}/salida', [AsistenciaController::class, 'salida'])->whereNumber('asamblea')->middleware($registrarOPropias);
+Route::get('asambleas/{asamblea}/quorum', [AsistenciaController::class, 'quorum'])->whereNumber('asamblea')->middleware($registrarOPropias);
