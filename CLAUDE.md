@@ -132,6 +132,7 @@ Reglas:
 
 ## Menú de producción
 - El menú que ve cada perfil sale de `menu_items` (`MenuSeeder`). **Una pantalla entra al seeder cuando pasa de vista previa a datos reales** (en el mismo PR que la conecta), nunca antes: el frontend solo muestra las vistas previas en desarrollo. `MenuPorPerfilTest` fija la lista de rutas permitidas.
+- **Roles nuevos** (`GuardarRolAction::crear`): nacen con su menú web inicial (pantallas sin permiso y las de sus permisos); después se ajusta en «Menú del sistema». Las apps del residente y del guardia no se asignan: el frontend las ofrece por permisos (`PERMISOS_APP_*`), así que un rol nuevo con permisos de garita o de residente ya tiene su app.
 - `MenuSeeder`, `RolesYPermisosSeeder` y `CatalogosSeeder` son idempotentes (solo crean lo que falta) y corren en cada despliegue (`.github/workflows/staging.yml`). En local, tras traer cambios: `php artisan db:seed --class=MenuSeeder`.
 
 ## Amenidades del condominio
@@ -148,7 +149,7 @@ Reglas:
 - Se publican con `EnVivo::aUsuarios()` / `EnVivo::aGarita()` (o con un servicio del módulo, como `AvisosEnVivoDeGarita`). Salen **después de confirmar** la transacción y son de mejor esfuerzo: si Reverb no responde, la operación de negocio sigue y el cliente se entera con su consulta periódica.
 - Canales siempre **privados y con el condominio en el nombre**: `condominio.{id}.usuario.{userId}` (solo esa cuenta) y `condominio.{id}.garita` (permiso `garita.registrar`). Toda regla parte de la membresía activa (`AutorizaCanales`). Un canal nuevo se declara en `routes/channels.php` con su prueba en `tests/Feature/TiempoReal`.
 - Autorización: `POST /api/v1/broadcasting/auth` con el mismo JWT (sin `X-Condominio-Id`: el condominio va en el nombre del canal).
-- Local: el servicio `reverb` del compose (puerto interno 8080, sin puerto publicado; el frontend lo alcanza por `/app`). Variables `REVERB_*` en `.env.example`; `REVERB_ALLOWED_ORIGINS` limita los hosts desde los que se conecta el navegador (solo el nombre, p. ej. `localhost` o `app.safic.ec`; Reverb no mira esquema ni puerto). Producción: un proceso `reverb:start` por réplica con `REVERB_SCALING_ENABLED=true` (usa Redis) y el balanceador debe permitir WebSocket en `/app`.
+- Local: el servicio `reverb` del compose (puerto interno 8080, sin puerto publicado; el frontend lo alcanza por `/ws`, que Vite o nginx reenvían a Reverb quitando el prefijo; no `/app`, que es de las pantallas del residente). Variables `REVERB_*` en `.env.example`; `REVERB_ALLOWED_ORIGINS` limita los hosts desde los que se conecta el navegador (solo el nombre, p. ej. `localhost` o `app.safic.ec`; Reverb no mira esquema ni puerto). Producción: un proceso `reverb:start` por réplica con `REVERB_SCALING_ENABLED=true` (usa Redis) y el balanceador debe enrutar `/ws` (WebSocket) a Reverb quitando el prefijo `/ws`.
 - Las pruebas usan `Event::fake([ActualizacionEnVivo::class])` (ya en `TestCase`): para verificar un aviso usa `Event::dispatched(...)`.
 
 ## Daños y garantía de reservas
