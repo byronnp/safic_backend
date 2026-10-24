@@ -19,6 +19,7 @@ final class VerMesaAction
         private readonly CalcularQuorumAction $quorum,
         private readonly Calendario $calendario,
         private readonly VerVotacionAction $votacion,
+        private readonly ListarCandidatosEleccionAction $eleccion,
     ) {}
 
     /** @return array<string, mixed> */
@@ -26,8 +27,10 @@ final class VerMesaAction
     {
         $a = Asamblea::query()->with('puntos')->findOrFail($id);
         $zona = $this->calendario->zonaHoraria();
-        $votaciones = Votacion::query()->where('asamblea_id', $a->id)->get()->keyBy('punto_id');
-        $abierta = $votaciones->first(fn (Votacion $v): bool => $v->estaAbierta());
+        $todas = Votacion::query()->where('asamblea_id', $a->id)->get();
+        $abierta = $todas->first(fn (Votacion $v): bool => $v->estaAbierta());
+        // Una elección tiene una votación por cargo: su estado va en `eleccion`, no aquí
+        $votaciones = $todas->whereNull('cargo')->keyBy('punto_id');
         $instaladaPor = $a->instalada_por === null ? null : User::query()->whereKey($a->instalada_por)->value('name');
 
         return [
@@ -47,9 +50,24 @@ final class VerMesaAction
                 'votacion' => ($v = $votaciones->get($p->id)) === null ? null : ['id' => $v->id, 'estado' => $v->estado, 'resultado' => $v->resultado],
                 // Instalada y sin votación abierta, el presidente puede abrir los puntos que se votan y aún no se votaron
                 'puede_abrir_votacion' => $a->estado === Asamblea::INSTALADA && $p->seVota() && $p->tipo !== AsambleaPunto::ELECCION && $v === null,
+                // Elección de directiva: candidatos y votación de cada cargo, y si ya se puede cerrar el punto
+                'eleccion' => $p->tipo === AsambleaPunto::ELECCION ? $this->eleccion($p, $a) : null,
             ])->all(),
             'votacion_abierta' => $abierta === null ? null : $this->votacion->execute($abierta),
             'puede_instalar' => $a->estado === Asamblea::EN_REGISTRO,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function eleccion(AsambleaPunto $p, Asamblea $a): array
+    {
+        $e = $this->eleccion->cargos($p);
+        $conCandidatos = array_values(array_filter($e['cargos'], fn (array $c): bool => $c['candidatos'] !== []));
+        $listoParaCerrar = ! $e['cerrada'] && $a->estado === Asamblea::INSTALADA && $conCandidatos !== []
+            && collect($conCandidatos)->every(fn (array $c): bool => ($c['votacion']['estado'] ?? null) === Votacion::CERRADA);
+
+        return $e + ['puede_cerrar' => $listoParaCerrar, 'puede_abrir_votacion' => $a->estado === Asamblea::INSTALADA && ! $e['cerrada']];
     }
 }

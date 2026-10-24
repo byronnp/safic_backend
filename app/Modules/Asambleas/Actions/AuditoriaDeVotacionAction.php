@@ -3,16 +3,21 @@
 namespace App\Modules\Asambleas\Actions;
 
 use App\Core\Http\Exceptions\ApiException;
+use App\Core\Permissions\Rol;
 use App\Core\Tenancy\Calendario;
 use App\Core\Tenancy\TenantContext;
 use App\Modules\Asambleas\Models\Asamblea;
 use App\Modules\Asambleas\Models\AsambleaPunto;
 use App\Modules\Asambleas\Models\AsambleaUnidad;
+use App\Modules\Asambleas\Models\Candidato;
 use App\Modules\Asambleas\Models\Votacion;
 use App\Modules\Asambleas\Models\Voto;
 use App\Modules\Asambleas\Services\CadenaDeVotos;
+use App\Modules\Asambleas\Services\ResultadoDeVotacion;
 use App\Modules\Plataforma\Models\Condominio;
+use App\Modules\Unidades\Actions\ResumenPersonasAction;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -21,7 +26,13 @@ use Illuminate\Support\Str;
  */
 final class AuditoriaDeVotacionAction
 {
-    public function __construct(private readonly TenantContext $tenant, private readonly Calendario $calendario, private readonly CadenaDeVotos $cadena) {}
+    public function __construct(
+        private readonly TenantContext $tenant,
+        private readonly Calendario $calendario,
+        private readonly CadenaDeVotos $cadena,
+        private readonly ResultadoDeVotacion $resultado,
+        private readonly ResumenPersonasAction $personas,
+    ) {}
 
     /** @return array{contenido: string, nombre: string} */
     public function execute(int $votacionId): array
@@ -35,10 +46,16 @@ final class AuditoriaDeVotacionAction
         $condominio = Condominio::query()->findOrFail($this->tenant->require());
         $zona = $this->calendario->zonaHoraria();
         $codigos = AsambleaUnidad::query()->where('asamblea_id', $asamblea->id)->pluck('codigo', 'unidad_id');
-        $nombres = ['si' => 'Sí', 'no' => 'No', 'abstencion' => 'Abstención'];
+        $nombres = ['si' => 'Sí', 'no' => 'No', 'abstencion' => 'Abstención', 'blanco' => 'En blanco'];
+        // En una elección, cada candidato es una opción
+        $candidatos = Candidato::query()->where('punto_id', $v->punto_id)->where('cargo', (string) $v->cargo)->get()->keyBy('id');
+        $personas = $this->personas->execute($candidatos->pluck('persona_id')->unique()->all());
+        $nombreDe = fn (Voto $x): string => $x->opcion === 'candidato'
+            ? ($personas[$candidatos[$x->candidato_id]->persona_id ?? 0]['nombre'] ?? 'Candidato')
+            : $nombres[$x->opcion];
 
         $votos = Voto::query()->where('votacion_id', $v->id)->orderBy('id')->get()->map(fn (Voto $x): array => [
-            'codigo' => (string) ($codigos[$x->unidad_id] ?? '—'), 'alicuota' => (string) $x->alicuota, 'opcion' => $nombres[$x->opcion], 'canal' => $x->canal === 'mesa' ? 'Mesa' : 'App',
+            'codigo' => (string) ($codigos[$x->unidad_id] ?? '—'), 'alicuota' => (string) $x->alicuota, 'opcion' => $nombreDe($x), 'canal' => $x->canal === 'mesa' ? 'Mesa' : 'App',
             'hora' => $x->emitido_en->setTimezone($zona)->format('d/m/Y H:i:s'),
         ])->all();
         if ($v->secreta) {
@@ -49,19 +66,42 @@ final class AuditoriaDeVotacionAction
         $pdf = Pdf::loadView('asambleas.auditoria', [
             'condominio' => ['nombre' => $condominio->nombre, 'ruc' => $condominio->ruc],
             'asamblea' => ['titulo' => $asamblea->titulo, 'fecha' => $asamblea->fecha_hora->setTimezone($zona)->format('d/m/Y H:i')],
-            'punto' => ['orden' => $punto->orden, 'titulo' => $punto->titulo],
+            'punto' => ['orden' => $punto->orden, 'titulo' => $punto->titulo.($v->esEleccion() ? ' · '.Rol::from($v->cargo)->etiqueta() : '')],
             'votacion' => [
                 'abierta' => $v->abierta_en->setTimezone($zona)->format('d/m/Y H:i'), 'cerrada' => $v->cerrada_en?->setTimezone($zona)->format('d/m/Y H:i'),
                 'mayoria' => $v->mayoria === 'calificada' ? "Mayoría calificada ({$v->umbral_pct} %)" : 'Mayoría simple', 'base' => $v->base === 'total' ? 'total de alícuotas' : 'alícuotas presentes con derecho a voto',
                 'base_alicuota' => (string) $v->base_alicuota, 'secreta' => $v->secreta, 'resultado' => $v->resultado === Votacion::APROBADO ? 'APROBADO' : 'RECHAZADO',
             ],
-            'totales' => [
-                'votos_si' => $v->votos_si, 'votos_no' => $v->votos_no, 'votos_abstencion' => $v->votos_abstencion,
-                'alicuota_si' => (string) $v->alicuota_si, 'alicuota_no' => (string) $v->alicuota_no, 'alicuota_abstencion' => (string) $v->alicuota_abstencion,
-            ],
+            'totales' => $this->totales($v, $candidatos, $personas),
             'votos' => $votos, 'integridad' => $this->cadena->verificar($v), 'emitida' => now($zona)->format('d/m/Y H:i'),
         ]);
 
         return ['contenido' => $pdf->output(), 'nombre' => 'auditoria-votacion-punto-'.$punto->orden.'-'.Str::slug($punto->titulo).'.pdf'];
+    }
+
+    /**
+     * Total por opción: Sí / No / Abstención, o cada candidato y el voto en blanco.
+     *
+     * @param  Collection<int, Candidato>  $candidatos
+     * @param  array<int, array{nombre: string, unidad: string|null, propietario: bool}>  $personas
+     * @return list<array{etiqueta: string, votos: int|null, alicuota: string}>
+     */
+    private function totales(Votacion $v, $candidatos, array $personas): array
+    {
+        if (! $v->esEleccion()) {
+            return [
+                ['etiqueta' => 'Sí', 'votos' => $v->votos_si, 'alicuota' => (string) $v->alicuota_si],
+                ['etiqueta' => 'No', 'votos' => $v->votos_no, 'alicuota' => (string) $v->alicuota_no],
+                ['etiqueta' => 'Abstención', 'votos' => $v->votos_abstencion, 'alicuota' => (string) $v->alicuota_abstencion],
+            ];
+        }
+        $e = $this->resultado->calcularEleccion($v);
+        $filas = array_map(fn (array $c): array => [
+            'etiqueta' => ($personas[$candidatos[$c['candidato_id']]->persona_id ?? 0]['nombre'] ?? 'Candidato').($v->ganador_candidato_id === $c['candidato_id'] ? ' (ganador)' : ''),
+            'votos' => $c['votos'], 'alicuota' => $c['alicuota'],
+        ], $e['candidatos']);
+        $filas[] = ['etiqueta' => 'En blanco', 'votos' => $e['blanco']['votos'], 'alicuota' => $e['blanco']['alicuota']];
+
+        return $filas;
     }
 }

@@ -6365,7 +6365,7 @@ paths:
       description: |
         Permiso `asambleas.instalar` (presidente o vicepresidente). Solo en una asamblea instalada, una votación a la vez y una por punto.
         Si la asamblea se instaló en primera convocatoria y el quórum bajó del mínimo, responde 409 `QUORUM_BAJO` hasta que se confirme con `continuar_sin_quorum`.
-        409 `VOTACION_ABIERTA`, 409 `ASAMBLEA_NO_INSTALADA`, 409 `PUNTO_YA_VOTADO`, 422 `PUNTO_INFORMATIVO`, 422 `ELECCION_CON_CANDIDATOS`.
+        409 `VOTACION_ABIERTA`, 409 `ASAMBLEA_NO_INSTALADA`, 409 `PUNTO_YA_VOTADO`, 422 `PUNTO_INFORMATIVO`, 422 `CARGO_REQUERIDO`, 422 `SIN_CANDIDATOS`, 409 `CARGO_YA_VOTADO`, 409 `ELECCION_CERRADA`.
       x-permiso: asambleas.instalar
       parameters:
         - $ref: '#/components/parameters/CondominioId'
@@ -6378,6 +6378,7 @@ paths:
               type: object
               properties:
                 continuar_sin_quorum: { type: boolean }
+                cargo: { type: string, enum: [presidente, vicepresidente, secretario, tesorero], description: Obligatorio en un punto de elección; cada cargo se vota por separado. }
       responses:
         '201':
           description: Votación abierta, con el conteo para la mesa.
@@ -6472,7 +6473,8 @@ paths:
               type: object
               required: [opcion]
               properties:
-                opcion: { type: string, enum: [si, no, abstencion] }
+                opcion: { type: string, enum: [si, no, abstencion, candidato, blanco], description: 'Sí / No / Abstención en una votación común; candidato (con candidato_id) o blanco en una elección.' }
+                candidato_id: { type: integer }
                 unidad_id: { type: integer, description: 'En mesa es obligatorio; por la app, vota por esa unidad suya (sin él, por todas).' }
       responses:
         '201':
@@ -6533,6 +6535,152 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+
+  /puntos/{punto}/candidatos:
+    get:
+      tags: [Asambleas]
+      operationId: listarCandidatosEleccion
+      summary: Candidatos de una elección de directiva
+      description: Permiso `asambleas.preparar`, `asambleas.instalar` o `asambleas.registrar`. Los cargos con sus candidatos y votación, y quiénes pueden postularse (propietarios; no quien debe cuotas ni quien no tiene correo).
+      x-permiso: asambleas.preparar|asambleas.instalar|asambleas.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: punto, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Cargos y elegibles.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/EleccionDeCargos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+    post:
+      tags: [Asambleas]
+      operationId: postularCandidato
+      summary: Postular a un candidato a un cargo
+      description: |
+        Permiso `asambleas.preparar` o `asambleas.instalar`. Solo propietarios sin mora y con correo. Se puede cambiar la lista de un cargo hasta que se abre su votación.
+        409 `YA_ES_CANDIDATO`, 409 `CARGO_YA_VOTADO`, 409 `ELECCION_CERRADA`, 422 `NO_ES_PROPIETARIO`, 422 `PERSONA_EN_MORA`, 422 `PERSONA_SIN_CORREO`, 422 `PUNTO_NO_ES_ELECCION`.
+      x-permiso: asambleas.preparar|asambleas.instalar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: punto, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [persona_id, cargo]
+              properties:
+                persona_id: { type: integer }
+                cargo: { type: string, enum: [presidente, vicepresidente, secretario, tesorero] }
+      responses:
+        '201':
+          description: Cargos y elegibles con el candidato postulado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/EleccionDeCargos' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`YA_ES_CANDIDATO`, `CARGO_YA_VOTADO`, `ELECCION_CERRADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /candidatos/{candidato}:
+    delete:
+      tags: [Asambleas]
+      operationId: retirarCandidato
+      summary: Retirar una candidatura
+      description: Permiso `asambleas.preparar` o `asambleas.instalar`. Hasta que se abre la votación de ese cargo. 409 `CARGO_YA_VOTADO`.
+      x-permiso: asambleas.preparar|asambleas.instalar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: candidato, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Candidatura retirada.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: 'null' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`CARGO_YA_VOTADO`, `ELECCION_CERRADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /puntos/{punto}/eleccion/cerrar:
+    post:
+      tags: [Asambleas]
+      operationId: cerrarEleccion
+      summary: Cerrar la elección y nombrar a los ganadores
+      description: |
+        Permiso `asambleas.instalar`. Exige votado y cerrado cada cargo con candidatos. Los ganadores se nombran solos (se cierra el periodo
+        de quien salía y se abre el nuevo, con la asamblea como respaldo). Quien ganó más de un cargo elige cuál acepta (`acepta`); los demás quedan
+        vacantes. Un cargo sin ganador, o cuyo ganador ya no cumple (mora, sin correo), queda vacante o sin nombrar y los demás siguen.
+        409 `ELECCION_INCOMPLETA`, 409 `VOTACION_ABIERTA`, 409 `ELECCION_CERRADA`, 422 `CONFLICTO_DE_CARGOS` (con `error.details.conflictos`).
+      x-permiso: asambleas.instalar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: punto, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [periodo_hasta]
+              properties:
+                periodo_hasta: { type: string, format: date, description: Hasta 4 años desde hoy. }
+                acepta:
+                  type: object
+                  description: 'persona_id → cargo que acepta, para quien ganó más de uno.'
+                  additionalProperties: { type: string, enum: [presidente, vicepresidente, secretario, tesorero] }
+      responses:
+        '200':
+          description: Nombramientos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [cargos]
+                    properties:
+                      cargos:
+                        type: array
+                        items: { $ref: '#/components/schemas/Nombramiento' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ELECCION_INCOMPLETA`, `VOTACION_ABIERTA`, `ELECCION_CERRADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
 
   /mis-asambleas:
     get:
@@ -11196,9 +11344,70 @@ components:
         validado_por: { type: [string, 'null'] }
         validado_en: { type: [string, 'null'], format: date-time }
         unidad_en_mora: { type: boolean, description: La unidad debe cuotas hoy (no vota aunque el poder esté validado). }
+    Nombramiento:
+      type: object
+      required: [cargo, etiqueta, persona_id, nombre, estado, motivo]
+      properties:
+        cargo: { type: string, enum: [presidente, vicepresidente, secretario, tesorero] }
+        etiqueta: { type: string }
+        persona_id: { type: [integer, 'null'] }
+        nombre: { type: [string, 'null'] }
+        estado: { type: string, enum: [nombrado, vacante, no_nombrado] }
+        motivo: { type: [string, 'null'] }
+    CargoDeEleccion:
+      type: object
+      required: [cargo, etiqueta, candidatos, votacion, puede_abrir]
+      properties:
+        cargo: { type: string, enum: [presidente, vicepresidente, secretario, tesorero] }
+        etiqueta: { type: string }
+        candidatos:
+          type: array
+          items:
+            type: object
+            required: [id, persona_id, nombre, unidad]
+            properties:
+              id: { type: integer }
+              persona_id: { type: integer }
+              nombre: { type: string }
+              unidad: { type: [string, 'null'] }
+        votacion:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [id, estado, resultado, ganador_candidato_id]
+              properties:
+                id: { type: integer }
+                estado: { type: string, enum: [abierta, cerrada] }
+                resultado: { type: [string, 'null'] }
+                ganador_candidato_id: { type: [integer, 'null'] }
+        puede_abrir: { type: boolean, description: Tiene candidatos y su votación aún no se abrió. }
+    EleccionDeCargos:
+      type: object
+      required: [cerrada, nombramientos, cargos, elegibles]
+      properties:
+        cerrada: { type: boolean }
+        nombramientos:
+          oneOf:
+            - type: 'null'
+            - type: array
+              items: { $ref: '#/components/schemas/Nombramiento' }
+        cargos:
+          type: array
+          items: { $ref: '#/components/schemas/CargoDeEleccion' }
+        elegibles:
+          type: array
+          items:
+            type: object
+            required: [persona_id, nombre, unidad, disponible, motivo]
+            properties:
+              persona_id: { type: integer }
+              nombre: { type: string }
+              unidad: { type: string }
+              disponible: { type: boolean }
+              motivo: { type: [string, 'null'], enum: [sin_correo, en_mora, null] }
     VotacionDeMesa:
       type: object
-      required: [id, punto_id, orden, titulo, estado, secreta, mayoria, umbral_pct, base, abierta_en, cerrada_en, resultado, cifras, presentes_con_voto, presentes_en_mora, votos_emitidos, pendientes, integridad]
+      required: [id, punto_id, orden, titulo, estado, secreta, mayoria, umbral_pct, base, cargo, cargo_etiqueta, abierta_en, cerrada_en, resultado, cifras, eleccion, presentes_con_voto, presentes_en_mora, votos_emitidos, pendientes, integridad]
       properties:
         id: { type: integer }
         punto_id: { type: integer }
@@ -11209,12 +11418,43 @@ components:
         mayoria: { type: string, enum: [simple, calificada] }
         umbral_pct: { type: [string, 'null'] }
         base: { type: string, enum: [presentes, total] }
+        cargo: { type: [string, 'null'], description: Solo en una elección. }
+        cargo_etiqueta: { type: [string, 'null'] }
         abierta_en: { type: string, example: '2026-12-08T20:10' }
         cerrada_en: { type: [string, 'null'] }
         resultado: { type: [string, 'null'], enum: [aprobado, rechazado, null] }
+        eleccion:
+          description: Conteo por candidato (solo en una elección).
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [base_alicuota, candidatos, blanco, ganador_candidato_id]
+              properties:
+                base_alicuota: { type: string }
+                candidatos:
+                  type: array
+                  items:
+                    type: object
+                    required: [candidato_id, persona_id, nombre, unidad, alicuota, votos, pct]
+                    properties:
+                      candidato_id: { type: integer }
+                      persona_id: { type: [integer, 'null'] }
+                      nombre: { type: string }
+                      unidad: { type: [string, 'null'] }
+                      alicuota: { type: string }
+                      votos: { type: integer }
+                      pct: { type: string }
+                blanco:
+                  type: object
+                  required: [alicuota, votos, pct]
+                  properties:
+                    alicuota: { type: string }
+                    votos: { type: integer }
+                    pct: { type: string }
+                ganador_candidato_id: { type: [integer, 'null'] }
         cifras:
-          type: object
-          description: Conteo por alícuota; provisional mientras está abierta.
+          description: Conteo por alícuota; provisional mientras está abierta. Nulo en una elección.
+          type: [object, 'null']
           required: [base_alicuota, alicuota_si, alicuota_no, alicuota_abstencion, votos_si, votos_no, votos_abstencion, pct_si, pct_no, pct_abstencion]
           properties:
             base_alicuota: { type: string, example: '10.0000' }
@@ -11299,6 +11539,24 @@ components:
                       estado: { type: string, enum: [abierta, cerrada] }
                       resultado: { type: [string, 'null'] }
               puede_abrir_votacion: { type: boolean }
+              eleccion:
+                description: Solo en un punto de elección de directiva.
+                oneOf:
+                  - type: 'null'
+                  - type: object
+                    required: [cerrada, nombramientos, cargos, puede_cerrar, puede_abrir_votacion]
+                    properties:
+                      cerrada: { type: boolean }
+                      nombramientos:
+                        oneOf:
+                          - type: 'null'
+                          - type: array
+                            items: { $ref: '#/components/schemas/Nombramiento' }
+                      cargos:
+                        type: array
+                        items: { $ref: '#/components/schemas/CargoDeEleccion' }
+                      puede_cerrar: { type: boolean }
+                      puede_abrir_votacion: { type: boolean }
         votacion_abierta:
           oneOf:
             - type: 'null'
@@ -11409,7 +11667,7 @@ components:
               oneOf:
                 - type: 'null'
                 - type: object
-                  required: [id, punto_id, orden, titulo, descripcion, mayoria, umbral_pct, secreta, unidades]
+                  required: [id, punto_id, orden, titulo, descripcion, mayoria, umbral_pct, secreta, unidades, cargo, cargo_etiqueta, candidatos]
                   properties:
                     id: { type: integer }
                     punto_id: { type: integer }
@@ -11419,32 +11677,47 @@ components:
                     mayoria: { type: string, enum: [simple, calificada] }
                     umbral_pct: { type: [string, 'null'] }
                     secreta: { type: boolean }
+                    cargo: { type: [string, 'null'], description: Solo en una elección. }
+                    cargo_etiqueta: { type: [string, 'null'] }
+                    candidatos:
+                      type: array
+                      description: La papeleta de una elección (sin conteo).
+                      items:
+                        type: object
+                        required: [id, nombre, unidad]
+                        properties:
+                          id: { type: integer }
+                          nombre: { type: string }
+                          unidad: { type: [string, 'null'] }
                     unidades:
                       type: array
                       items:
                         type: object
-                        required: [unidad_id, codigo, alicuota, puede_votar, voto, motivo]
+                        required: [unidad_id, codigo, alicuota, puede_votar, voto, voto_candidato_id, motivo]
                         properties:
                           unidad_id: { type: integer }
                           codigo: { type: string }
                           alicuota: { type: string }
                           puede_votar: { type: boolean }
-                          voto: { type: [string, 'null'], enum: [si, no, abstencion, null], description: 'Mi propio voto, también si la votación es secreta.' }
+                          voto: { type: [string, 'null'], enum: [si, no, abstencion, candidato, blanco, null], description: 'Mi propio voto, también si la votación es secreta.' }
+                          voto_candidato_id: { type: [integer, 'null'] }
                           motivo: { type: [string, 'null'], description: 'Por qué no puede votar (mora o no presente).' }
             resultados:
               type: array
               description: 'Resultados de las votaciones ya cerradas (los asistentes los ven al cerrarse).'
               items:
                 type: object
-                required: [punto_id, orden, titulo, resultado, alicuota_si, alicuota_no, alicuota_abstencion, base_alicuota]
+                required: [punto_id, orden, titulo, resultado, cargo_etiqueta, ganador, alicuota_si, alicuota_no, alicuota_abstencion, base_alicuota]
                 properties:
                   punto_id: { type: integer }
                   orden: { type: integer }
                   titulo: { type: string }
                   resultado: { type: string, enum: [aprobado, rechazado] }
-                  alicuota_si: { type: string }
-                  alicuota_no: { type: string }
-                  alicuota_abstencion: { type: string }
+                  cargo_etiqueta: { type: [string, 'null'], description: Solo en una elección. }
+                  ganador: { type: [string, 'null'], description: 'Quien ganó el cargo (elección).' }
+                  alicuota_si: { type: [string, 'null'] }
+                  alicuota_no: { type: [string, 'null'] }
+                  alicuota_abstencion: { type: [string, 'null'] }
                   base_alicuota: { type: string }
     ConvocatoriaAsamblea:
       type: object

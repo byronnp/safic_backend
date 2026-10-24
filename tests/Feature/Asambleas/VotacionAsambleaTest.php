@@ -77,7 +77,7 @@ it('el presidente abre la votación de un punto de una asamblea instalada', func
 it('solo una votación a la vez; un punto se vota una vez; informativos y elecciones no se votan así', function () {
     ($this->instalar)();
     ($this->abrir)('Informe')->assertStatus(422)->assertJsonPath('error.code', 'PUNTO_INFORMATIVO');
-    ($this->abrir)('Elección de directiva')->assertStatus(422)->assertJsonPath('error.code', 'ELECCION_CON_CANDIDATOS');
+    ($this->abrir)('Elección de directiva')->assertStatus(422)->assertJsonPath('error.code', 'CARGO_REQUERIDO');
 
     $id = ($this->abrir)()->assertCreated()->json('data.id');
     ($this->abrir)('Segunda propuesta')->assertStatus(409)->assertJsonPath('error.code', 'VOTACION_ABIERTA');

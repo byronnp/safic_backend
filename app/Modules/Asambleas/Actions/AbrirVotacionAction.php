@@ -8,6 +8,7 @@ use App\Core\Tenancy\TenantContext;
 use App\Models\User;
 use App\Modules\Asambleas\Models\Asamblea;
 use App\Modules\Asambleas\Models\AsambleaPunto;
+use App\Modules\Asambleas\Models\Candidato;
 use App\Modules\Asambleas\Models\Votacion;
 use Illuminate\Support\Facades\DB;
 
@@ -24,9 +25,10 @@ final class AbrirVotacionAction
         private readonly TenantContext $tenant,
     ) {}
 
-    public function execute(User $user, int $puntoId, bool $continuarSinQuorum): Votacion
+    /** `$cargo`: solo en los puntos de elección, el cargo que se vota (cada cargo tiene su votación). */
+    public function execute(User $user, int $puntoId, bool $continuarSinQuorum, ?string $cargo = null): Votacion
     {
-        $v = DB::transaction(function () use ($user, $puntoId, $continuarSinQuorum): Votacion {
+        $v = DB::transaction(function () use ($user, $puntoId, $continuarSinQuorum, $cargo): Votacion {
             $punto = AsambleaPunto::query()->findOrFail($puntoId);
             $asamblea = Asamblea::query()->lockForUpdate()->findOrFail($punto->asamblea_id);
 
@@ -39,10 +41,23 @@ final class AbrirVotacionAction
             if (! $punto->seVota()) {
                 throw new ApiException('PUNTO_INFORMATIVO', 'Un punto informativo solo se trata: no se vota.', 422);
             }
-            if ($punto->tipo === AsambleaPunto::ELECCION) {
-                throw new ApiException('ELECCION_CON_CANDIDATOS', 'La elección de directiva se vota con candidatos, no con Sí o No.', 422);
-            }
-            if (Votacion::query()->where('punto_id', $punto->id)->exists()) {
+            $esEleccion = $punto->tipo === AsambleaPunto::ELECCION;
+            if ($esEleccion) {
+                if ($cargo === null) {
+                    throw new ApiException('CARGO_REQUERIDO', 'Indica qué cargo de la directiva se vota: cada cargo tiene su propia votación.', 422);
+                }
+                if ($punto->eleccion_cerrada_en !== null) {
+                    throw new ApiException('ELECCION_CERRADA', 'La elección ya se cerró.', 409);
+                }
+                if (! Candidato::query()->where('punto_id', $punto->id)->where('cargo', $cargo)->exists()) {
+                    throw new ApiException('SIN_CANDIDATOS', 'Ese cargo no tiene candidatos: postula al menos uno antes de votar.', 422);
+                }
+                if (Votacion::query()->where('punto_id', $punto->id)->where('cargo', $cargo)->exists()) {
+                    throw new ApiException('CARGO_YA_VOTADO', 'Ese cargo ya se votó: una votación cerrada no se repite.', 409);
+                }
+            } elseif ($cargo !== null) {
+                throw new ApiException('CARGO_NO_APLICA', 'Solo los puntos de elección se votan por cargo.', 422);
+            } elseif (Votacion::query()->where('punto_id', $punto->id)->exists()) {
                 throw new ApiException('PUNTO_YA_VOTADO', 'Este punto ya se votó: una votación cerrada no se repite.', 409);
             }
 
@@ -52,7 +67,7 @@ final class AbrirVotacionAction
             }
 
             $v = Votacion::create([
-                'asamblea_id' => $asamblea->id, 'punto_id' => $punto->id, 'estado' => Votacion::ABIERTA,
+                'asamblea_id' => $asamblea->id, 'punto_id' => $punto->id, 'estado' => Votacion::ABIERTA, 'cargo' => $cargo,
                 'secreta' => $this->configuracion->modelo()->voto_secreto, 'mayoria' => $punto->mayoria, 'umbral_pct' => $punto->umbral_pct,
                 'base' => $punto->base ?? 'presentes', 'abierta_por' => $user->id, 'abierta_en' => now(),
             ]);

@@ -4,6 +4,7 @@ namespace App\Modules\Asambleas\Models;
 
 use App\Core\Tenancy\BelongsToCondominio;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use OwenIt\Auditing\Auditable;
 use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
 
@@ -21,6 +22,8 @@ use OwenIt\Auditing\Contracts\Auditable as AuditableContract;
  * @property string|null $base presentes|total
  * @property string|null $adjunto_ruta
  * @property string|null $adjunto_nombre
+ * @property Carbon|null $eleccion_cerrada_en
+ * @property list<array<string, mixed>>|null $nombramientos
  */
 class AsambleaPunto extends Model implements AuditableContract
 {
@@ -38,11 +41,11 @@ class AsambleaPunto extends Model implements AuditableContract
 
     protected $table = 'asamblea_puntos';
 
-    protected $fillable = ['asamblea_id', 'orden', 'titulo', 'descripcion', 'tipo', 'mayoria', 'umbral_pct', 'base', 'adjunto_ruta', 'adjunto_nombre'];
+    protected $fillable = ['asamblea_id', 'orden', 'titulo', 'descripcion', 'tipo', 'mayoria', 'umbral_pct', 'base', 'adjunto_ruta', 'adjunto_nombre', 'eleccion_cerrada_en', 'nombramientos'];
 
     protected function casts(): array
     {
-        return ['umbral_pct' => 'decimal:2'];
+        return ['umbral_pct' => 'decimal:2', 'eleccion_cerrada_en' => 'datetime', 'nombramientos' => 'array'];
     }
 
     /** ¿Se vota? (los informativos solo se tratan) */

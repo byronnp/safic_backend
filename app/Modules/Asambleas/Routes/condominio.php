@@ -3,6 +3,7 @@
 use App\Core\Permissions\Permiso;
 use App\Modules\Asambleas\Http\Controllers\AsambleasController;
 use App\Modules\Asambleas\Http\Controllers\AsistenciaController;
+use App\Modules\Asambleas\Http\Controllers\EleccionController;
 use App\Modules\Asambleas\Http\Controllers\MesaController;
 use App\Modules\Asambleas\Http\Controllers\PoderesController;
 use App\Modules\Asambleas\Http\Controllers\VotacionesController;
@@ -80,3 +81,11 @@ Route::get('votaciones/{votacion}', [VotacionesController::class, 'show'])->wher
 Route::post('votaciones/{votacion}/cerrar', [VotacionesController::class, 'cerrar'])->whereNumber('votacion')->middleware($instalar);
 Route::post('votaciones/{votacion}/votos', [VotacionesController::class, 'votar'])->whereNumber('votacion')->middleware($registrarOPropias);
 Route::get('votaciones/{votacion}/auditoria.pdf', [VotacionesController::class, 'auditoria'])->whereNumber('votacion')->middleware($mesa);
+
+// Elección de directiva: la administración o el presidente postulan candidatos por cargo; el presidente cierra el punto y los ganadores se nombran
+$postulan = 'permission:'.Permiso::AsambleasPreparar->value.'|'.Permiso::AsambleasInstalar->value;
+
+Route::get('puntos/{punto}/candidatos', [EleccionController::class, 'index'])->whereNumber('punto')->middleware($postulan.'|'.Permiso::AsambleasRegistrar->value);
+Route::post('puntos/{punto}/candidatos', [EleccionController::class, 'postular'])->whereNumber('punto')->middleware($postulan);
+Route::delete('candidatos/{candidato}', [EleccionController::class, 'retirar'])->whereNumber('candidato')->middleware($postulan);
+Route::post('puntos/{punto}/eleccion/cerrar', [EleccionController::class, 'cerrar'])->whereNumber('punto')->middleware($instalar);
