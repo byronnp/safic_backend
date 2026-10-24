@@ -5959,6 +5959,204 @@ paths:
         '404':
           $ref: '#/components/responses/NoEncontrado'
 
+  /asambleas/{asamblea}/poderes:
+    parameters:
+      - $ref: '#/components/parameters/CondominioId'
+      - { name: asamblea, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [Asambleas]
+      operationId: listarPoderesAsamblea
+      summary: Poderes de la asamblea
+      description: Permiso `asambleas.preparar`. Los poderes y cartas de la asamblea (sin los revocados) con cuántos faltan por validar.
+      x-permiso: asambleas.preparar
+      responses:
+        '200':
+          description: Poderes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [pendientes, validados, rechazados, poderes]
+                    properties:
+                      pendientes: { type: integer }
+                      validados: { type: integer }
+                      rechazados: { type: integer }
+                      poderes:
+                        type: array
+                        items: { $ref: '#/components/schemas/PoderAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+    post:
+      tags: [Asambleas]
+      operationId: cargarPoderAsamblea
+      summary: Subir el poder o la carta de una unidad
+      description: |
+        Permiso `asambleas.propias` (propietario, solo de sus unidades) o `asambleas.preparar` (la administración en nombre del propietario).
+        Desde que se convoca hasta que se instala la asamblea (Art. 40). Queda `pendiente` hasta que la administración lo valide.
+        Una unidad tiene un solo poder vigente. 409 `PODERES_CERRADOS`, 409 `PODER_YA_EXISTE`, 403 `NO_ES_PROPIETARIO`,
+        422 `UNIDAD_SIN_DERECHO`, 422 `REPRESENTANTE_ES_PROPIETARIO`.
+      x-permiso: asambleas.preparar|asambleas.propias
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [unidad_id, tipo, representante_nombre, representante_documento, archivo]
+              properties:
+                unidad_id: { type: integer }
+                tipo: { type: string, enum: [notarial, carta] }
+                representante_nombre: { type: string, minLength: 3, maxLength: 120 }
+                representante_tipo_documento: { type: string, enum: [cedula, pasaporte], default: cedula }
+                representante_documento: { type: string, minLength: 5, maxLength: 20 }
+                archivo: { type: string, format: binary, description: PDF de hasta 10 MB. }
+      responses:
+        '201':
+          description: Poder cargado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PoderAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`PODERES_CERRADOS`, `PODER_YA_EXISTE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /poderes/{poder}/validar:
+    post:
+      tags: [Asambleas]
+      operationId: validarPoderAsamblea
+      summary: Validar un poder
+      description: Permiso `asambleas.preparar`. La unidad queda asignada al representante. 422 `REPRESENTANTE_EN_MORA` si el representante debe cuotas.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: poder, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Poder validado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PoderAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`PODER_NO_PENDIENTE`, `PODERES_CERRADOS`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /poderes/{poder}/rechazar:
+    post:
+      tags: [Asambleas]
+      operationId: rechazarPoderAsamblea
+      summary: Rechazar un poder con motivo
+      description: Permiso `asambleas.preparar`. El propietario ve el motivo y puede subir otro.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: poder, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200':
+          description: Poder rechazado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PoderAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`PODER_NO_PENDIENTE`, `PODERES_CERRADOS`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /poderes/{poder}:
+    delete:
+      tags: [Asambleas]
+      operationId: retirarPoderAsamblea
+      summary: Retirar un poder vigente
+      description: Permiso `asambleas.propias` (propietario de la unidad) o `asambleas.preparar`. Hasta que se instala la asamblea.
+      x-permiso: asambleas.preparar|asambleas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: poder, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Poder retirado (`revocado`).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/PoderAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`PODER_NO_VIGENTE`, `PODERES_CERRADOS`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /mis-asambleas:
+    get:
+      tags: [Asambleas]
+      operationId: listarMisAsambleas
+      summary: Mis asambleas
+      description: Permiso `asambleas.propias`. Las asambleas convocadas o en curso con mis unidades (solo las de propietario vota), el poder dado por cada una y las unidades que represento.
+      x-permiso: asambleas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+      responses:
+        '200':
+          description: Asambleas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/MiAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+
   /mis-avisos:
     get:
       tags: [Comunicación]
@@ -10571,6 +10769,65 @@ components:
             puede_cancelar: { type: boolean, description: Convocada y todavía sin instalar. }
             convocada_en: { type: [string, 'null'], format: date-time }
             motivo_cancelacion: { type: [string, 'null'] }
+    PoderAsamblea:
+      type: object
+      required: [id, asamblea_id, unidad_id, unidad_codigo, alicuota, otorgante, tipo, estado, motivo_rechazo, representante_nombre, representante_documento, representante_registrado, documento_nombre, documento_url, cargado_por, cargado_en, validado_por, validado_en, unidad_en_mora]
+      properties:
+        id: { type: integer }
+        asamblea_id: { type: integer }
+        unidad_id: { type: integer }
+        unidad_codigo: { type: string }
+        alicuota: { type: string, example: '0.7100' }
+        otorgante: { type: [string, 'null'] }
+        tipo: { type: string, enum: [notarial, carta] }
+        estado: { type: string, enum: [pendiente, validado, rechazado, revocado] }
+        motivo_rechazo: { type: [string, 'null'] }
+        representante_nombre: { type: string }
+        representante_documento: { type: string, description: Enmascarado. }
+        representante_registrado: { type: boolean, description: El representante ya es una persona del condominio. }
+        documento_nombre: { type: string }
+        documento_url: { type: [string, 'null'], description: Enlace temporal (10 minutos). }
+        cargado_por: { type: [string, 'null'] }
+        cargado_en: { type: string, format: date-time }
+        validado_por: { type: [string, 'null'] }
+        validado_en: { type: [string, 'null'], format: date-time }
+        unidad_en_mora: { type: boolean, description: La unidad debe cuotas hoy (no vota aunque el poder esté validado). }
+    MiAsamblea:
+      allOf:
+        - $ref: '#/components/schemas/AsambleaBase'
+        - type: object
+          required: [unidades, representa, puede_dar_poder]
+          properties:
+            unidades:
+              type: array
+              items:
+                type: object
+                required: [unidad_id, codigo, alicuota, poder]
+                properties:
+                  unidad_id: { type: integer }
+                  codigo: { type: string }
+                  alicuota: { type: string }
+                  poder:
+                    oneOf:
+                      - type: 'null'
+                      - type: object
+                        required: [id, estado, tipo, representante_nombre, motivo_rechazo]
+                        properties:
+                          id: { type: integer }
+                          estado: { type: string, enum: [pendiente, validado, rechazado] }
+                          tipo: { type: string, enum: [notarial, carta] }
+                          representante_nombre: { type: string }
+                          motivo_rechazo: { type: [string, 'null'] }
+            representa:
+              type: array
+              description: Unidades que represento por poder validado.
+              items:
+                type: object
+                required: [poder_id, unidad_codigo]
+                properties:
+                  poder_id: { type: integer }
+                  unidad_codigo: { type: string }
+            puede_dar_poder: { type: boolean }
     ConvocatoriaAsamblea:
       type: object
       required: [anuncio_id, publicada_en, unidades, leyeron, confirmaron, porcentaje_confirmaron, pendientes, recordatorios]

@@ -58,6 +58,9 @@ enum Permiso: string
     // Asambleas · preparar y convocar (administración y directiva)
     case AsambleasPreparar = 'asambleas.preparar';
 
+    // Asambleas · lo del propietario: ver sus asambleas y dar poder a un representante
+    case AsambleasPropias = 'asambleas.propias';
+
     // Plataforma (solo roles de plataforma, condominio_id = 0)
     case PlataformaCondominios = 'plataforma.condominios';
     case PlataformaCondominiosEditar = 'plataforma.condominios-editar';
@@ -114,6 +117,7 @@ enum Permiso: string
             self::PaquetesPropios => 'Ver los paquetes de su unidad',
             self::AnunciosPublicar => 'Publicar anuncios y ver quién los leyó',
             self::AsambleasPreparar => 'Preparar y convocar asambleas',
+            self::AsambleasPropias => 'Ver sus asambleas y dar poder a un representante',
             self::AvisosPropios => 'Leer y confirmar los avisos de la administración',
             self::IncidenciasGestionar => 'Gestionar las incidencias reportadas',
             self::IncidenciasReportar => 'Reportar incidencias y seguirlas',
