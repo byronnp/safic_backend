@@ -132,6 +132,7 @@ Reglas:
 
 ## Menú de producción
 - El menú que ve cada perfil sale de `menu_items` (`MenuSeeder`). **Una pantalla entra al seeder cuando pasa de vista previa a datos reales** (en el mismo PR que la conecta), nunca antes: el frontend solo muestra las vistas previas en desarrollo. `MenuPorPerfilTest` fija la lista de rutas permitidas.
+- **Roles nuevos** (`GuardarRolAction::crear`): nacen con su menú web inicial (pantallas sin permiso y las de sus permisos); después se ajusta en «Menú del sistema». Las apps del residente y del guardia no se asignan: el frontend las ofrece por permisos (`PERMISOS_APP_*`), así que un rol nuevo con permisos de garita o de residente ya tiene su app.
 - `MenuSeeder`, `RolesYPermisosSeeder` y `CatalogosSeeder` son idempotentes (solo crean lo que falta) y corren en cada despliegue (`.github/workflows/staging.yml`). En local, tras traer cambios: `php artisan db:seed --class=MenuSeeder`.
 
 ## Amenidades del condominio

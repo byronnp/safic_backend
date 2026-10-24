@@ -48,6 +48,8 @@ Contraseña de todos: `Safic2026!`
 | admin@safic.ec | Super admin de la plataforma |
 | maria@jardinesdelvalle.ec | Administradora de Jardines del Valle (principal) y Los Arupos |
 | diego@correo.ec | Residente de Jardines del Valle |
+| guardia@jardinesdelvalle.ec | Guardia de Jardines del Valle (app del guardia: `/guardia`) |
+| guardia@losarupos.ec | Guardia de Los Arupos |
 
 ## Probar la API
 ```bash

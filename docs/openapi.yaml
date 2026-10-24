@@ -7889,7 +7889,10 @@ paths:
       summary: Crear un rol adicional
       description: |
         Permiso: `plataforma.roles`. La clave se genera del nombre. 409 `ROL_EXISTENTE` si el nombre ya existe; 422 si algún
-        permiso no es de condominio (`PERMISO_INVALIDO`).
+        permiso no es de condominio (`PERMISO_INVALIDO`). El rol nace con su **menú web inicial**: las pantallas que no piden
+        permiso (inicio) y las de los permisos que se le dieron (la misma regla con la que se reparten a los roles del sistema); el
+        super admin lo ajusta después en «Menú del sistema». Las apps del residente y del guardia no necesitan asignación: sus
+        pestañas salen de los permisos.
       x-permiso: plataforma.roles
       requestBody:
         required: true
