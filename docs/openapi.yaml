@@ -4637,6 +4637,165 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /asambleas/{asamblea}/convocar:
+    post:
+      tags: [Asambleas]
+      operationId: convocarAsamblea
+      summary: Convocar la asamblea
+      description: |
+        Permiso `asambleas.preparar`. Exige orden del día y los 8 días hábiles de anticipación (Art. 37). Publica la convocatoria como
+        anuncio fijado y con confirmación de lectura a todo el condominio (Fase 4) y avisa por correo; pasa a `convocada`. Desde ahí ya no se edita.
+        422 `SIN_ORDEN_DEL_DIA`, 422 `SIN_ANTICIPACION`.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Detalle de la asamblea convocada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_YA_CONVOCADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /asambleas/{asamblea}/cancelar:
+    post:
+      tags: [Asambleas]
+      operationId: cancelarAsamblea
+      summary: Cancelar una asamblea convocada
+      description: Permiso `asambleas.preparar`. Retira la convocatoria y avisa a todos con un anuncio que lleva el motivo. No aplica a un borrador ni a una asamblea ya instalada.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [motivo]
+              properties:
+                motivo: { type: string, minLength: 3, maxLength: 300 }
+      responses:
+        '200':
+          description: Detalle de la asamblea cancelada.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/AsambleaDetalle' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_NO_CANCELABLE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /asambleas/{asamblea}/convocatoria:
+    get:
+      tags: [Asambleas]
+      operationId: verConvocatoriaAsamblea
+      summary: Seguimiento de la convocatoria
+      description: Permiso `asambleas.preparar`. Cuántas unidades recibieron, leyeron y confirmaron la convocatoria, cuáles siguen pendientes y cuándo se mandaron los recordatorios (3 días y 2 horas antes).
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Seguimiento.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/ConvocatoriaAsamblea' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_SIN_CONVOCAR`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /asambleas/{asamblea}/convocatoria/reenviar:
+    post:
+      tags: [Asambleas]
+      operationId: reenviarConvocatoriaAsamblea
+      summary: Reenviar la convocatoria a quienes no confirmaron
+      description: Permiso `asambleas.preparar`. Correo de recordatorio a las unidades pendientes; devuelve a cuántas se avisó.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Unidades avisadas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [unidades]
+                    properties:
+                      unidades: { type: integer }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_SIN_CONVOCATORIA_VIGENTE`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /asambleas/{asamblea}/constancia.pdf:
+    get:
+      tags: [Asambleas]
+      operationId: constanciaConvocatoriaAsamblea
+      summary: Constancia de la convocatoria en PDF
+      description: Permiso `asambleas.preparar`. Qué unidades recibieron la convocatoria, cuáles la leyeron o confirmaron y cuándo. Es el respaldo de que se convocó a tiempo.
+      x-permiso: asambleas.preparar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: asamblea, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: El PDF.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`ASAMBLEA_SIN_CONVOCAR`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /asambleas/{asamblea}/puntos:
     post:
       tags: [Asambleas]
@@ -10396,7 +10555,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/AsambleaBase'
         - type: object
-          required: [segunda_convocatoria, anticipacion, puntos, padron, falta_para_convocar, puede_convocar]
+          required: [segunda_convocatoria, anticipacion, puntos, padron, falta_para_convocar, puede_convocar, puede_cancelar, convocada_en, motivo_cancelacion]
           properties:
             segunda_convocatoria: { type: string, example: '20:00' }
             anticipacion: { $ref: '#/components/schemas/AnticipacionConvocatoria' }
@@ -10409,6 +10568,34 @@ components:
               items: { type: string }
               description: Lo que impide convocar (sin orden del día, sin anticipación). Vacío si se puede.
             puede_convocar: { type: boolean }
+            puede_cancelar: { type: boolean, description: Convocada y todavía sin instalar. }
+            convocada_en: { type: [string, 'null'], format: date-time }
+            motivo_cancelacion: { type: [string, 'null'] }
+    ConvocatoriaAsamblea:
+      type: object
+      required: [anuncio_id, publicada_en, unidades, leyeron, confirmaron, porcentaje_confirmaron, pendientes, recordatorios]
+      properties:
+        anuncio_id: { type: integer }
+        publicada_en: { type: string, format: date-time }
+        unidades: { type: integer }
+        leyeron: { type: integer }
+        confirmaron: { type: integer }
+        porcentaje_confirmaron: { type: number }
+        pendientes:
+          type: array
+          items:
+            type: object
+            required: [unidad_id, codigo, leyo]
+            properties:
+              unidad_id: { type: integer }
+              codigo: { type: string }
+              leyo: { type: boolean }
+        recordatorios:
+          type: object
+          required: [tres_dias, dos_horas]
+          properties:
+            tres_dias: { type: [string, 'null'], format: date-time }
+            dos_horas: { type: [string, 'null'], format: date-time }
     DanosDeReserva:
       type: object
       required: [reserva_id, area, unidad, fecha, inicio, fin, garantia, danos, fotos]

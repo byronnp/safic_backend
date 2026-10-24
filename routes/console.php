@@ -14,3 +14,4 @@ Schedule::command('garita:recordar-paquetes')->dailyAt('09:00')->withoutOverlapp
 Schedule::command('garita:anonimizar')->dailyAt('03:00')->withoutOverlapping()->onOneServer();
 Schedule::command('reservas:vencer')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();
 Schedule::command('finanzas:generar-recurrentes')->dailyAt('06:00')->withoutOverlapping()->onOneServer();
+Schedule::command('asambleas:recordar')->everyFifteenMinutes()->withoutOverlapping()->onOneServer();
