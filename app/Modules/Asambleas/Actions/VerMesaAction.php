@@ -6,6 +6,7 @@ use App\Core\Tenancy\Calendario;
 use App\Models\User;
 use App\Modules\Asambleas\Models\Asamblea;
 use App\Modules\Asambleas\Models\AsambleaPunto;
+use App\Modules\Asambleas\Models\Votacion;
 use App\Modules\Plataforma\Models\Condominio;
 
 /**
@@ -14,13 +15,19 @@ use App\Modules\Plataforma\Models\Condominio;
  */
 final class VerMesaAction
 {
-    public function __construct(private readonly CalcularQuorumAction $quorum, private readonly Calendario $calendario) {}
+    public function __construct(
+        private readonly CalcularQuorumAction $quorum,
+        private readonly Calendario $calendario,
+        private readonly VerVotacionAction $votacion,
+    ) {}
 
     /** @return array<string, mixed> */
     public function execute(int $id): array
     {
         $a = Asamblea::query()->with('puntos')->findOrFail($id);
         $zona = $this->calendario->zonaHoraria();
+        $votaciones = Votacion::query()->where('asamblea_id', $a->id)->get()->keyBy('punto_id');
+        $abierta = $votaciones->first(fn (Votacion $v): bool => $v->estaAbierta());
         $instaladaPor = $a->instalada_por === null ? null : User::query()->whereKey($a->instalada_por)->value('name');
 
         return [
@@ -37,7 +44,11 @@ final class VerMesaAction
             'puntos' => $a->puntos->map(fn (AsambleaPunto $p): array => [
                 'id' => $p->id, 'orden' => $p->orden, 'titulo' => $p->titulo, 'tipo' => $p->tipo, 'mayoria' => $p->mayoria,
                 'umbral_pct' => $p->umbral_pct === null ? null : (string) $p->umbral_pct, 'base' => $p->base,
+                'votacion' => ($v = $votaciones->get($p->id)) === null ? null : ['id' => $v->id, 'estado' => $v->estado, 'resultado' => $v->resultado],
+                // Instalada y sin votación abierta, el presidente puede abrir los puntos que se votan y aún no se votaron
+                'puede_abrir_votacion' => $a->estado === Asamblea::INSTALADA && $p->seVota() && $p->tipo !== AsambleaPunto::ELECCION && $v === null,
             ])->all(),
+            'votacion_abierta' => $abierta === null ? null : $this->votacion->execute($abierta),
             'puede_instalar' => $a->estado === Asamblea::EN_REGISTRO,
         ];
     }

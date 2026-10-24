@@ -6357,6 +6357,183 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '422': { $ref: '#/components/responses/Validacion' }
 
+  /puntos/{punto}/votacion/abrir:
+    post:
+      tags: [Asambleas]
+      operationId: abrirVotacionPunto
+      summary: Abrir la votación de un punto
+      description: |
+        Permiso `asambleas.instalar` (presidente o vicepresidente). Solo en una asamblea instalada, una votación a la vez y una por punto.
+        Si la asamblea se instaló en primera convocatoria y el quórum bajó del mínimo, responde 409 `QUORUM_BAJO` hasta que se confirme con `continuar_sin_quorum`.
+        409 `VOTACION_ABIERTA`, 409 `ASAMBLEA_NO_INSTALADA`, 409 `PUNTO_YA_VOTADO`, 422 `PUNTO_INFORMATIVO`, 422 `ELECCION_CON_CANDIDATOS`.
+      x-permiso: asambleas.instalar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: punto, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                continuar_sin_quorum: { type: boolean }
+      responses:
+        '201':
+          description: Votación abierta, con el conteo para la mesa.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/VotacionDeMesa' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`VOTACION_ABIERTA`, `ASAMBLEA_NO_INSTALADA`, `PUNTO_YA_VOTADO`, `QUORUM_BAJO`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /votaciones/{votacion}:
+    get:
+      tags: [Asambleas]
+      operationId: verVotacion
+      summary: La votación vista desde la mesa
+      description: Permiso `asambleas.instalar` o `asambleas.registrar`. El conteo en vivo solo lo ve la mesa; cerrada, trae el resultado y la comprobación de la cadena de hashes.
+      x-permiso: asambleas.instalar|asambleas.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: votacion, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Votación.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/VotacionDeMesa' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /votaciones/{votacion}/cerrar:
+    post:
+      tags: [Asambleas]
+      operationId: cerrarVotacion
+      summary: Cerrar la votación
+      description: Permiso `asambleas.instalar`. Calcula el resultado por alícuota y la mayoría del punto, y devuelve la asamblea a `instalada`. 409 `VOTACION_CERRADA`.
+      x-permiso: asambleas.instalar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: votacion, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Votación cerrada con su resultado.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: { $ref: '#/components/schemas/VotacionDeMesa' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`VOTACION_CERRADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /votaciones/{votacion}/votos:
+    post:
+      tags: [Asambleas]
+      operationId: emitirVoto
+      summary: Emitir el voto (app o mesa)
+      description: |
+        Permiso `asambleas.propias` (propietario o representante con poder validado: vota por cada unidad suya presente y sin mora) o
+        `asambleas.registrar` (con `unidad_id`: el secretario registra el voto de una unidad presente, canal `mesa`). El voto no se edita.
+        409 `YA_VOTO` (dice quién votó), 409 `VOTACION_CERRADA`, 403 `SIN_DERECHO_A_VOTO`, 403 `NO_VOTA_POR_ESA_UNIDAD`, 422 `UNIDAD_EN_MORA`, 422 `UNIDAD_AUSENTE`.
+      x-permiso: asambleas.registrar|asambleas.propias
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: votacion, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [opcion]
+              properties:
+                opcion: { type: string, enum: [si, no, abstencion] }
+                unidad_id: { type: integer, description: 'En mesa es obligatorio; por la app, vota por esa unidad suya (sin él, por todas).' }
+      responses:
+        '201':
+          description: Resultado por unidad.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [unidades]
+                    properties:
+                      unidades:
+                        type: array
+                        items:
+                          type: object
+                          required: [unidad_id, codigo, estado, motivo]
+                          properties:
+                            unidad_id: { type: integer }
+                            codigo: { type: string }
+                            estado: { type: string, enum: [registrado, omitida] }
+                            motivo: { type: [string, 'null'] }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`YA_VOTO`, `VOTACION_CERRADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '422': { $ref: '#/components/responses/Validacion' }
+
+  /votaciones/{votacion}/auditoria.pdf:
+    get:
+      tags: [Asambleas]
+      operationId: auditoriaVotacion
+      summary: Auditoría de la votación en PDF
+      description: |
+        Permiso `asambleas.instalar` o `asambleas.registrar`. Unidad, alícuota, opción y hora de cada voto, anexable al acta, con la comprobación
+        de la cadena de hashes. Con voto secreto solo el total por opción y la lista de unidades que votaron. 409 `VOTACION_ABIERTA`.
+      x-permiso: asambleas.instalar|asambleas.registrar
+      parameters:
+        - $ref: '#/components/parameters/CondominioId'
+        - { name: votacion, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: El PDF.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermisoOCondominio' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`VOTACION_ABIERTA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
   /mis-asambleas:
     get:
       tags: [Asambleas]
@@ -11019,9 +11196,63 @@ components:
         validado_por: { type: [string, 'null'] }
         validado_en: { type: [string, 'null'], format: date-time }
         unidad_en_mora: { type: boolean, description: La unidad debe cuotas hoy (no vota aunque el poder esté validado). }
+    VotacionDeMesa:
+      type: object
+      required: [id, punto_id, orden, titulo, estado, secreta, mayoria, umbral_pct, base, abierta_en, cerrada_en, resultado, cifras, presentes_con_voto, presentes_en_mora, votos_emitidos, pendientes, integridad]
+      properties:
+        id: { type: integer }
+        punto_id: { type: integer }
+        orden: { type: integer }
+        titulo: { type: string }
+        estado: { type: string, enum: [abierta, cerrada] }
+        secreta: { type: boolean }
+        mayoria: { type: string, enum: [simple, calificada] }
+        umbral_pct: { type: [string, 'null'] }
+        base: { type: string, enum: [presentes, total] }
+        abierta_en: { type: string, example: '2026-12-08T20:10' }
+        cerrada_en: { type: [string, 'null'] }
+        resultado: { type: [string, 'null'], enum: [aprobado, rechazado, null] }
+        cifras:
+          type: object
+          description: Conteo por alícuota; provisional mientras está abierta.
+          required: [base_alicuota, alicuota_si, alicuota_no, alicuota_abstencion, votos_si, votos_no, votos_abstencion, pct_si, pct_no, pct_abstencion]
+          properties:
+            base_alicuota: { type: string, example: '10.0000' }
+            alicuota_si: { type: string }
+            alicuota_no: { type: string }
+            alicuota_abstencion: { type: string }
+            votos_si: { type: integer }
+            votos_no: { type: integer }
+            votos_abstencion: { type: integer }
+            pct_si: { type: string, example: '40.00' }
+            pct_no: { type: string }
+            pct_abstencion: { type: string }
+        presentes_con_voto: { type: integer }
+        presentes_en_mora: { type: integer }
+        votos_emitidos: { type: integer }
+        pendientes:
+          type: array
+          description: Unidades presentes con derecho a voto que aún no votaron.
+          items:
+            type: object
+            required: [unidad_id, codigo, asistente]
+            properties:
+              unidad_id: { type: integer }
+              codigo: { type: string }
+              asistente: { type: string }
+        integridad:
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [valida, votos, ultimo_hash, primer_voto_alterado]
+              properties:
+                valida: { type: boolean }
+                votos: { type: integer }
+                ultimo_hash: { type: [string, 'null'] }
+                primer_voto_alterado: { type: [integer, 'null'] }
     MesaAsamblea:
       type: object
-      required: [id, titulo, tipo, modalidad, estado, condominio, fecha_hora, lugar, enlace_video, quorum, instalacion, puntos, puede_instalar]
+      required: [id, titulo, tipo, modalidad, estado, condominio, fecha_hora, lugar, enlace_video, quorum, instalacion, puntos, votacion_abierta, puede_instalar]
       properties:
         id: { type: integer }
         titulo: { type: string }
@@ -11058,6 +11289,20 @@ components:
               mayoria: { type: string, enum: [ninguna, simple, calificada] }
               umbral_pct: { type: [string, 'null'] }
               base: { type: [string, 'null'] }
+              votacion:
+                oneOf:
+                  - type: 'null'
+                  - type: object
+                    required: [id, estado, resultado]
+                    properties:
+                      id: { type: integer }
+                      estado: { type: string, enum: [abierta, cerrada] }
+                      resultado: { type: [string, 'null'] }
+              puede_abrir_votacion: { type: boolean }
+        votacion_abierta:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/VotacionDeMesa'
         puede_instalar: { type: boolean }
     QuorumAsamblea:
       type: object
@@ -11124,7 +11369,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/AsambleaBase'
         - type: object
-          required: [unidades, representa, puede_dar_poder, registro_abierto, puede_marcar_presencia, presente]
+          required: [unidades, representa, puede_dar_poder, registro_abierto, puede_marcar_presencia, presente, votacion, resultados]
           properties:
             unidades:
               type: array
@@ -11159,6 +11404,48 @@ components:
             registro_abierto: { type: boolean }
             puede_marcar_presencia: { type: boolean, description: '«Estoy presente»: asamblea virtual o mixta con el registro abierto y alguna unidad con derecho.' }
             presente: { type: boolean, description: Alguna de mis unidades está presente por la app. }
+            votacion:
+              description: 'Votación abierta (sin resultados, porque solo la mesa los ve en vivo).'
+              oneOf:
+                - type: 'null'
+                - type: object
+                  required: [id, punto_id, orden, titulo, descripcion, mayoria, umbral_pct, secreta, unidades]
+                  properties:
+                    id: { type: integer }
+                    punto_id: { type: integer }
+                    orden: { type: integer }
+                    titulo: { type: string }
+                    descripcion: { type: [string, 'null'] }
+                    mayoria: { type: string, enum: [simple, calificada] }
+                    umbral_pct: { type: [string, 'null'] }
+                    secreta: { type: boolean }
+                    unidades:
+                      type: array
+                      items:
+                        type: object
+                        required: [unidad_id, codigo, alicuota, puede_votar, voto, motivo]
+                        properties:
+                          unidad_id: { type: integer }
+                          codigo: { type: string }
+                          alicuota: { type: string }
+                          puede_votar: { type: boolean }
+                          voto: { type: [string, 'null'], enum: [si, no, abstencion, null], description: 'Mi propio voto, también si la votación es secreta.' }
+                          motivo: { type: [string, 'null'], description: 'Por qué no puede votar (mora o no presente).' }
+            resultados:
+              type: array
+              description: 'Resultados de las votaciones ya cerradas (los asistentes los ven al cerrarse).'
+              items:
+                type: object
+                required: [punto_id, orden, titulo, resultado, alicuota_si, alicuota_no, alicuota_abstencion, base_alicuota]
+                properties:
+                  punto_id: { type: integer }
+                  orden: { type: integer }
+                  titulo: { type: string }
+                  resultado: { type: string, enum: [aprobado, rechazado] }
+                  alicuota_si: { type: string }
+                  alicuota_no: { type: string }
+                  alicuota_abstencion: { type: string }
+                  base_alicuota: { type: string }
     ConvocatoriaAsamblea:
       type: object
       required: [anuncio_id, publicada_en, unidades, leyeron, confirmaron, porcentaje_confirmaron, pendientes, recordatorios]
